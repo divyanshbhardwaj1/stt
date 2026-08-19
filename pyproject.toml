@@ -1,0 +1,28 @@
+[project]
+name = "sizeset"
+version = "0.1.0"
+description = "Automates garment size-set inspection reports from audio recordings."
+requires-python = ">=3.11"
+dependencies = ["openai>=1.40", "reportlab>=4.1", "xlrd>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pipeline", "src/services"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
