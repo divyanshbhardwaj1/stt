@@ -135,6 +135,18 @@ def command_rerender(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def command_serve(args: argparse.Namespace, settings: Settings) -> int:
+    """Run the web app: upload a recording in the browser, download the report."""
+    import uvicorn
+
+    # Loading settings here means a missing API key fails now, with the usual
+    # message, rather than on the first upload.
+    del settings
+    print(f"\n--- http://{args.host}:{args.port}\n")
+    uvicorn.run("api.app:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sizeset", description=__doc__)
     parser.add_argument("-v", "--verbose", action="store_true", help="log progress to stderr")
@@ -158,6 +170,12 @@ def build_parser() -> argparse.ArgumentParser:
     rerender_cmd = sub.add_parser("rerender", help="rebuild csv and pdf from a saved extraction")
     rerender_cmd.add_argument("name", help="extraction name, without .json")
     rerender_cmd.set_defaults(handler=command_rerender)
+
+    serve_cmd = sub.add_parser("serve", help="run the web app")
+    serve_cmd.add_argument("--host", default="127.0.0.1", help="default: 127.0.0.1")
+    serve_cmd.add_argument("--port", type=int, default=8000, help="default: 8000")
+    serve_cmd.add_argument("--reload", action="store_true", help="reload on code changes")
+    serve_cmd.set_defaults(handler=command_serve)
 
     return parser
 

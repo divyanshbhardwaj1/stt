@@ -17,6 +17,15 @@ recording  ──▶  transcript  ──▶  LLM  ──▶  CSV + PDF
 
 ## Run it
 
+As a web app — upload a recording in the browser, download the report:
+
+```powershell
+python src\main.py serve            # http://127.0.0.1:8000
+python src\main.py serve --port 9000 --host 0.0.0.0 --reload
+```
+
+Or from the command line:
+
 ```powershell
 python src\main.py run                      # pick a recording, run every stage
 python src\main.py run data\recordings\x.m4a
@@ -25,6 +34,8 @@ python src\main.py extract Recording_20     # stages 2-3 on an existing transcri
 python src\main.py rerender Recording_20    # rebuild csv and pdf, no API call
 ```
 
+Both drive the same pipeline and write to the same `data/output/`.
+
 `run` reuses a transcript that already exists; pass `--retranscribe` to redo it.
 `-v` logs progress to stderr.
 
@@ -32,7 +43,11 @@ python src\main.py rerender Recording_20    # rebuild csv and pdf, no API call
 
 ```
 src/
-  main.py                          entry point: arguments, menu, printing
+  main.py                          entry point: arguments, menu, printing, serve
+  api/
+    app.py                         FastAPI routes: upload, poll, download
+    jobs.py                        background job store and runner
+    index.html                     the single-page front end
   pipeline/
     inspection_pipeline.py         the three stages, and run() over all of them
     measurements.py                fractional-inch parsing and tolerance checks
@@ -58,6 +73,21 @@ data/
 Each stage is callable on its own, so a rerun skips the expensive parts: an existing
 transcript is reused, and `rerender` rebuilds both outputs from the saved JSON without
 touching the API.
+
+## Web endpoints
+
+| Method | Path | What |
+| --- | --- | --- |
+| `GET` | `/` | Upload page, polls for job status |
+| `POST` | `/api/jobs` | Upload a recording, returns a job to poll (202) |
+| `GET` | `/api/jobs` | All jobs, newest first |
+| `GET` | `/api/jobs/{id}` | One job's status |
+| `GET` | `/api/jobs/{id}/download/{kind}` | `report`, `form`, `measurements` or `data` |
+| `GET` | `/api/docs` | Generated API documentation |
+
+Transcription takes minutes, so an upload returns straight away and the work runs on a
+background thread. Jobs live in memory and are lost on restart; the generated files in
+`data/output/` are not.
 
 ## Setup
 
