@@ -16,4 +16,4 @@ dist/
 *.egg-info/
 .python-version
 # Client audio, transcripts and reference documents stay local.
-data/
+

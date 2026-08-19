@@ -6,9 +6,37 @@ import pytest
 from services.config import PROJECT_ROOT, Settings
 from services.csv_filler import InspectionSheet, load_template
 
-# The client's blank form. Every output-shape test runs against the real file,
-# because it is the contract — a hand-built stand-in would prove nothing.
+from .form_fixture import write_form_template
+
+# The client's blank form is confidential and gitignored, so CI never sees it.
+# Tests run against a generated stand-in with the same structure; the handful
+# that must exercise the genuine file are marked `real_template` and skip when
+# it is absent.
 REAL_TEMPLATE = PROJECT_ROOT / "data" / "references" / "size-set.xls"
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "real_template: needs the client's actual size-set.xls in data/references/"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if REAL_TEMPLATE.is_file():
+        return
+    skip = pytest.mark.skip(reason=f"client template not present at {REAL_TEMPLATE}")
+    for item in items:
+        if "real_template" in item.keywords:
+            item.add_marker(skip)
+
+
+@pytest.fixture
+def real_template_path(tmp_path):
+    """A copy of the client's genuine form. Only for tests marked `real_template`."""
+    destination = tmp_path / REAL_TEMPLATE.name
+    shutil.copy(REAL_TEMPLATE, destination)
+    return destination
+
 
 SHEET_PAYLOAD = {
     "form": {
@@ -100,23 +128,19 @@ SHEET_PAYLOAD = {
 
 @pytest.fixture
 def settings(tmp_path):
-    """Settings pointing at a throwaway data directory holding a copy of the real form."""
-    references = tmp_path / "references"
-    references.mkdir(parents=True)
-    if REAL_TEMPLATE.is_file():
-        shutil.copy(REAL_TEMPLATE, references / REAL_TEMPLATE.name)
-    return Settings(
+    """Settings pointing at a throwaway data directory holding a stand-in form."""
+    base = Settings(
         openai_api_key="sk-test",
         transcribe_model="gpt-transcribe",
         extract_model="gpt-5.6-sol",
         data_dir=tmp_path,
     )
+    write_form_template(base.form_template_path)
+    return base
 
 
 @pytest.fixture
 def template(settings):
-    if not settings.form_template_path.is_file():
-        pytest.skip(f"client form template not available at {REAL_TEMPLATE}")
     return load_template(settings.form_template_path)
 
 

@@ -66,7 +66,7 @@ def test_run_announces_each_stage(settings, recording, template, stub_stages):
 
 
 def test_run_fails_clearly_without_the_form_template(settings, recording, stub_stages):
-    settings.form_template_path.unlink()
+    settings.form_template_path.unlink(missing_ok=True)
 
     with pytest.raises(TemplateError, match="report template not found"):
         pipeline.run(recording, settings)
@@ -179,7 +179,7 @@ def test_main_reports_a_missing_template_without_a_traceback(
     settings, recording, stub_stages, monkeypatch, capsys
 ):
     monkeypatch.setattr(Settings, "load", classmethod(lambda cls: settings))
-    settings.form_template_path.unlink()
+    settings.form_template_path.unlink(missing_ok=True)
 
     assert main.main(["run", str(recording)]) == 1
     assert "report template not found" in capsys.readouterr().err

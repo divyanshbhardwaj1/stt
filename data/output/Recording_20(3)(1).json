@@ -1,0 +1,1156 @@
+{
+  "form": {
+    "style_no": "",
+    "division": "",
+    "date": "",
+    "description": "",
+    "colour": "",
+    "grain_line": "",
+    "notches": "",
+    "graded_nest": "OK",
+    "corrections_implemented": "",
+    "yy_mini_marker": "0.76",
+    "planned_submission_date": "",
+    "actual_submission_date": "",
+    "pcd": "",
+    "cut_quantity": "",
+    "size_set_inspection_result": "Pass with comment",
+    "shrinkage": "L = 2.4%, 2.8%, 2.4%  W = 0.8%, 0.8%, 0.8%",
+    "lining_shrinkage": "",
+    "shrinkage_note": "3 rolls tested; all under 3%, acceptable",
+    "measurement_result": "PASS",
+    "measurement_graded_nest": "OK",
+    "corrections_to_be_done": "Carry the crinkle effect onto the placket; use correct fabric quality as per FOB; add shanking to buttons; print label",
+    "bring_back_to_specs": "",
+    "cutting_check": "",
+    "seam_allowance": "",
+    "checks_corrections_implemented": "",
+    "overall": "Pass size set. Begin production and start cutting."
+  },
+  "accessories": [
+    {
+      "item": "BUTTON",
+      "status": "ALT",
+      "note": "Add shanking; gaping observed"
+    },
+    {
+      "item": "MAIN LABEL",
+      "status": "ALT",
+      "note": "Label needs to be printed"
+    },
+    {
+      "item": "THREAD",
+      "status": "ACT",
+      "note": "Vardhman Core Eco thread"
+    },
+    {
+      "item": "INTERLINING",
+      "status": "ACT",
+      "note": "Compatibility report shows EG9231DR"
+    }
+  ],
+  "comments": [
+    {
+      "comment": "Fabric colour tone and seersucker look differ from approved FOB quality.",
+      "vendor_action": "Use correct fabric quality as per FOB; do not mark it correct if it does not match."
+    },
+    {
+      "comment": "Placket has been made flat instead of retaining the crinkle effect.",
+      "vendor_action": "Carry the crinkle effect onto the placket."
+    },
+    {
+      "comment": "Elastic feels tighter and the width differs slightly.",
+      "vendor_action": "Maintain approved elastic appearance and width."
+    },
+    {
+      "comment": "Button shanking is missing and gaping is visible.",
+      "vendor_action": "Add shanking to the buttons."
+    },
+    {
+      "comment": "Label needs printing.",
+      "vendor_action": "Print the label."
+    }
+  ],
+  "rows": [
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Front and back grading",
+      "value": "OK",
+      "deviation": "",
+      "note": "Shoulder slope, armhole, waist grading, back neck and bottom reviewed",
+      "confidence": 0.92
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Collar and patch grading",
+      "value": "OK",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "construction",
+      "size": "M",
+      "field": "Fabric colour tone and seersucker appearance",
+      "value": "Not as per FOB",
+      "deviation": "",
+      "note": "Visual difference between fit/approved reference and PP sample",
+      "confidence": 0.95
+    },
+    {
+      "section": "construction",
+      "size": "M",
+      "field": "Placket appearance",
+      "value": "Flat",
+      "deviation": "",
+      "note": "Crinkle effect visible on fit sample but reduced on PP sample",
+      "confidence": 0.98
+    },
+    {
+      "section": "construction",
+      "size": "M",
+      "field": "Elastic construction",
+      "value": "Tighter",
+      "deviation": "",
+      "note": "Slight width difference observed",
+      "confidence": 0.9
+    },
+    {
+      "section": "construction",
+      "size": "M",
+      "field": "Front number of buttons",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "M",
+      "field": "Overall construction",
+      "value": "OK",
+      "deviation": "",
+      "note": "Collar, body, back, shirring and sleeve reviewed",
+      "confidence": 0.97
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front length from HPS to center front hem",
+      "value": "22",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waist position from HPS",
+      "value": "13 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder seam",
+      "value": "1 3/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder seam forward at neck",
+      "value": "5/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder seam forward at armhole",
+      "value": "5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across shoulder seam to seam",
+      "value": "12 3/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across front position below HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.97
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across front",
+      "value": "11 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Pattern neck",
+      "value": "2",
+      "deviation": "",
+      "note": "Stated while clarifying across-front position",
+      "confidence": 0.83
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Armhole",
+      "value": "9",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across back five inches below",
+      "value": "13 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Chest one inch below armhole",
+      "value": "38",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waist",
+      "value": "35",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom opening",
+      "value": "39",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front shirt tail length",
+      "value": "2 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back shirt tail length",
+      "value": "1 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve length",
+      "value": "6 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve opening relaxed",
+      "value": "12",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve opening extended",
+      "value": "17 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Neck width seam to seam",
+      "value": "7 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front neck drop",
+      "value": "3 7/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.94
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back neck drop",
+      "value": "1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 0.97
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Collar length at neckband seam",
+      "value": "15 3/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Collar length at outer edge",
+      "value": "16 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Neckband height at center back",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Collar height",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Collar point",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button position from below neck seam",
+      "value": "8 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button position from bottom edge",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Side seam tie position from underarm",
+      "value": "4 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Side seam tie length",
+      "value": "24 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Side seam tie width",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom hem height",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front length",
+      "value": "22 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Waist position from HPS",
+      "value": "14 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across shoulder",
+      "value": "13 1/2",
+      "deviation": "-1/8",
+      "note": "Called out as shoulder",
+      "confidence": 0.88
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across front",
+      "value": "12",
+      "deviation": "+1/8",
+      "note": "Point name was indistinct immediately before the value",
+      "confidence": 0.67
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Neck width",
+      "value": "7 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front neck drop",
+      "value": "4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "First button position",
+      "value": "8 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Chest one inch below armhole",
+      "value": "41",
+      "deviation": "",
+      "note": "Confirmed twice",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Waist",
+      "value": "38",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom",
+      "value": "42",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Armhole",
+      "value": "9 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve length",
+      "value": "7 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve opening relaxed",
+      "value": "13 1/4",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve opening extended",
+      "value": "18 3/4",
+      "deviation": "",
+      "note": "Initially called as 19, then reconfirmed as 18 3/4; gauze may be opening up",
+      "confidence": 0.79
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Collar length at neckband seam",
+      "value": "16",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Collar length at outer edge",
+      "value": "16 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Neckband height",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Collar height",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Collar point",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across back",
+      "value": "14",
+      "deviation": "+1/4",
+      "note": "Position was first called 5 1/2, then confirmed as 5 inches",
+      "confidence": 0.84
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Back neck drop",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Button position from bottom",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front shirt tail length",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Back shirt tail length",
+      "value": "1 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Side seam tie length",
+      "value": "25 1/2",
+      "deviation": "-1",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Side seam tie width",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom fold",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Front length",
+      "value": "21 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Waist position from HPS",
+      "value": "12 3/8",
+      "deviation": "",
+      "note": "Called out around bodice measurement",
+      "confidence": 0.85
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Shoulder slope",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.91
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Shoulder seam forward at neck",
+      "value": "5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.9
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Across shoulder",
+      "value": "11 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Across front position below HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Across front",
+      "value": "9 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Across back position below HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Across back",
+      "value": "11 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Chest one inch below armhole",
+      "value": "32",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Waist",
+      "value": "29",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Bottom",
+      "value": "33",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Sleeve length",
+      "value": "6",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Armhole",
+      "value": "7 7/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Sleeve opening relaxed",
+      "value": "9 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Sleeve opening extended",
+      "value": "15 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Neck width",
+      "value": "6 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Front neck drop",
+      "value": "3 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Back neck drop",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.96
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Collar length at neckband seam",
+      "value": "13 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Collar length at outer edge",
+      "value": "14 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Neckband height",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Collar height",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Collar point",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Front shirt tail length",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.94
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Back shirt tail length",
+      "value": "1 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.94
+    },
+    {
+      "section": "construction",
+      "size": "XXS",
+      "field": "Button shanking",
+      "value": "Missing",
+      "deviation": "",
+      "note": "Gaping observed",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Side seam tie placement",
+      "value": "4 3/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Side seam tie length",
+      "value": "23 1/4",
+      "deviation": "",
+      "note": "Initially read as 21 3/4, then corrected and confirmed as 23 1/4; deviation discussion was unclear",
+      "confidence": 0.66
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Side seam tie width",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XXS",
+      "field": "Bottom fold",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Shell fabric",
+      "value": "Monica seersucker",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.98
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "RMP solid composition",
+      "value": "91% cotton, 9% linen",
+      "deviation": "",
+      "note": "Composition discussion was slightly interrupted",
+      "confidence": 0.79
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Button",
+      "value": "Fox shell buttons",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Thread",
+      "value": "Vardhman Core Eco thread",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.93
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Interlining code",
+      "value": "EG9231DR",
+      "deviation": "",
+      "note": "Another reference was read as 9231ER, but compatibility report confirmed 9231DR",
+      "confidence": 0.82
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Elastic width",
+      "value": "1/4",
+      "deviation": "",
+      "note": "White colour",
+      "confidence": 0.95
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 1 length shrinkage",
+      "value": "2.4%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 1 width shrinkage",
+      "value": "0.8%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 2 length shrinkage",
+      "value": "2.8%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 2 width shrinkage",
+      "value": "0.8%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 3 length shrinkage",
+      "value": "2.4%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Roll 3 width shrinkage",
+      "value": "0.8%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shrinkage control",
+      "value": "Under 3%",
+      "deviation": "",
+      "note": "Fine and acceptable; three rolls tested",
+      "confidence": 1.0
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Marker direction",
+      "value": "Two way",
+      "deviation": "",
+      "note": "Each individual garment is to be kept one way",
+      "confidence": 0.96
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "YY",
+      "value": "0.76",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Fabric quality",
+      "value": "Not as per FOB",
+      "deviation": "",
+      "note": "Use correct approved quality",
+      "confidence": 0.98
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Placket crinkle effect",
+      "value": "Reduced/flat",
+      "deviation": "",
+      "note": "Carry crinkle effect onto placket",
+      "confidence": 0.98
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Button shanking",
+      "value": "Add shanking",
+      "deviation": "",
+      "note": "Required because of gaping",
+      "confidence": 1.0
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Label",
+      "value": "Print label",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.97
+    }
+  ]
+}

@@ -23,7 +23,7 @@ from services.csv_filler import (
 )
 from services.csv_filler.report_template import FORM_COLUMNS
 
-from .conftest import REAL_TEMPLATE, SHEET_PAYLOAD
+from .conftest import SHEET_PAYLOAD
 
 
 class FakeExtractionClient:
@@ -99,14 +99,24 @@ def test_display_label_falls_back_for_fields_the_form_does_not_print(template):
     assert template.display_label("lining_shrinkage") == "Lining Shrinkage"
 
 
-def test_a_template_with_a_renamed_label_is_rejected_loudly(tmp_path, monkeypatch):
+def test_a_template_with_a_renamed_label_is_rejected_loudly(settings, monkeypatch):
     """A revised form must fail at load, not silently drop the field it renamed."""
     from services.csv_filler import report_template as module
 
     monkeypatch.setitem(module.ALL_FIELD_LABELS, "cut_quantity", "TOTAL PIECES CUT")
 
     with pytest.raises(TemplateError, match="TOTAL PIECES CUT"):
-        load_template(REAL_TEMPLATE)
+        load_template(settings.form_template_path)
+
+
+@pytest.mark.real_template
+def test_the_clients_actual_form_still_matches_the_code(real_template_path):
+    """The stand-in could drift from reality; this checks the genuine file loads."""
+    real = load_template(real_template_path)
+
+    assert real.missing_labels() == []
+    assert real.boilerplate()["title"] == "SIZE SET INSPECTION REPORT"
+    assert len(real.accessory_items()) > 20
 
 
 def test_template_rejects_a_missing_file(tmp_path):
