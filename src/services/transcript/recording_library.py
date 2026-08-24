@@ -34,14 +34,22 @@ def save_transcript(recording: Path, text: str, settings: Settings) -> Path:
 
 
 def resolve_transcript(name_or_path: str, settings: Settings) -> Path:
-    """Accept either a path to a transcript or the bare name of one.
+    """Accept a path to a transcript, or the bare name of one.
 
-    Raises FileNotFoundError if neither resolves.
+    The full name is tried before the stem, because recordings arrive named
+    "WhatsApp Audio 2026-08-18 at 16.05.21" and treating ".21" as a file
+    extension would look for the wrong transcript.
+
+    Raises FileNotFoundError if nothing resolves.
     """
-    candidate = Path(name_or_path)
-    if candidate.is_file():
-        return candidate
-    candidate = settings.transcripts_dir / f"{Path(name_or_path).stem}.txt"
-    if candidate.is_file():
-        return candidate
+    given = Path(name_or_path)
+    candidates = (
+        given,
+        settings.transcripts_dir / f"{name_or_path}.txt",
+        settings.transcripts_dir / name_or_path,
+        settings.transcripts_dir / f"{given.stem}.txt",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
     raise FileNotFoundError(f"no transcript named {name_or_path!r} in {settings.transcripts_dir}")

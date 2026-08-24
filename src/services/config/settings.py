@@ -55,8 +55,13 @@ class Settings:
 
     @property
     def references_dir(self) -> Path:
-        """Client reference documents: report PDFs and graded spec sheets."""
+        """Client reference documents: blank forms and filled examples."""
         return self.data_dir / "references"
+
+    @property
+    def style_sets_dir(self) -> Path:
+        """Graded spec sheets, one PDF per style, named for its style number."""
+        return self.data_dir / "StyleSets"
 
     @property
     def output_dir(self) -> Path:

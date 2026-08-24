@@ -304,7 +304,6 @@ function detail(job) {
       <div class="stat"><b>${job.sizes.length ? esc(job.sizes.join(" ")) : "&mdash;"}</b><span>sizes</span></div>
       <div class="stat"><b>${job.accessories}</b><span>accessories</span></div>
       <div class="stat"><b>${job.comments}</b><span>comments</span></div>
-      <div class="stat"><b>${filled}/${Object.keys(job.form).length}</b><span>form fields</span></div>
       <div class="stat ${job.flagged ? "alert" : ""}"><b>${job.flagged}</b><span>need review</span></div>
     </div></div>
 

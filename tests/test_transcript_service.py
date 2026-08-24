@@ -51,6 +51,7 @@ def test_sends_model_and_domain_prompt(settings, recording):
     assert sent["model"] == "gpt-transcribe"
     assert sent["stream"] is True
     assert "सवा" in sent["prompt"]  # Hindi fraction words steer the model
+    assert "style number" in sent["prompt"]  # the opening announcement, as digits
 
 
 def test_rejects_oversized_recordings(settings, recording, monkeypatch):
@@ -97,6 +98,22 @@ def test_resolve_transcript_accepts_a_direct_path(settings, recording, tmp_path)
     elsewhere.write_text("text")
 
     assert resolve_transcript(str(elsewhere), settings) == elsewhere
+
+
+def test_resolve_transcript_keeps_dots_in_the_name(settings):
+    """Recordings arrive as 'WhatsApp Audio 2026-08-18 at 16.05.21'; '.21' is not a suffix."""
+    settings.transcripts_dir.mkdir(parents=True, exist_ok=True)
+    awkward = "WhatsApp Audio 2026-08-18 at 16.05.21"
+    (settings.transcripts_dir / f"{awkward}.txt").write_text("text")
+
+    assert resolve_transcript(awkward, settings).stem == awkward
+
+
+def test_resolve_transcript_still_accepts_a_recording_name(settings, recording):
+    """Passing the audio file's name should find its transcript."""
+    save_transcript(recording, "text", settings)
+
+    assert resolve_transcript("Recording_20.m4a", settings).name == "Recording_20.txt"
 
 
 def test_resolve_transcript_raises_when_absent(settings):

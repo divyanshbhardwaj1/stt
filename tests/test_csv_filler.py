@@ -16,6 +16,7 @@ from services.csv_filler import (
     load_json,
     load_template,
     measurements_path_for,
+    normalise_style_no,
     save_form_csv,
     save_json,
     save_measurements_csv,
@@ -234,6 +235,60 @@ def test_extract_lists_the_accessory_names_in_the_prompt(settings, template):
     extract_inspection("transcript", settings, template, client=client)
 
     assert "SPARE BUTTON POSITION" in client.calls[0]["input"][0]["content"]
+
+
+@pytest.mark.parametrize(
+    ("spoken", "expected"),
+    [
+        ("7 to 7-0", "7270"),  # the real failure: "two" transcribed as "to"
+        ("7270", "7270"),  # already clean
+        ("seven two seven zero", "7270"),
+        ("7 2 7 0", "7270"),
+        ("seven, two, seven, oh", "7270"),
+        ("Style 7270", "7270"),
+        ("सात दो सात शून्य", "7270"),
+        ("7-1-5-5", "7155"),
+        ("won ate", "18"),  # one-eight, both homophones
+        ("for too", "42"),  # four-two, both homophones
+        ("", ""),
+        ("not stated", ""),
+    ],
+)
+def test_style_number_survives_digit_by_digit_dictation(spoken, expected):
+    assert normalise_style_no(spoken) == expected
+
+
+def test_stripping_non_digits_alone_would_lose_a_digit():
+    """Guards the reason this function exists rather than a regex."""
+    assert "".join(c for c in "7 to 7-0" if c.isdigit()) == "770"
+    assert normalise_style_no("7 to 7-0") == "7270"
+
+
+def test_extract_repairs_the_style_number(settings, template):
+    client = FakeExtractionClient(
+        payload={**SHEET_PAYLOAD, "form": {**SHEET_PAYLOAD["form"], "style_no": "7 to 7-0"}}
+    )
+
+    result = extract_inspection("transcript", settings, template, client=client)
+
+    assert result.field("style_no") == "7270"
+
+
+def test_the_prompt_scopes_the_style_number_to_the_opening(settings, template):
+    """Recordings open by announcing the style; later ones are comparisons.
+
+    Recording_20 names 7155 and 7026 mid-discussion while comparing against other
+    styles. Without this instruction the model has no way to tell those apart from
+    the style actually under inspection.
+    """
+    client = FakeExtractionClient()
+
+    extract_inspection("transcript", settings, template, client=client)
+
+    # Collapse the prompt's wrapping so these read as sentences, not line fragments.
+    instructions = " ".join(client.calls[0]["input"][0]["content"].split())
+    assert "announced at the very start of the recording" in instructions
+    assert "those are not the style under inspection" in instructions
 
 
 def test_extract_rejects_an_empty_transcript(settings, template):

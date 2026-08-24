@@ -9,6 +9,7 @@ and the outputs rebuild from the saved extraction without touching the API.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,9 +23,19 @@ from services.csv_filler import (
     load_template,
     measurements_path_for,
     save_form_csv,
+    save_graded_csv,
+    save_graded_pdf,
     save_json,
     save_measurements_csv,
     save_pdf,
+)
+from services.style_set import (
+    Alignment,
+    SpecSheetError,
+    StyleSet,
+    StyleSetNotFound,
+    align,
+    find_style_set,
 )
 from services.transcript import save_transcript, transcribe_recording, transcript_path_for
 
@@ -33,6 +44,9 @@ log = logging.getLogger(__name__)
 Progress = Callable[[str], None]
 
 MAX_OUTPUT_VERSIONS = 1000
+
+# A trailing "(3)" on an output name marks its version, not part of the name.
+VERSION_SUFFIX = re.compile(r"\(\d+\)$")
 
 
 @dataclass(frozen=True)
@@ -46,10 +60,20 @@ class PipelineResult:
     measurements_csv_path: Path
     pdf_path: Path
     json_path: Path
+    alignment: Alignment | None = None
+    style: StyleSet | None = None
 
     @property
     def flagged_count(self) -> int:
         return len(self.sheet.flagged())
+
+    @property
+    def graded_paths(self) -> tuple[Path, Path] | None:
+        """Where the graded report landed, if a style set was available."""
+        if self.alignment is None:
+            return None
+        base = self.pdf_path.with_suffix("")
+        return base.with_name(f"{base.name}-graded.csv"), base.with_name(f"{base.name}-graded.pdf")
 
 
 def _silent(_: str) -> None:
@@ -72,13 +96,23 @@ def output_paths(name: str, settings: Settings) -> tuple[Path, Path, Path, Path]
     )
 
 
-def resolve_output_name(base: str, settings: Settings) -> str:
+def base_output_name(name: str) -> str:
+    """'Recording_20(3)' -> 'Recording_20'.
+
+    Versions are counted from the original name, so re-running something already
+    versioned gives 'Recording_20(4)' rather than 'Recording_20(3)(1)'.
+    """
+    return VERSION_SUFFIX.sub("", name).strip()
+
+
+def resolve_output_name(name: str, settings: Settings) -> str:
     """'Recording_20', then 'Recording_20(1)', 'Recording_20(2)'...
 
     A previous run's outputs are never overwritten, so a report that has already
     been reviewed or sent stays exactly as it was. All four files of a run share
     the same suffix, so a version stays together.
     """
+    base = base_output_name(name)
     if not any(path.exists() for path in output_paths(base, settings)):
         return base
     # ponytail: linear scan. Fine for the handful of reruns one recording sees;
@@ -96,9 +130,10 @@ def transcribe_stage(
     recording: Path,
     settings: Settings,
     on_delta: Progress | None = None,
+    announce: Progress | None = None,
 ) -> Path:
     """Stage 1. Recording -> transcript saved under data/transcripts/."""
-    text = transcribe_recording(recording, settings, on_delta=on_delta)
+    text = transcribe_recording(recording, settings, on_delta=on_delta, announce=announce)
     return save_transcript(recording, text, settings)
 
 
@@ -107,13 +142,28 @@ def extract_stage(transcript: Path, settings: Settings, template: FormTemplate) 
     return extract_inspection(transcript.read_text(encoding="utf-8"), settings, template)
 
 
+def validate_stage(sheet: InspectionSheet, settings: Settings) -> tuple[Alignment, StyleSet] | None:
+    """Stage 3. Match the spoken measurements to the style set and judge them.
+
+    Returns None when the style set is unavailable — a missing or scanned sheet
+    should cost the graded report, not the whole run.
+    """
+    try:
+        style = find_style_set(sheet.field("style_no"), settings.style_sets_dir)
+    except (StyleSetNotFound, SpecSheetError) as exc:
+        log.warning("no verdicts: %s", exc)
+        return None
+    return align(sheet, style), style
+
+
 def write_stage(
     sheet: InspectionSheet,
     name: str,
     settings: Settings,
     template: FormTemplate,
+    validated: tuple[Alignment, StyleSet] | None = None,
 ) -> tuple[Path, Path, Path, Path]:
-    """Stage 3. Filled sheet -> form CSV, measurements CSV, PDF, and the saved JSON.
+    """Stage 4. Filled sheet -> form CSV, measurements CSV, PDF, and the saved JSON.
 
     The JSON is written first, deliberately. A CSV left open in Excel is locked on
     Windows, and an extraction that cost an API call must not be lost to that.
@@ -124,7 +174,20 @@ def write_stage(
     save_form_csv(sheet, template, form_csv)
     save_measurements_csv(sheet, measurements_csv)
     save_pdf(sheet, template, pdf, source=name)
+
+    if validated:
+        alignment, style = validated
+        save_graded_csv(alignment, style, graded_csv_path(name, settings))
+        save_graded_pdf(alignment, style, graded_pdf_path(name, settings), source=name)
     return form_csv, measurements_csv, pdf, json_path
+
+
+def graded_csv_path(name: str, settings: Settings) -> Path:
+    return settings.output_dir / f"{name}-graded.csv"
+
+
+def graded_pdf_path(name: str, settings: Settings) -> Path:
+    return settings.output_dir / f"{name}-graded.pdf"
 
 
 def run(
@@ -143,26 +206,43 @@ def run(
         announce(f"reusing transcript {transcript.name}")
     else:
         announce(f"transcribing {recording.name}")
-        transcript = transcribe_stage(recording, settings, on_delta=on_delta)
+        transcript = transcribe_stage(recording, settings, on_delta=on_delta, announce=announce)
 
     announce(f"extracting with {settings.extract_model}")
     sheet = extract_stage(transcript, settings, template)
 
+    announce("checking against the style set")
+    validated = validate_stage(sheet, settings)
+
     name = resolve_output_name(recording.stem, settings)
-    written = write_stage(sheet, name, settings, template)
-    return PipelineResult(name, transcript, sheet, *written)
+    written = write_stage(sheet, name, settings, template, validated)
+    alignment, style = validated if validated else (None, None)
+    return PipelineResult(name, transcript, sheet, *written, alignment=alignment, style=style)
 
 
-def rerender(name: str, settings: Settings) -> PipelineResult:
+def rerender(name: str, settings: Settings, new_version: bool = False) -> PipelineResult:
     """Rebuild the CSVs and PDF from a saved extraction. No API call.
 
-    Writes over that same version rather than allocating a new one: this is the
-    same extraction rendered again, not a new run.
+    Writes over that same version by default, because this is the same extraction
+    rendered again rather than a new run — handy while iterating on layout.
+    Pass `new_version` to leave the existing files untouched and write the next
+    version alongside them, which is what you want once a report has been shared.
     """
     saved = settings.output_dir / f"{name}.json"
     if not saved.is_file():
         raise FileNotFoundError(saved)
     template = load_form_template(settings)
     sheet = load_json(saved)
-    written = write_stage(sheet, name, settings, template)
-    return PipelineResult(name, transcript_path_for(saved, settings), sheet, *written)
+    validated = validate_stage(sheet, settings)
+    if new_version:
+        name = resolve_output_name(name, settings)
+    written = write_stage(sheet, name, settings, template, validated)
+    alignment, style = validated if validated else (None, None)
+    return PipelineResult(
+        name,
+        transcript_path_for(saved, settings),
+        sheet,
+        *written,
+        alignment=alignment,
+        style=style,
+    )

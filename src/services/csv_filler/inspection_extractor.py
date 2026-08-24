@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from openai import OpenAI
@@ -22,6 +23,40 @@ log = logging.getLogger(__name__)
 
 class ExtractionError(RuntimeError):
     """The transcript could not be turned into a filled sheet."""
+
+
+# Style numbers are dictated digit by digit at the top of the recording, and
+# speech recognition writes several of those digits as English homophones:
+# "seven two seven zero" comes back as "7 to 7-0". Stripping non-digits would
+# turn that into 770 and lose a digit silently, so each spoken form is mapped
+# back explicitly.
+SPOKEN_DIGITS = {
+    "zero": "0", "oh": "0", "o": "0", "nought": "0", "शून्य": "0",
+    "one": "1", "won": "1", "एक": "1",
+    "two": "2", "to": "2", "too": "2", "दो": "2",
+    "three": "3", "तीन": "3",
+    "four": "4", "for": "4", "fore": "4", "चार": "4",
+    "five": "5", "पाँच": "5", "पांच": "5",
+    "six": "6", "छह": "6", "छे": "6",
+    "seven": "7", "सात": "7",
+    "eight": "8", "ate": "8", "आठ": "8",
+    "nine": "9", "नौ": "9",
+}  # fmt: skip
+# Split on separators rather than matching word characters: `\w` excludes Devanagari
+# combining marks, which would tear "शून्य" into fragments that match nothing.
+_SEPARATORS = re.compile(r"[\s,.\-–—/\\()\[\]:;_#]+")
+
+
+def normalise_style_no(text: str) -> str:
+    """'7 to 7-0' -> '7270'. Returns '' when no digits can be recovered."""
+    digits = []
+    for token in _SEPARATORS.split(str(text or "").casefold()):
+        if token.isdigit():
+            digits.append(token)
+        elif token in SPOKEN_DIGITS:
+            digits.append(SPOKEN_DIGITS[token])
+        # Anything else is a stray word like "style" and is dropped.
+    return "".join(digits)
 
 
 def build_schema(accessory_items: list[str]) -> dict[str, Any]:
@@ -108,7 +143,17 @@ Return four things.
 
 `form` — the named boxes on the report. Use "" for anything the recording does not
 state; never guess a date, a quantity or a result that was not said aloud.
-  style_no, division, date, description, colour: from the opening discussion.
+  style_no: the style / size set number, announced at the very start of the
+    recording before any measuring begins. Take it only from that opening
+    announcement. Other style numbers come up later when the speakers compare
+    this garment against different styles they have run before — those are not
+    the style under inspection and must never be used here. If the opening does
+    not announce one, leave it "" rather than reaching into the discussion.
+    It is dictated one digit at a time, and speech recognition writes some of
+    those digits as English words: "7 to 7-0" is seven-two-seven-zero. Copy the
+    announcement across exactly as it is written, digits and words alike, and do
+    not try to repair it — that is done afterwards.
+  division, date, description, colour: also from the opening, if stated there.
   grain_line, notches, graded_nest, corrections_implemented, yy_mini_marker: the
     pattern checklist, usually answered "ok".
   planned_submission_date, actual_submission_date, pcd, cut_quantity.
@@ -202,6 +247,12 @@ def extract_inspection(
         payload = json.loads(response.output_text)
     except (AttributeError, ValueError) as exc:
         raise ExtractionError(f"model did not return usable JSON: {exc}") from exc
+
+    spoken_style = payload.get("form", {}).get("style_no", "")
+    style_no = normalise_style_no(spoken_style)
+    if style_no != spoken_style:
+        log.info("style number %r read as %r", spoken_style, style_no)
+    payload.setdefault("form", {})["style_no"] = style_no
 
     sheet = InspectionSheet.from_payload(payload)
     if not sheet.rows and not sheet.comments:

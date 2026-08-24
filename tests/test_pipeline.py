@@ -15,7 +15,7 @@ def stub_stages(monkeypatch):
     """Replace the two API-backed stages so the pipeline can run offline."""
     calls = {"transcribed": 0, "extracted": 0}
 
-    def fake_transcribe(recording, settings, client=None, on_delta=None):
+    def fake_transcribe(recording, settings, client=None, on_delta=None, announce=None):
         calls["transcribed"] += 1
         if on_delta:
             on_delta("streamed text")
@@ -101,6 +101,35 @@ def test_a_version_is_claimed_if_any_of_its_files_exists(
     (settings.output_dir / "Recording_20(1).pdf").write_bytes(b"%PDF stale")
 
     assert pipeline.run(recording, settings).name == "Recording_20(2)"
+
+
+def test_rerender_new_leaves_the_existing_files_alone(settings, recording, template, stub_stages):
+    """Once a report has been shared, re-rendering must not rewrite it."""
+    first = pipeline.run(recording, settings)
+    before = first.pdf_path.read_bytes()
+
+    result = pipeline.rerender("Recording_20", settings, new_version=True)
+
+    assert result.name == "Recording_20(1)"
+    assert first.pdf_path.read_bytes() == before
+    assert result.pdf_path.is_file()
+    assert result.pdf_path != first.pdf_path
+
+
+def test_versions_count_from_the_original_name(settings, recording, template, stub_stages):
+    """'Recording_20(1)' re-run gives '(2)', never 'Recording_20(1)(1)'."""
+    pipeline.run(recording, settings)
+    pipeline.rerender("Recording_20", settings, new_version=True)
+
+    assert (
+        pipeline.rerender("Recording_20(1)", settings, new_version=True).name == "Recording_20(2)"
+    )
+
+
+def test_base_output_name_strips_only_a_version_suffix():
+    assert pipeline.base_output_name("Recording_20(3)") == "Recording_20"
+    assert pipeline.base_output_name("Recording_20") == "Recording_20"
+    assert pipeline.base_output_name("WhatsApp Audio 16.05.21") == "WhatsApp Audio 16.05.21"
 
 
 def test_rerender_overwrites_its_own_version(settings, recording, template, stub_stages):

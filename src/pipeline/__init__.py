@@ -2,6 +2,7 @@
 
 from .inspection_pipeline import (
     PipelineResult,
+    base_output_name,
     extract_stage,
     load_form_template,
     output_paths,
@@ -9,11 +10,13 @@ from .inspection_pipeline import (
     resolve_output_name,
     run,
     transcribe_stage,
+    validate_stage,
     write_stage,
 )
 
 __all__ = [
     "PipelineResult",
+    "base_output_name",
     "extract_stage",
     "load_form_template",
     "output_paths",
@@ -21,5 +24,6 @@ __all__ = [
     "resolve_output_name",
     "run",
     "transcribe_stage",
+    "validate_stage",
     "write_stage",
 ]

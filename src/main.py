@@ -17,6 +17,7 @@ from pathlib import Path
 import pipeline
 from services.config import ConfigError, Settings
 from services.csv_filler import ExtractionError, TemplateError
+from services.measurements import format_measurement as fmt
 from services.transcript import (
     TranscriptionError,
     find_recordings,
@@ -80,7 +81,37 @@ def report_result(result: pipeline.PipelineResult) -> None:
         print(line.rstrip())
     if len(flagged) > MAX_FLAGGED_SHOWN:
         print(f"  ... and {len(flagged) - MAX_FLAGGED_SHOWN} more, see the CSV")
+    report_verdicts(result)
     print(f"\n-> {result.form_csv_path}\n-> {result.measurements_csv_path}\n-> {result.pdf_path}")
+    graded = result.graded_paths
+    if graded:
+        print(f"-> {graded[0]}\n-> {graded[1]}")
+
+
+def report_verdicts(result: pipeline.PipelineResult) -> None:
+    """Print the tolerance check, when a style set was available to check against."""
+    alignment = result.alignment
+    if alignment is None:
+        print("\nno style set matched, so nothing was checked against spec")
+        return
+
+    print(
+        f"\nchecked against style {alignment.style_no}: {len(alignment.judged)} of "
+        f"{len(alignment.rows)} measurements judged, {len(alignment.unmatched)} unmatched"
+    )
+    print(f"measurement result: {alignment.verdict or 'not determined'}")
+
+    failures = alignment.failures
+    if not failures:
+        return
+    print(f"{len(failures)} out of tolerance:")
+    for row in failures[:MAX_FLAGGED_SHOWN]:
+        print(
+            f"  {row.pom:<7} {row.size:>3}  {row.description[:36]:<36} "
+            f"{fmt(row.measured):>8} vs {fmt(row.spec):>8}  {fmt(row.deviation, signed=True)}"
+        )
+    if len(failures) > MAX_FLAGGED_SHOWN:
+        print(f"  ... and {len(failures) - MAX_FLAGGED_SHOWN} more, see the graded CSV")
 
 
 def announce(message: str) -> None:
@@ -123,15 +154,19 @@ def command_extract(args: argparse.Namespace, settings: Settings) -> int:
     template = pipeline.load_form_template(settings)
     announce(f"extracting {transcript.name} with {settings.extract_model}")
     sheet = pipeline.extract_stage(transcript, settings, template)
+    validated = pipeline.validate_stage(sheet, settings)
     name = pipeline.resolve_output_name(transcript.stem, settings)
-    written = pipeline.write_stage(sheet, name, settings, template)
-    report_result(pipeline.PipelineResult(name, transcript, sheet, *written))
+    written = pipeline.write_stage(sheet, name, settings, template, validated)
+    alignment, style = validated if validated else (None, None)
+    report_result(
+        pipeline.PipelineResult(name, transcript, sheet, *written, alignment=alignment, style=style)
+    )
     return 0
 
 
 def command_rerender(args: argparse.Namespace, settings: Settings) -> int:
     """Rebuild CSV and PDF from a saved extraction. No API call."""
-    report_result(pipeline.rerender(args.name, settings))
+    report_result(pipeline.rerender(args.name, settings, new_version=args.new))
     return 0
 
 
@@ -169,6 +204,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     rerender_cmd = sub.add_parser("rerender", help="rebuild csv and pdf from a saved extraction")
     rerender_cmd.add_argument("name", help="extraction name, without .json")
+    rerender_cmd.add_argument(
+        "--new",
+        action="store_true",
+        help="write the next version instead of overwriting the existing files",
+    )
     rerender_cmd.set_defaults(handler=command_rerender)
 
     serve_cmd = sub.add_parser("serve", help="run the web app")

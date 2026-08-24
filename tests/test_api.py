@@ -27,7 +27,7 @@ def stub_pipeline(monkeypatch):
     monkeypatch.setattr(
         pipeline.inspection_pipeline,
         "transcribe_recording",
-        lambda recording, settings, client=None, on_delta=None: "text",
+        lambda recording, settings, client=None, on_delta=None, announce=None: "text",
     )
     monkeypatch.setattr(
         pipeline.inspection_pipeline,

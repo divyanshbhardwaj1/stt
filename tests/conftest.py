@@ -13,21 +13,26 @@ from .form_fixture import write_form_template
 # that must exercise the genuine file are marked `real_template` and skip when
 # it is absent.
 REAL_TEMPLATE = PROJECT_ROOT / "data" / "references" / "size-set.xls"
+REAL_STYLE_SETS = PROJECT_ROOT / "data" / "StyleSets"
+
+# Marker name -> (the client data it needs, how to tell whether it is there).
+CLIENT_DATA = {
+    "real_template": REAL_TEMPLATE,
+    "real_style_sets": REAL_STYLE_SETS,
+}
 
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "real_template: needs the client's actual size-set.xls in data/references/"
-    )
+    for marker, path in CLIENT_DATA.items():
+        config.addinivalue_line("markers", f"{marker}: needs client data at {path}")
 
 
 def pytest_collection_modifyitems(config, items):
-    if REAL_TEMPLATE.is_file():
-        return
-    skip = pytest.mark.skip(reason=f"client template not present at {REAL_TEMPLATE}")
+    absent = {marker: path for marker, path in CLIENT_DATA.items() if not path.exists()}
     for item in items:
-        if "real_template" in item.keywords:
-            item.add_marker(skip)
+        for marker, path in absent.items():
+            if marker in item.keywords:
+                item.add_marker(pytest.mark.skip(reason=f"client data not present at {path}"))
 
 
 @pytest.fixture

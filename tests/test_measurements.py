@@ -4,7 +4,7 @@ from fractions import Fraction as F
 
 import pytest
 
-from pipeline.measurements import check_tolerance, format_measurement, parse
+from services.measurements import check_tolerance, format_measurement, parse
 
 
 @pytest.mark.parametrize(
