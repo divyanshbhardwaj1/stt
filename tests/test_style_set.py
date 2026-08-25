@@ -106,6 +106,19 @@ def test_spaced_fractions_are_not_split_into_two_columns(style_set):
     ]
 
 
+def test_a_row_on_a_page_break_keeps_its_own_values(style_set):
+    """The repeated page header lands on the end of that row during extraction.
+
+    Left in, the row reads "Incremental / IN" as measurements and every size for
+    it comes out blank — which is what style 7147's 2.05B did.
+    """
+    row = style_set.find("2.01A")
+
+    assert row.description == "SHOULDER SEAM FORWARD"
+    assert "STATUS" not in row.description
+    assert [format_measurement(row.spec_for(size)) for size in SIZES] == ["1/2"] * 7
+
+
 def test_tolerances_are_signed(style_set):
     row = style_set.find("1.01C")
 

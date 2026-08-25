@@ -126,6 +126,61 @@ def test_versions_count_from_the_original_name(settings, recording, template, st
     )
 
 
+def test_the_graded_sheet_is_bound_into_the_main_report(
+    settings, recording, template, style_sets, stub_stages
+):
+    """Page one stays the form; the graded measurements follow; the rest survives."""
+    from pypdf import PdfReader
+
+    result = pipeline.run(recording, settings)
+    graded_pages = len(PdfReader(str(result.graded_paths[1])).pages)
+    report = PdfReader(str(result.pdf_path))
+
+    assert len(report.pages) > graded_pages
+    assert "SIZE SET INSPECTION REPORT" in (report.pages[0].extract_text() or "")
+    assert "GRADE MEASUREMENTS" in (report.pages[1].extract_text() or "")
+    # The detail pages carry shrinkage, bill of materials and comments, none of
+    # which the graded sheet covers, so they must survive the merge.
+    tail = "\n".join(page.extract_text() or "" for page in report.pages[1 + graded_pages :])
+    assert "MEASUREMENT DETAIL" in tail
+    assert "Comments and vendor actions" in tail
+
+
+def test_the_report_is_unchanged_when_no_style_set_matches(
+    settings, recording, template, stub_stages
+):
+    from pypdf import PdfReader
+
+    result = pipeline.run(recording, settings)
+
+    assert result.alignment is None
+    assert "GRADE MEASUREMENTS" not in (
+        PdfReader(str(result.pdf_path)).pages[1].extract_text() or ""
+    )
+
+
+def test_a_chosen_style_overrides_the_one_announced(settings, recording, stub_stages, caplog):
+    """The operator picked it; a mis-heard announcement must not win."""
+    from .style_set_fixture import write_style_set
+
+    write_style_set(settings.style_sets_dir / "style_9999.pdf")  # payload announces 7270
+
+    result = pipeline.run(recording, settings, style_no="9999")
+
+    assert result.style is not None
+    assert result.style.style_no == "9999"
+    assert "announces 7270" in caplog.text
+
+
+def test_the_announced_style_is_used_when_none_is_chosen(
+    settings, recording, template, style_sets, stub_stages
+):
+    result = pipeline.run(recording, settings)
+
+    assert result.style is not None
+    assert result.style.style_no == "7270"
+
+
 def test_base_output_name_strips_only_a_version_suffix():
     assert pipeline.base_output_name("Recording_20(3)") == "Recording_20"
     assert pipeline.base_output_name("Recording_20") == "Recording_20"

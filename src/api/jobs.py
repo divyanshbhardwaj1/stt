@@ -41,6 +41,7 @@ class Job:
 
     id: str
     filename: str
+    style_no: str = ""  # chosen at upload; "" means use whatever the recording announces
     status: str = QUEUED
     message: str = "waiting to start"
     name: str = ""
@@ -65,6 +66,7 @@ class Job:
         return {
             "id": self.id,
             "filename": self.filename,
+            "style_no": self.style_no,
             "status": self.status,
             "message": self.message,
             "name": self.name,
@@ -92,8 +94,8 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create(self, filename: str) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], filename=filename)
+    def create(self, filename: str, style_no: str = "") -> Job:
+        job = Job(id=uuid.uuid4().hex[:12], filename=filename, style_no=style_no)
         with self._lock:
             self._jobs[job.id] = job
         return job
@@ -117,6 +119,7 @@ def process(job: Job, recording: Path, settings: Settings, store: JobStore) -> N
             recording,
             settings,
             announce=lambda message: setattr(job, "message", message),
+            style_no=job.style_no,
         )
     except Exception as exc:  # noqa: BLE001 - a background task must not die silently
         log.exception("job %s failed", job.id)

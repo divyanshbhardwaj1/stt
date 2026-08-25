@@ -7,6 +7,7 @@ from services.config import PROJECT_ROOT, Settings
 from services.csv_filler import InspectionSheet, load_template
 
 from .form_fixture import write_form_template
+from .style_set_fixture import write_style_set
 
 # The client's blank form is confidential and gitignored, so CI never sees it.
 # Tests run against a generated stand-in with the same structure; the handful
@@ -147,6 +148,16 @@ def settings(tmp_path):
 @pytest.fixture
 def template(settings):
     return load_template(settings.form_template_path)
+
+
+@pytest.fixture
+def style_sets(settings):
+    """A style set matching the style number in SHEET_PAYLOAD, so validation runs."""
+    write_style_set(
+        settings.style_sets_dir / f"style_{SHEET_PAYLOAD['form']['style_no']}.pdf",
+        style_no=SHEET_PAYLOAD["form"]["style_no"],
+    )
+    return settings.style_sets_dir
 
 
 @pytest.fixture

@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
 from pypdf import PdfReader
 
 from services.measurements import parse
+
+from .artwork import Artwork, read_artwork
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +40,20 @@ COLUMN_HEADER = re.compile(r"^POM\s+Description\s+Tol-\s+Tol\+\s+(.*)$")
 CELL_HEADER = ("POM", "Description", "Tol-", "Tol+")
 
 INTEGER = re.compile(r"\d+")
-FOOTER = re.compile(r"^(Date Printed:|\d{4} AEO Management|Page \d+)")
+
+# Every page repeats the sheet's header and footer. Text extraction drops that
+# furniture in among the rows — sometimes on the same line as a row's last
+# values — and without removing it the row spanning the page break swallows the
+# header and reads "Incremental / IN" as measurements.
+FURNITURE = (
+    r"STATUS:|STYLE:|Company:|Division\s*/\s*Dept:|Season:|Style Desc:|Fit\s*/\s*Other:"
+    # "POM Descr :" is metadata; "POM Description Tol- ..." is the column header
+    # the parser needs, so the colon has to be part of the match.
+    r"|GRADE MEASUREMENTS|Tolerance Model|POM Descr\s*:|Modified By|Modified Date"
+    r"|Size Range|Base Size|Grading Method|Date Printed:|Page \d+|\d{4} AEO Management"
+)
+FOOTER = re.compile(rf"^({FURNITURE}|Block\s*:)", re.IGNORECASE)
+FURNITURE_ANYWHERE = re.compile(rf"\b({FURNITURE})", re.IGNORECASE)
 
 # Label on the sheet -> field name. The value sits after the label on the same
 # line in the row layout, and on the line below it in the cell layout.
@@ -50,6 +65,9 @@ HEADER_LABELS = {
     "season": "Season:",
     "status": "STATUS:",
     "base_size": "Base Size",
+    "tolerance_model": "Tolerance Model",
+    "pom_descr": "POM Descr",
+    "modified_by": "Modified By",
 }
 TOLERANCE_COLUMNS = 2
 
@@ -98,6 +116,10 @@ class StyleSet:
     sizes: tuple[str, ...]
     rows: tuple[PomRow, ...]
     source: Path
+    tolerance_model: str = ""
+    pom_descr: str = ""
+    modified_by: str = ""
+    artwork: Artwork = field(default_factory=Artwork)
 
     def measured_rows(self) -> list[PomRow]:
         """Rows carrying a tolerance, so a pass/fail verdict is possible."""
@@ -239,6 +261,12 @@ def _parse_row(block: list[str], sizes: tuple[str, ...]) -> PomRow | None:
         return None
     pom, remainder = match.group(1), match.group(2)
 
+    # A row that spans a page break has the next page's header appended to it,
+    # sometimes mid-line. The row's own values always precede it, so cut there.
+    furniture = FURNITURE_ANYWHERE.search(remainder)
+    if furniture:
+        remainder = remainder[: furniture.start()]
+
     wanted = len(sizes) + 2  # the two tolerance columns precede the sizes
     values, description_tokens = _take_values(remainder.split(), wanted)
     if len(values) < wanted:
@@ -267,6 +295,28 @@ def _unparsed_codes(lines: list[str], rows: list[PomRow]) -> list[str]:
         if match and match.group(1) not in seen and match.group(1) not in found:
             found.append(match.group(1))
     return found
+
+
+def _artwork_for(path: Path) -> Artwork:
+    """Artwork from this sheet, or from another export of the same style.
+
+    A re-exported sheet like "style_9662_clean.pdf" carries the numbers but not
+    the pictures, while the original scan beside it still has them.
+    """
+    art = read_artwork(path)
+    if art:
+        return art
+    digits = re.search(r"\d+", path.stem)
+    if not digits:
+        return art
+    for sibling in sorted(path.parent.glob(f"*{digits.group()}*.pdf")):
+        if sibling == path:
+            continue
+        found = read_artwork(sibling)
+        if found:
+            log.info("borrowed artwork for %s from %s", path.name, sibling.name)
+            return found
+    return art
 
 
 def read_style_set(path: Path) -> StyleSet:
@@ -335,6 +385,10 @@ def read_style_set(path: Path) -> StyleSet:
         sizes=sizes,
         rows=tuple(rows),
         source=path,
+        tolerance_model=header.get("tolerance_model", ""),
+        pom_descr=header.get("pom_descr", ""),
+        modified_by=header.get("modified_by", ""),
+        artwork=_artwork_for(path),
     )
     log.info(
         "read style set %s: %d rows (%d measured) across %s",

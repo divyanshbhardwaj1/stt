@@ -166,7 +166,7 @@ def command_extract(args: argparse.Namespace, settings: Settings) -> int:
 
 def command_rerender(args: argparse.Namespace, settings: Settings) -> int:
     """Rebuild CSV and PDF from a saved extraction. No API call."""
-    report_result(pipeline.rerender(args.name, settings, new_version=args.new))
+    report_result(pipeline.rerender(args.name, settings, new_version=args.new, style_no=args.style))
     return 0
 
 
@@ -208,6 +208,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--new",
         action="store_true",
         help="write the next version instead of overwriting the existing files",
+    )
+    rerender_cmd.add_argument(
+        "--style", default="", help="style set to check against, overriding the recording"
     )
     rerender_cmd.set_defaults(handler=command_rerender)
 

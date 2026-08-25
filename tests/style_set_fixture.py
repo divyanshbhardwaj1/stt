@@ -58,6 +58,10 @@ ROWS = (
 # how Triburg's exports wrap long text.
 WRAPPED_POM = "1.20A"
 
+# The row after this index sits on a page break, so the next page's header lands
+# on the end of it. Index 3 is 2.01A, whose values must survive.
+PAGE_BREAK_AFTER = 3
+
 EXPECTED_BASE_SIZE_SPECS = {
     pom: values[SIZES.index("M")] for pom, _, _, _, values in ROWS if pom != "*"
 }
@@ -81,13 +85,19 @@ FOOTER = "Date Printed: 15/Apr/2026 Page 1 of"
 def row_layout_lines() -> list[str]:
     """One line per row, the layout most Triburg exports use."""
     lines = [*PREAMBLE, f"POM Description Tol- Tol+ {' '.join(SIZES)}"]
-    for pom, description, minus, plus, values in ROWS:
+    for index, (pom, description, minus, plus, values) in enumerate(ROWS):
         numbers = f"{minus} {plus} {' '.join(values)}"
         if pom == WRAPPED_POM:
             head, tail = description.rsplit(" ", 1)
             lines += [f"{pom} {head}", tail, numbers]
         else:
             lines.append(f"{pom} {description} {numbers}")
+        # Mid-sheet, drop in the header every page repeats — extraction runs it
+        # straight onto the end of the row above, which used to make that row
+        # read "Incremental / IN" as its measurements.
+        if index == PAGE_BREAK_AFTER:
+            lines[-1] += " STATUS: FNL STYLE: 9999 9999 TEST GARMENT SS 2026"
+            lines += [*PREAMBLE[2:], f"POM Description Tol- Tol+ {' '.join(SIZES)}"]
     lines.append(FOOTER)
     return lines
 
@@ -133,9 +143,21 @@ def _write(path: Path, lines: list[str]) -> Path:
     return path
 
 
-def write_style_set(path: Path, lines: list[str] | None = None) -> Path:
-    """Write a stand-in style set in the one-line-per-row layout."""
-    return _write(path, lines if lines is not None else row_layout_lines())
+DEFAULT_STYLE_NO = "9999"
+
+
+def write_style_set(
+    path: Path, lines: list[str] | None = None, style_no: str = DEFAULT_STYLE_NO
+) -> Path:
+    """Write a stand-in style set in the one-line-per-row layout.
+
+    `style_no` lets a test produce a sheet for a particular style, which is what
+    the style number announced in a recording has to match.
+    """
+    chosen = lines if lines is not None else row_layout_lines()
+    if style_no != DEFAULT_STYLE_NO:
+        chosen = [line.replace(DEFAULT_STYLE_NO, style_no) for line in chosen]
+    return _write(path, chosen)
 
 
 def write_cell_layout_style_set(path: Path) -> Path:

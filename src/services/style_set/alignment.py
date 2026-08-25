@@ -266,13 +266,27 @@ def align(sheet, style: StyleSet) -> Alignment:
     rows: list[AlignedRow] = []
     sizes: list[str] = []
 
-    for size in sheet.sizes():
+    announced = sheet.sizes()
+    # An inspection of a single garment often never names the size — it just
+    # reads the measurements straight through. The size set samples the base
+    # size, so attribute them to it. Without this every reading is dropped for
+    # want of a size, and the report comes out empty.
+    unsized = not announced and bool(sheet.rows_in("measurement"))
+    if unsized:
+        if not style.base_size:
+            log.warning("no size announced and style %s names no base size", style.style_no)
+            return Alignment(style_no=style.style_no, sizes=(), rows=())
+        log.info("no size announced; attributing measurements to base size %s", style.base_size)
+        announced = [style.base_size]
+
+    for size in announced:
         if size not in style.sizes:
             log.warning("size %s is not in style set %s", size, style.style_no)
         sizes.append(size)
+        measured = sheet.rows_in("measurement") if unsized else sheet.rows_in("measurement", size)
         spoken = [
             (number, row.field, row.value, row.deviation, row.confidence, row.note)
-            for number, row in sheet.rows_in("measurement", size)
+            for number, row in measured
         ]
         rows.extend(align_size(spoken, sheet_rows, size))
 

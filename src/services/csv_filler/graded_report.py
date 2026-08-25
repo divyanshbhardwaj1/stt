@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import csv
 import logging
+from io import BytesIO
 from pathlib import Path
 
+from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from services.measurements import format_measurement as fmt
 from services.style_set import Alignment, StyleSet
@@ -39,6 +42,9 @@ MISSING_HEX = "#a0a4ab"
 MUTED_HEX = "#6b7280"
 FAIL_BG = colors.HexColor("#fdf0e6")
 NOT_MEASURED_BG = colors.HexColor("#fafbfc")
+# Triburg highlight the base-size column in yellow on every sheet.
+BASE_SIZE_BG = colors.HexColor("#ffffcc")
+BASE_SIZE_HEAD = colors.HexColor("#ffff00")
 
 # Below this the transcription of the value was uncertain, so the number is
 # printed in blue: it may be right, but it was not clearly heard.
@@ -63,7 +69,20 @@ def _styles() -> dict[str, ParagraphStyle]:
         "banner": ParagraphStyle(
             "b", base, fontName="Helvetica-Bold", fontSize=8.5, alignment=1, textColor=HEAD_INK
         ),
-        "meta": ParagraphStyle("m", base, fontSize=7.5, leading=10),
+        "meta": ParagraphStyle("m", base, fontSize=7, leading=9),
+        "label": ParagraphStyle("l", base, fontName="Helvetica-Bold", fontSize=7, leading=9),
+        "stylebar": ParagraphStyle(
+            "sb", base, fontName="Helvetica-Bold", fontSize=11, textColor=HEAD_INK
+        ),
+        "stylebar_mid": ParagraphStyle(
+            "sbm", base, fontName="Helvetica-Bold", fontSize=11, alignment=1, textColor=HEAD_INK
+        ),
+        "stylebar_right": ParagraphStyle(
+            "sbr", base, fontName="Helvetica-Bold", fontSize=11, alignment=2, textColor=HEAD_INK
+        ),
+        "status": ParagraphStyle(
+            "st", base, fontName="Helvetica-Bold", fontSize=8, alignment=1, textColor=MUTED
+        ),
         "head": ParagraphStyle(
             "h", base, fontName="Helvetica-Bold", fontSize=6.2, alignment=1, textColor=HEAD_INK
         ),
@@ -151,11 +170,16 @@ def _measurement_table(
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]
-    # Shade the columns nobody measured, so an empty column reads as "not done"
-    # rather than "nothing found".
     for position, size in enumerate(sizes):
-        if size not in measured_sizes:
-            column = 4 + position
+        column = 4 + position
+        if size == style.base_size:
+            # Triburg highlight the base size in yellow; keeping that makes the
+            # report scan the same way as the sheet it is checked against.
+            style_commands.append(("BACKGROUND", (column, 1), (column, -1), BASE_SIZE_BG))
+            style_commands.append(("BACKGROUND", (column, 0), (column, 0), BASE_SIZE_HEAD))
+        elif size not in measured_sizes:
+            # Shade the columns nobody measured, so an empty column reads as
+            # "not done" rather than "nothing found".
             style_commands.append(("BACKGROUND", (column, 1), (column, -1), NOT_MEASURED_BG))
 
     for index, pom_row in enumerate(style.spoken_rows(), start=1):
@@ -183,31 +207,95 @@ def _measurement_table(
     return table
 
 
-def _meta_block(alignment: Alignment, style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
-    left = [
-        Paragraph(f"<b>Company:</b> {style.company or BLANK}", css["meta"]),
-        Paragraph(f"<b>Division / Dept:</b> {style.division or BLANK}", css["meta"]),
-        Paragraph(f"<b>Season:</b> {style.season or BLANK}", css["meta"]),
-        Paragraph(f"<b>Style Desc:</b> {style.description or BLANK}", css["meta"]),
+def _image(data: bytes | None, height: float) -> Image | str:
+    """A right-sized Image flowable, or an empty cell when the artwork is absent."""
+    if not data:
+        return ""
+    reader = ImageReader(BytesIO(data))
+    width, tall = reader.getSize()
+    return Image(BytesIO(data), width=height * width / tall, height=height)
+
+
+def _labelled(label: str, value: str, css: dict[str, ParagraphStyle]) -> list[object]:
+    return [Paragraph(f"<b>{label}</b>", css["label"]), Paragraph(value or BLANK, css["meta"])]
+
+
+def _title_bar(style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
+    """The navy STYLE bar, with the garment sketch left and the eagle right."""
+    art = style.artwork
+    sketch_width = 20 * mm if art.sketch else 0
+    eagle_width = 18 * mm if art.eagle else 0
+
+    cells: list[object] = []
+    widths: list[float] = []
+    if art.sketch:
+        cells.append(_image(art.sketch, 17 * mm))
+        widths.append(sketch_width)
+
+    text_width = PAGE_WIDTH - sketch_width - eagle_width
+    first = len(cells)
+    cells += [
+        Paragraph(f"STYLE: {style.style_no}", css["stylebar"]),
+        Paragraph(style.description, css["stylebar_mid"]),
+        Paragraph(style.season, css["stylebar_right"]),
     ]
-    right = [
-        Paragraph(f"<b>Size Range:</b> {', '.join(style.sizes)}", css["meta"]),
-        Paragraph(f"<b>Base Size:</b> {style.base_size or BLANK}", css["meta"]),
-        Paragraph(f"<b>Sizes Measured:</b> {', '.join(alignment.sizes) or BLANK}", css["meta"]),
-        Paragraph(
-            f"<b>Measurement Result:</b> {alignment.verdict or BLANK} "
-            f"({len(alignment.failures)} out of tolerance of {len(alignment.judged)} checked)",
-            css["meta"],
+    widths += [text_width * 0.22, text_width * 0.56, text_width * 0.22]
+
+    if art.eagle:
+        cells.append(_image(art.eagle, 9 * mm))
+        widths.append(eagle_width)
+
+    bar = Table([cells], colWidths=widths, rowHeights=[19 * mm], hAlign="LEFT")
+    bar.setStyle(
+        TableStyle(
+            [
+                # Only the text spans carry the navy; the artwork sits on white,
+                # the way the style sets print it.
+                ("BACKGROUND", (first, 0), (first + 2, 0), HEAD_BG),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTRE"),
+                ("BOX", (0, 0), (-1, -1), 0.5, RULE),
+                ("LEFTPADDING", (first, 0), (first + 2, 0), 6),
+                ("RIGHTPADDING", (first, 0), (first + 2, 0), 6),
+            ]
+        )
+    )
+    return bar
+
+
+def _meta_block(alignment: Alignment, style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
+    """The four-by-two metadata grid Triburg print under the banner."""
+    rows = [
+        _labelled("Company:", style.company, css)
+        + _labelled("Tolerance Model:", style.tolerance_model, css)
+        + _labelled("Size Range:", ", ".join(style.sizes), css),
+        _labelled("Division / Dept:", style.division, css)
+        + _labelled("POM Descr:", style.pom_descr, css)
+        + _labelled("Base Size:", style.base_size, css),
+        _labelled("Season:", style.season, css)
+        + _labelled("Modified By:", style.modified_by, css)
+        + _labelled("Sizes Measured:", ", ".join(alignment.sizes), css),
+        _labelled("Style Desc:", style.description, css)
+        + _labelled("Status:", style.status, css)
+        + _labelled(
+            "Measurement Result:",
+            f"{alignment.verdict or BLANK} "
+            f"({len(alignment.failures)} of {len(alignment.judged)} out of tolerance)",
+            css,
         ),
     ]
-    table = Table([[left, right]], colWidths=[PAGE_WIDTH * 0.55, PAGE_WIDTH * 0.45], hAlign="LEFT")
+    label_width = 26 * mm
+    value_width = (PAGE_WIDTH - 3 * label_width) / 3
+    table = Table(rows, colWidths=[label_width, value_width] * 3, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+                ("BOX", (0, 0), (-1, -1), 0.5, RULE),
             ]
         )
     )
@@ -244,10 +332,10 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
     )
 
     story: list[object] = [
-        Paragraph(f"STYLE: {style.style_no} &nbsp; {style.description}", css["title"]),
-        Paragraph(f"{style.season} &nbsp;|&nbsp; STATUS: {style.status}", css["sub"]),
+        Paragraph(f"STATUS: {style.status or BLANK}", css["status"]),
+        Spacer(1, 1.5 * mm),
+        _title_bar(style, css),
         banner,
-        Spacer(1, 3 * mm),
         _meta_block(alignment, style, css),
         Spacer(1, 3 * mm),
         _measurement_table(alignment, style, css),
@@ -301,6 +389,39 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
     document.build(story)
     log.info("wrote %s", path)
     return path
+
+
+def attach_to_report(report_pdf: Path, graded_pdf: Path) -> Path:
+    """Bind the graded sheet into the main report, starting at page two.
+
+    Page one stays the Size Set Inspection Report form. The graded measurements
+    follow, then the remaining pages of the report — construction, bill of
+    materials, shrinkage and marker — which the graded sheet does not cover.
+    """
+    if not report_pdf.is_file() or not graded_pdf.is_file():
+        return report_pdf
+
+    # Read both into memory first: the report is about to be overwritten, and a
+    # lazy reader still holding it open would write a truncated file.
+    report = PdfReader(BytesIO(report_pdf.read_bytes()))
+    graded = PdfReader(BytesIO(graded_pdf.read_bytes()))
+
+    writer = PdfWriter()
+    writer.add_page(report.pages[0])
+    for page in graded.pages:
+        writer.add_page(page)
+    for page in report.pages[1:]:
+        writer.add_page(page)
+
+    with report_pdf.open("wb") as handle:
+        writer.write(handle)
+    log.info(
+        "bound %d graded page(s) into %s (now %d pages)",
+        len(graded.pages),
+        report_pdf.name,
+        len(writer.pages),
+    )
+    return report_pdf
 
 
 GRADED_COLUMNS = (

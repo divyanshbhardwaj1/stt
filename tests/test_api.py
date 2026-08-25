@@ -38,8 +38,37 @@ def stub_pipeline(monkeypatch):
     )
 
 
-def upload(client, name="Recording_20.m4a", content=b"audio bytes"):
-    return client.post("/api/jobs", files={"recording": (name, content, "audio/mp4")})
+def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=None):
+    data = {"style_no": style_no} if style_no is not None else None
+    return client.post("/api/jobs", files={"recording": (name, content, "audio/mp4")}, data=data)
+
+
+def test_style_sets_are_listed_for_the_dropdown(client, style_sets):
+    assert client.get("/api/style-sets").json() == ["7270"]
+
+
+def test_style_sets_list_is_empty_without_any(client):
+    assert client.get("/api/style-sets").json() == []
+
+
+def test_the_chosen_style_reaches_the_job(client, template, style_sets, stub_pipeline):
+    body = upload(client, style_no="7270").json()
+
+    assert body["style_no"] == "7270"
+    assert client.get(f"/api/jobs/{body['id']}").json()["style_no"] == "7270"
+
+
+def test_choosing_a_style_with_no_sheet_is_refused(client, template, style_sets, settings):
+    """Better to say so at upload than to transcribe and then find nothing to check."""
+    response = upload(client, style_no="1234")
+
+    assert response.status_code == 404
+    assert "no style set for style 1234" in response.json()["detail"]
+    assert list(settings.recordings_dir.glob("*.m4a")) == []
+
+
+def test_no_style_chosen_falls_back_to_the_recording(client, template, stub_pipeline):
+    assert upload(client).json()["style_no"] == ""
 
 
 def test_index_serves_the_page(client):
@@ -140,8 +169,8 @@ def test_upload_rejects_a_file_with_no_extension(client, template):
     assert response.status_code == 415
 
 
-def test_upload_rejects_an_oversized_recording(client, template, monkeypatch):
-    monkeypatch.setattr(api, "MAX_UPLOAD_BYTES", 8)
+def test_upload_rejects_a_recording_beyond_the_upload_ceiling(client, template, monkeypatch):
+    monkeypatch.setattr(api, "MAX_RECORDING_BYTES", 8)
 
     response = upload(client, content=b"far too many bytes for this limit")
 
@@ -150,11 +179,26 @@ def test_upload_rejects_an_oversized_recording(client, template, monkeypatch):
 
 
 def test_an_oversized_upload_is_not_left_on_disk(client, settings, template, monkeypatch):
-    monkeypatch.setattr(api, "MAX_UPLOAD_BYTES", 8)
+    monkeypatch.setattr(api, "MAX_RECORDING_BYTES", 8)
 
     upload(client, content=b"far too many bytes for this limit")
 
     assert list(settings.recordings_dir.glob("*")) == []
+
+
+def test_a_recording_over_the_api_limit_is_still_accepted(
+    client, template, stub_pipeline, monkeypatch
+):
+    """The pipeline re-encodes it, so the browser must not refuse it first.
+
+    Rejecting here is what made the CLI accept a 46 MB recording while the web
+    app turned away a 27 MB one.
+    """
+    monkeypatch.setattr(api, "MAX_UPLOAD_BYTES", 8)
+
+    response = upload(client, content=b"bigger than the transcription limit")
+
+    assert response.status_code == 202
 
 
 def test_a_path_traversing_filename_is_stripped(client, settings, template, stub_pipeline):

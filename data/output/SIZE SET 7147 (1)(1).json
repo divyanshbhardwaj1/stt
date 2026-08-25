@@ -1,0 +1,1617 @@
+{
+  "form": {
+    "style_no": "7147",
+    "division": "",
+    "date": "",
+    "description": "V-neck fitted top",
+    "colour": "Navy",
+    "grain_line": "OK",
+    "notches": "OK",
+    "graded_nest": "OK",
+    "corrections_implemented": "Implemented on size set",
+    "yy_mini_marker": "Shell = 0.656 m; Lining = 0.471 m",
+    "planned_submission_date": "",
+    "actual_submission_date": "",
+    "pcd": "",
+    "cut_quantity": "5 pieces",
+    "size_set_inspection_result": "",
+    "shrinkage": "L = 0%  W = 0%",
+    "lining_shrinkage": "L = 0%  W = 0%",
+    "shrinkage_note": "No shrinkage in shell fabric",
+    "measurement_result": "",
+    "measurement_graded_nest": "",
+    "corrections_to_be_done": "Update body only lined to bodice fully lined; update seam for circular-cut flutter sleeve",
+    "bring_back_to_specs": "",
+    "cutting_check": "",
+    "seam_allowance": "",
+    "checks_corrections_implemented": "",
+    "overall": ""
+  },
+  "accessories": [
+    {
+      "item": "MAIN LABEL",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "LACE",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "THREAD",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "LINING",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "ZIPPER",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "PH",
+      "status": "ACT",
+      "note": "pH level okay"
+    }
+  ],
+  "comments": [
+    {
+      "comment": "Bottom shape uneven and hiking at center front",
+      "vendor_action": "Balance and level bottom; take even seam allowance during body attaching and avoid center-front hiking"
+    },
+    {
+      "comment": "Neckline unbalanced",
+      "vendor_action": "Balance neckline and follow pattern measurement while shell and lining patching"
+    },
+    {
+      "comment": "Waist seam shape not symmetrical",
+      "vendor_action": "Take even seam allowance and add balance marking for gather"
+    },
+    {
+      "comment": "Center-front seam not properly pressed",
+      "vendor_action": "Press center-front seam prior to attaching"
+    },
+    {
+      "comment": "Puckering at zipper area",
+      "vendor_action": "Correct sewing method and thread tension; attach zipper smoothly"
+    },
+    {
+      "comment": "Back dart length uneven",
+      "vendor_action": "Educate operator to follow back-dart marking"
+    },
+    {
+      "comment": "Nap direction must be one way",
+      "vendor_action": "Follow approved sample direction during fabric laying and cutting"
+    },
+    {
+      "comment": "Roping at back armhole",
+      "vendor_action": "Improve operator handling and correct thread tension"
+    },
+    {
+      "comment": "Poor waist belt corner shape",
+      "vendor_action": "Use template for belt pressing and keep finish stitch neat and clean"
+    },
+    {
+      "comment": "DIA states body only lined",
+      "vendor_action": "Update to bodice fully lined and clean finished with lining"
+    },
+    {
+      "comment": "Neckline and armhole finish",
+      "vendor_action": "Ensure clean finish with no roping"
+    },
+    {
+      "comment": "Back bodice lining",
+      "vendor_action": "Add lining as checked with New York team"
+    }
+  ],
+  "rows": [
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Shell and lining average consumption",
+      "value": "0.656 m",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Marker efficiency",
+      "value": "65.06%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Marker direction",
+      "value": "One-way",
+      "deviation": "",
+      "note": "Due to nap direction",
+      "confidence": 1.0
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Shell YY",
+      "value": "0.656 m",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Lining YY",
+      "value": "0.471 m",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell length shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell width shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Lining length shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Lining width shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Superimposed pattern",
+      "value": "OK",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Nested pattern",
+      "value": "OK",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Bodice lining",
+      "value": "Fully lined",
+      "deviation": "",
+      "note": "DIA states body only lined; update required",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Bodice finish",
+      "value": "Clean finish with lining",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Bodice shirring",
+      "value": "Slight shirring",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Sleeve",
+      "value": "Circular-cut flutter sleeve",
+      "deviation": "",
+      "note": "Update seam",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Hem finish",
+      "value": "Baby hem",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Self tie construction",
+      "value": "1 inch flat two-ply clean finish",
+      "deviation": "",
+      "note": "Comes from side seam and ties functionally at center back",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Sleeve hem",
+      "value": "Lace finish",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Back darts",
+      "value": "Fish-eye darts",
+      "deviation": "",
+      "note": "To control fullness at back",
+      "confidence": 1.0
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Invisible zipper position",
+      "value": "Wearer left side seam",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Front length from HPS",
+      "value": "19 3/4",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Shoulder slope from HPS",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Shoulder seam forward",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Across shoulder seam to seam",
+      "value": "12 1/2",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Across front seam to seam",
+      "value": "11 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Across back position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Across back seam to seam",
+      "value": "12 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Chest 1 inch below armhole, side seam to side seam",
+      "value": "35 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Empire seam position from HPS",
+      "value": "13",
+      "deviation": "",
+      "note": "Repeated and confirmed",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Empire waist",
+      "value": "32 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Bottom sweep",
+      "value": "14 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 0.9
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Bottom hem height",
+      "value": "3/16",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Center-front bodice length to empire",
+      "value": "1 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Bodice length at side seam",
+      "value": "4 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Wearer left side-seam invisible zipper length",
+      "value": "4 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Armhole straight",
+      "value": "8",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Sleeve opening",
+      "value": "11",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Sleeve-cap shirring spread evenly between outseam",
+      "value": "2 7/8",
+      "deviation": "",
+      "note": "Gather measurement",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Neck width H to H",
+      "value": "7 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Back neck drop from HPS to H",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Front neck drop from HPS to H",
+      "value": "10",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Back fish-eye dart length",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Tie length exposed to point",
+      "value": "25 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Tie width",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Bust shirring spread at empire",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Start bust shirring from center-front seam",
+      "value": "2 1/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Shoulder slope from HPS",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Shoulder seam forward",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across shoulder seam to seam",
+      "value": "13",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across front seam to seam",
+      "value": "11 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across back position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across back seam to seam",
+      "value": "12 5/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Chest 1 inch below armhole, side seam to side seam",
+      "value": "37 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Empire seam position from HPS",
+      "value": "13 3/8",
+      "deviation": "",
+      "note": "Earlier speech included an unclear '12'; final value was 13 3/8",
+      "confidence": 0.8
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Empire waist",
+      "value": "34 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bottom sweep",
+      "value": "42 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bottom hem height",
+      "value": "3/16",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Center-front bodice length to empire",
+      "value": "1 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bodice length at side seam",
+      "value": "4 5/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Wearer left side-seam invisible zipper length",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve length from armhole, including lace",
+      "value": "4 3/8",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Armhole straight",
+      "value": "8 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve opening",
+      "value": "11 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve-cap shirring spread evenly between outseam",
+      "value": "2 7/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Neck width H to H",
+      "value": "8 1/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back neck drop from HPS to H",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front neck drop from HPS to H",
+      "value": "10 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back fish-eye dart length",
+      "value": "6 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Tie length exposed to point",
+      "value": "25 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Tie width",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bust shirring spread at empire",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "Initially heard as 2 3/8, then corrected to 2 3/4",
+      "confidence": 0.65
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Start bust shirring from center-front seam",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front length from HPS",
+      "value": "21",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder slope from HPS",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder seam forward",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across shoulder seam to seam",
+      "value": "13 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across front seam to seam",
+      "value": "12 1/4",
+      "deviation": "",
+      "note": "Repeated and confirmed",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across back position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across back seam to seam",
+      "value": "13 1/8",
+      "deviation": "",
+      "note": "Repeated and confirmed",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Chest 1 inch below armhole, side seam to side seam",
+      "value": "13 1/2",
+      "deviation": "",
+      "note": "Value was repeated as spoken but appears atypical",
+      "confidence": 0.75
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Empire seam position from HPS",
+      "value": "13 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Empire waist",
+      "value": "36 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom sweep",
+      "value": "44 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom hem height",
+      "value": "3/16",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Center-front bodice length to empire",
+      "value": "1 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bodice length at side seam",
+      "value": "4 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Wearer left side-seam invisible zipper length",
+      "value": "5 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve length from armhole, including lace",
+      "value": "4 5/8",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Armhole straight",
+      "value": "8 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve opening",
+      "value": "12 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve-cap shirring spread evenly between outseam",
+      "value": "2 7/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Neck width H to H",
+      "value": "8 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back neck drop from HPS to H",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front neck drop from HPS to H",
+      "value": "10 1/4",
+      "deviation": "+3/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back fish-eye dart length",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Tie length exposed to point",
+      "value": "25 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Tie width",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bust shirring spread at empire",
+      "value": "2 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Start bust shirring from center-front seam",
+      "value": "2 1/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front length from HPS",
+      "value": "21 5/8",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Shoulder slope from HPS",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Shoulder seam forward",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across shoulder seam to seam",
+      "value": "14 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across front seam to seam",
+      "value": "13",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across back position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across back seam to seam",
+      "value": "13 7/8",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Chest 1 inch below armhole, side seam to side seam",
+      "value": "42 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Empire seam position from HPS",
+      "value": "14 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Empire waist",
+      "value": "39 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom sweep",
+      "value": "47 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom hem height",
+      "value": "3/16",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Center-front bodice length to empire",
+      "value": "2 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bodice length at side seam",
+      "value": "5 1/8",
+      "deviation": "+1/8",
+      "note": "Repeated and confirmed",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Wearer left side-seam invisible zipper length",
+      "value": "6",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve length from armhole, including lace",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Armhole straight",
+      "value": "9 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve opening",
+      "value": "13 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve-cap shirring spread evenly between outseam",
+      "value": "2 7/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Neck width H to H",
+      "value": "9 1/2",
+      "deviation": "+1/4",
+      "note": "Corrected from 8 3/4 to 9 1/2",
+      "confidence": 0.9
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Back neck drop from HPS to H",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front neck drop from HPS to H",
+      "value": "10 3/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Back fish-eye dart length",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Tie length exposed to point",
+      "value": "25 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Tie width",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bust shirring spread at empire",
+      "value": "2 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Start bust shirring from center-front seam",
+      "value": "2 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Front length from HPS",
+      "value": "22 3/8",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Shoulder slope from HPS",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Shoulder seam forward",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across shoulder seam to seam",
+      "value": "15",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across front seam to seam",
+      "value": "13 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across back position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across back seam to seam",
+      "value": "14 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Chest 1 inch below armhole, side seam to side seam",
+      "value": "45 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Empire seam position from HPS",
+      "value": "15 1/8",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Empire waist",
+      "value": "42 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bottom sweep",
+      "value": "50 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bottom hem height",
+      "value": "3/16",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Center-front bodice length to empire",
+      "value": "2 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bodice length at side seam",
+      "value": "5 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Wearer left side-seam invisible zipper length",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve length from armhole, including lace",
+      "value": "5 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Armhole straight",
+      "value": "10",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve opening",
+      "value": "15",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve-cap shirring spread evenly between outseam",
+      "value": "2 7/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Neck width H to H",
+      "value": "10 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Back neck drop from HPS to H",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Front neck drop from HPS to H",
+      "value": "10 1/2",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Back fish-eye dart length",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Tie length exposed to point",
+      "value": "25 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Tie width",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bust shirring spread at empire",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Start bust shirring from center-front seam",
+      "value": "1/4",
+      "deviation": "-1/8",
+      "note": "Spoken as 'one quarter'; possible clipped mixed number",
+      "confidence": 0.55
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Shell fabric",
+      "value": "Gumdrop velvet",
+      "deviation": "",
+      "note": "Entire garment",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Lining",
+      "value": "100% polyester",
+      "deviation": "",
+      "note": "Entire garment",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Tie fabric",
+      "value": "100% polyester",
+      "deviation": "",
+      "note": "Tie only",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Lace trim",
+      "value": "OK",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Invisible zipper",
+      "value": "OK",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Overlock thread",
+      "value": "Vardhman Tex 21",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Construction thread",
+      "value": "Vardhman Tex 27",
+      "deviation": "",
+      "note": "For all construction",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Main label stitching thread",
+      "value": "Vardhman Tex 21",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "Main label",
+      "value": "Horizontal end fold",
+      "deviation": "",
+      "note": "At center back; code 008",
+      "confidence": 1.0
+    }
+  ]
+}

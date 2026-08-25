@@ -8,7 +8,7 @@ from .csv_writer import (
     save_measurements_csv,
 )
 from .form_filler import fill_form
-from .graded_report import save_graded_csv, save_graded_pdf
+from .graded_report import attach_to_report, save_graded_csv, save_graded_pdf
 from .inspection_extractor import ExtractionError, extract_inspection, normalise_style_no
 from .inspection_record import (
     FORM_FIELDS,
@@ -35,6 +35,7 @@ __all__ = [
     "InspectionRow",
     "InspectionSheet",
     "TemplateError",
+    "attach_to_report",
     "extract_inspection",
     "fill_form",
     "load_json",

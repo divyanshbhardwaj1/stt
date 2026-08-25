@@ -18,6 +18,7 @@ from services.config import Settings
 from services.csv_filler import (
     FormTemplate,
     InspectionSheet,
+    attach_to_report,
     extract_inspection,
     load_json,
     load_template,
@@ -142,14 +143,31 @@ def extract_stage(transcript: Path, settings: Settings, template: FormTemplate) 
     return extract_inspection(transcript.read_text(encoding="utf-8"), settings, template)
 
 
-def validate_stage(sheet: InspectionSheet, settings: Settings) -> tuple[Alignment, StyleSet] | None:
+def validate_stage(
+    sheet: InspectionSheet, settings: Settings, style_no: str = ""
+) -> tuple[Alignment, StyleSet] | None:
     """Stage 3. Match the spoken measurements to the style set and judge them.
 
-    Returns None when the style set is unavailable — a missing or scanned sheet
+    `style_no` is the style the operator chose when uploading. It wins over the
+    number announced in the recording, which can be mis-heard — but a
+    disagreement between the two is logged rather than swallowed, because it
+    usually means the wrong recording was paired with the sheet.
+
+    Returns None when the style set is unavailable: a missing or scanned sheet
     should cost the graded report, not the whole run.
     """
+    announced = sheet.field("style_no")
+    chosen = style_no.strip() or announced
+    if style_no.strip() and announced and style_no.strip() != announced:
+        log.warning(
+            "style %s was chosen but the recording announces %s; using %s",
+            style_no.strip(),
+            announced,
+            style_no.strip(),
+        )
+
     try:
-        style = find_style_set(sheet.field("style_no"), settings.style_sets_dir)
+        style = find_style_set(chosen, settings.style_sets_dir)
     except (StyleSetNotFound, SpecSheetError) as exc:
         log.warning("no verdicts: %s", exc)
         return None
@@ -178,7 +196,10 @@ def write_stage(
     if validated:
         alignment, style = validated
         save_graded_csv(alignment, style, graded_csv_path(name, settings))
-        save_graded_pdf(alignment, style, graded_pdf_path(name, settings), source=name)
+        graded = save_graded_pdf(alignment, style, graded_pdf_path(name, settings), source=name)
+        # The graded sheet also ships standalone, for anyone who wants only the
+        # measurements, but the report a vendor receives is the whole thing.
+        attach_to_report(pdf, graded)
     return form_csv, measurements_csv, pdf, json_path
 
 
@@ -196,8 +217,13 @@ def run(
     retranscribe: bool = False,
     on_delta: Progress | None = None,
     announce: Progress | None = None,
+    style_no: str = "",
 ) -> PipelineResult:
-    """Run every stage for one recording."""
+    """Run every stage for one recording.
+
+    `style_no` names the style set to check against, overriding whatever the
+    recording announces.
+    """
     announce = announce or _silent
     template = load_form_template(settings)
 
@@ -211,8 +237,8 @@ def run(
     announce(f"extracting with {settings.extract_model}")
     sheet = extract_stage(transcript, settings, template)
 
-    announce("checking against the style set")
-    validated = validate_stage(sheet, settings)
+    announce(f"checking against style set {style_no}".rstrip())
+    validated = validate_stage(sheet, settings, style_no)
 
     name = resolve_output_name(recording.stem, settings)
     written = write_stage(sheet, name, settings, template, validated)
@@ -220,7 +246,9 @@ def run(
     return PipelineResult(name, transcript, sheet, *written, alignment=alignment, style=style)
 
 
-def rerender(name: str, settings: Settings, new_version: bool = False) -> PipelineResult:
+def rerender(
+    name: str, settings: Settings, new_version: bool = False, style_no: str = ""
+) -> PipelineResult:
     """Rebuild the CSVs and PDF from a saved extraction. No API call.
 
     Writes over that same version by default, because this is the same extraction
@@ -233,7 +261,7 @@ def rerender(name: str, settings: Settings, new_version: bool = False) -> Pipeli
         raise FileNotFoundError(saved)
     template = load_form_template(settings)
     sheet = load_json(saved)
-    validated = validate_stage(sheet, settings)
+    validated = validate_stage(sheet, settings, style_no)
     if new_version:
         name = resolve_output_name(name, settings)
     written = write_stage(sheet, name, settings, template, validated)

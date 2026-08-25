@@ -59,6 +59,13 @@ button {
   background: var(--accent); color: #fff; cursor: pointer;
 }
 button:disabled { opacity: .4; cursor: default; }
+.pick { display: block; margin: 12px 0 4px; font-size: 10.5px; font-weight: 650;
+        color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+select {
+  width: 100%; font: inherit; font-size: 12.5px; padding: 7px 8px; color: inherit;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .bar { height: 5px; background: var(--soft); border-radius: 99px; overflow: hidden; margin-top: 10px; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
 .err { margin-top: 9px; font-size: 12px; color: var(--bad); }
@@ -166,9 +173,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
     <div class="upload">
       <label class="drop" id="drop" for="file">
         <b id="label">Drop a recording</b>
-        <span>mp3 &middot; m4a &middot; wav &middot; webm &middot; max 25 MB</span>
+        <span>mp3 &middot; m4a &middot; wav &middot; webm &middot; large files are re-encoded automatically</span>
       </label>
       <input type="file" id="file" accept=".mp3,.mp4,.m4a,.wav,.webm,.mpeg,.mpga">
+      <label class="pick" for="style">Style set</label>
+      <select id="style">
+        <option value="">as announced in the recording</option>
+      </select>
       <button id="go" disabled>Upload and process</button>
       <div class="bar" id="bar" hidden><i id="fill"></i></div>
       <div class="err" id="err" hidden></div>
@@ -217,6 +228,7 @@ $("go").onclick = () => {
   // XHR, not fetch: only XHR reports upload progress, and these files are large.
   const body = new FormData();
   body.append("recording", chosen);
+  body.append("style_no", $("style").value);
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/api/jobs");
   xhr.upload.onprogress = e => {
@@ -286,7 +298,8 @@ function detail(job) {
     <div class="title">
       <h2>${esc(job.filename)}</h2><span class="pill ${job.status}">${job.status}</span>
     </div>
-    <div class="sub">${secs(job.elapsed)}${job.name ? " &middot; " + esc(job.name) : ""}</div>`;
+    <div class="sub">${secs(job.elapsed)}${job.name ? " &middot; " + esc(job.name) : ""}${
+      job.style_no ? " &middot; style " + esc(job.style_no) : ""}</div>`;
 
   if (job.status === "failed") {
     return `${head}<div class="panel"><h3>Error</h3>
@@ -354,7 +367,32 @@ function schedule(delay) {
   timer = setTimeout(refresh, delay);
 }
 
+async function loadStyleSets() {
+  const select = $("style");
+  const note = (text) => select.insertAdjacentHTML("beforeend",
+    `<option value="" disabled>${esc(text)}</option>`);
+  try {
+    const response = await fetch("/api/style-sets");
+    if (!response.ok) throw new Error(`/api/style-sets returned ${response.status}`);
+    const styles = await response.json();
+    if (!styles.length) {
+      note("no style sets in data/StyleSets");
+      return;
+    }
+    for (const style of styles) {
+      select.insertAdjacentHTML("beforeend",
+        `<option value="${esc(style)}">Style ${esc(style)}</option>`);
+    }
+  } catch (error) {
+    // An empty dropdown with no explanation reads as "no styles exist" when it
+    // usually means a stale tab pointed at an older server.
+    console.error("could not load style sets:", error);
+    note("could not load style sets - reload the page");
+  }
+}
+
 document.addEventListener("visibilitychange", () => !document.hidden && schedule(0));
+loadStyleSets();
 refresh();
 </script>
 </body>

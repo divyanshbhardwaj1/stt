@@ -32,6 +32,22 @@ def _numbers_in(name: str) -> set[str]:
     return set(DIGITS.findall(name))
 
 
+def list_style_numbers(directory: Path) -> list[str]:
+    """Every style number with a sheet on disk, sorted.
+
+    Read from filenames rather than by opening each PDF: Triburg run three to
+    four thousand styles, and parsing all of them to populate a dropdown would
+    make the page unusable.
+
+    ponytail: filename only. If descriptions are ever wanted in the list, build
+    an index keyed by path and mtime rather than parsing on every request.
+    """
+    numbers = set()
+    for path in style_set_files(directory):
+        numbers.update(_numbers_in(path.stem))
+    return sorted(numbers)
+
+
 def find_style_set(style_no: str, directory: Path) -> StyleSet:
     """Load the style set for `style_no`.
 
