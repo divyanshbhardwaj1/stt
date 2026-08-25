@@ -1,0 +1,601 @@
+{
+  "form": {
+    "style_no": "2356",
+    "division": "",
+    "date": "",
+    "description": "oversized flannel shirt piping",
+    "colour": "",
+    "grain_line": "OK",
+    "notches": "OK",
+    "graded_nest": "OK",
+    "corrections_implemented": "Yes",
+    "yy_mini_marker": "Yes",
+    "planned_submission_date": "11. 8",
+    "actual_submission_date": "24",
+    "pcd": "25",
+    "cut_quantity": "7 piece",
+    "size_set_inspection_result": "Pass with comment",
+    "shrinkage": "L = 1.5%  W = +3%",
+    "lining_shrinkage": "",
+    "shrinkage_note": "All four colors tested; pass not stated",
+    "measurement_result": "PASS",
+    "measurement_graded_nest": "OK",
+    "corrections_to_be_done": "Upgrade side seam and armhole overlock to match approved PP sample; correct pocket shape; loosen pocket cord; correct collar point and tie-space shape; correct locker loop measurement; remove skip stitches; improve stripe and plaid matching; correct uneven topstitch and placket waviness",
+    "bring_back_to_specs": "All measurements out of tolerance",
+    "cutting_check": "OK",
+    "seam_allowance": "OK",
+    "checks_corrections_implemented": "OK",
+    "overall": ""
+  },
+  "accessories": [
+    {
+      "item": "MAIN LABEL",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "WASHCARE",
+      "status": "ACT",
+      "note": "placement OK"
+    },
+    {
+      "item": "POLYBAG",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "FOLDING",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "SPARE BUTTON POSITION",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "BUTTON",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "THREAD",
+      "status": "ACT",
+      "note": ""
+    }
+  ],
+  "comments": [
+    {
+      "comment": "Approved PP sample has 6-thread overlock; updated tech pack has 5-thread overlock",
+      "vendor_action": "Upgrade side seam and armhole overlock to match approved PP sample"
+    },
+    {
+      "comment": "Pocket shape found poor",
+      "vendor_action": "Correct pocket shape"
+    },
+    {
+      "comment": "Cord found tight at pocket",
+      "vendor_action": "Loosen pocket cord"
+    },
+    {
+      "comment": "Poor collar point shape",
+      "vendor_action": "Correct collar point shape"
+    },
+    {
+      "comment": "Poor tie-space shape with overlap",
+      "vendor_action": "Correct tie-space shape and overlap"
+    },
+    {
+      "comment": "Locker loop measurement found minus",
+      "vendor_action": "Bring locker loop measurement back to spec"
+    },
+    {
+      "comment": "Skip stitch visible at cuff, placket slit and collar",
+      "vendor_action": "Remove skip stitches"
+    },
+    {
+      "comment": "Body stripe found wavy while pocket attached",
+      "vendor_action": "Keep body stripe straight during pocket attachment"
+    },
+    {
+      "comment": "Topstitch found uneven and placket bumping/wavy",
+      "vendor_action": "Correct topstitch and placket waviness"
+    },
+    {
+      "comment": "Hand feel observed slightly harsh",
+      "vendor_action": "Improve hand feel"
+    },
+    {
+      "comment": "Plaid found uneven at right back yoke, placket and collar",
+      "vendor_action": "Correct plaid matching"
+    }
+  ],
+  "rows": [
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Shell YY",
+      "value": "1.45 meter",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Locker loop consumption",
+      "value": "0.003 meter",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Pocket trim consumption",
+      "value": "0.01 meter",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Pattern shrinkage length",
+      "value": "1 1/2%",
+      "deviation": "",
+      "note": "all four colors",
+      "confidence": 1
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Pattern shrinkage width",
+      "value": "+3%",
+      "deviation": "",
+      "note": "all four colors",
+      "confidence": 1
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Overlock grade",
+      "value": "",
+      "deviation": "",
+      "note": "Approved PP sample has 6-thread overlock at side seam and armhole; updated tech pack states 5-thread",
+      "confidence": 0.9
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Pocket shape",
+      "value": "",
+      "deviation": "",
+      "note": "Poor shape; correct pocket shape",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Pocket cord",
+      "value": "",
+      "deviation": "",
+      "note": "Cord tight; loosen it",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Collar point shape",
+      "value": "",
+      "deviation": "",
+      "note": "Poor shape; correct it",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Tie-space shape",
+      "value": "",
+      "deviation": "",
+      "note": "Poor shape with overlap; correct it",
+      "confidence": 0.75
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Locker loop measurement",
+      "value": "",
+      "deviation": "",
+      "note": "Found minus; bring back to spec",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Skip stitch",
+      "value": "",
+      "deviation": "",
+      "note": "Visible at cuff, placket slit and collar; remove",
+      "confidence": 0.95
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Body stripe",
+      "value": "",
+      "deviation": "",
+      "note": "Wavy while pocket attached; keep straight",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Topstitch and placket",
+      "value": "",
+      "deviation": "",
+      "note": "Uneven topstitch and bumping/wavy placket; correct",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Hand feel",
+      "value": "",
+      "deviation": "",
+      "note": "Slightly harsh; improve",
+      "confidence": 1
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Plaid matching",
+      "value": "",
+      "deviation": "",
+      "note": "Uneven at right back yoke, placket and collar; correct",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Front length from HPS",
+      "value": "26",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Back length from HPS",
+      "value": "26 1/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Shoulder slope from HPS",
+      "value": "1 7/8",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Shoulder seam forward at neck",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Shoulder seam forward at armhole",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Across shoulder seam to seam",
+      "value": "17 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Across front position from HPS",
+      "value": "5",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Across front seam to seam",
+      "value": "16 1/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Across back at yoke seam",
+      "value": "17",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Chest 1 inch below armhole, pleat extended",
+      "value": "45",
+      "deviation": "+1/2",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Bottom opening straight above side seam",
+      "value": "45",
+      "deviation": "±1/8",
+      "note": "Deviation was spoken as plus/minus 1/8",
+      "confidence": 0.65
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Front side seam height",
+      "value": "4 3/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Back side seam height",
+      "value": "4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Bottom hem height, self turn",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Sleeve length from center back long",
+      "value": "32 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Sleeve cap height",
+      "value": "5 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Armhole straight",
+      "value": "8 7/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Muscles 1 inch from underarm",
+      "value": "15 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Elbow position from cuff",
+      "value": "13 1/4",
+      "deviation": "",
+      "note": "Speaker also said 'ten' before stating the required measurement",
+      "confidence": 0.62
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Sleeve opening, L oblique S at H",
+      "value": "8 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.85
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Sleeve cuff height",
+      "value": "2 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Sleeve placket opening length",
+      "value": "4 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Front neck drop from HPS",
+      "value": "3",
+      "deviation": "+1",
+      "note": "",
+      "confidence": 0.9
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Back neck drop from HPS to C",
+      "value": "3/4",
+      "deviation": "1/8",
+      "note": "Initially stated as -1/8; repeated without a sign",
+      "confidence": 0.55
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Back neck width seam to seam",
+      "value": "5 3/4",
+      "deviation": "1/8",
+      "note": "Tolerance wording was garbled and deviation sign was not stated",
+      "confidence": 0.65
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Neck band height at center",
+      "value": "1 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Collar point",
+      "value": "2 1/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Collar length at outer edge",
+      "value": "15 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Locker loop width",
+      "value": "3/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Locker loop grade",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.8
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Collar height at center back",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Center front placket",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Button position from neck to first button",
+      "value": "3",
+      "deviation": "",
+      "note": "Deviation was not stated",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Button position from bottom edge",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Center back yoke box pleat width",
+      "value": "1 1/2",
+      "deviation": "",
+      "note": "Deviation was not stated",
+      "confidence": 0.95
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Chest pocket length at center",
+      "value": "5 1/4",
+      "deviation": "",
+      "note": "Deviation was not stated",
+      "confidence": 1
+    },
+    {
+      "section": "measurement",
+      "size": "",
+      "field": "Pocket position from HPS",
+      "value": "8 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1
+    }
+  ]
+}

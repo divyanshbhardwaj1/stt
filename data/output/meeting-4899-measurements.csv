@@ -1,0 +1,56 @@
+﻿no,section,size,field,value,deviation,note,confidence,needs_review
+1,marker,,YY shell,1 9/20,,meter,0.98,
+2,marker,,Locker loop,3/1000,,meter,0.92,
+3,marker,,Pocket trim,1/100,,meter,0.98,
+4,shrinkage,,Pattern shrinkage length,1 1/2,,percent; all four colors,1.00,
+5,shrinkage,,Pattern shrinkage width,3,+3,percent; all four colors,1.00,
+6,construction,,Overlock grade,,,Approved PP sample has 6th grade overlock; updated tack pack has 5th grade overlock,0.95,
+7,comment,,Pocket shape,,,Found poor; correct shape,1.00,
+8,comment,,Cord at pocket,,,Found tight; correct tightness,1.00,
+9,comment,,Collar point shape,,,Poor shape; correct,1.00,
+10,comment,,Tie space shape,,,Poor shape and overlapping; correct,0.78,yes
+11,comment,,Locker loop measurement,,,Found minus; bring back to spec,0.95,
+12,comment,,"Stitching at cuff, placket slit and collar",,,Space stitch visible; correct,0.88,
+13,comment,,Body stripe at pocket,,,Found wavy while pocket attached; correct alignment,1.00,
+14,comment,,Top stitch and placket,,,Top stitch uneven; placket bumping and wavy,1.00,
+15,comment,,Hand feel,,,Slightly harsh; improve,1.00,
+16,comment,,Plaid alignment,,,"Uneven at right back yoke, placket and collar",1.00,
+17,measurement,,Front length from HPS,26,+1/8,,1.00,
+18,measurement,,Back length from HPS,26 1/4,+1/8,,1.00,
+19,measurement,,Shoulder slope from HPS,1 7/8,+1/8,,1.00,
+20,measurement,,Shoulder seam forward at neck,1/2,,Okay,1.00,
+21,measurement,,Shoulder seam forward at armhole,3/4,,Okay,1.00,
+22,measurement,,Across shoulder seam to seam,17 3/4,+1/4,,1.00,
+23,measurement,,Across front position from HPS,5,,,0.90,
+24,measurement,,Across front seam to seam,16 1/4,+1/4,,1.00,
+25,measurement,,Across back at yoke seam,17,+1/4,,1.00,
+26,measurement,,"Chest one inch below armhole, pleat extended",45,+1/2,,1.00,
+27,measurement,,Bottom opening straight above side seam,45,±1/8,Deviation spoken as plus-minus 1/8,0.82,yes
+28,measurement,,Front side seam height,4 3/4,+1/8,,1.00,
+29,measurement,,Back side seam height,4,+1/8,,1.00,
+30,measurement,,"Bottom hem height, self turn",1/4,,Okay,1.00,
+31,measurement,,Sleeve length from center back long,32 1/2,-1/4,,1.00,
+32,measurement,,Sleeve cap height,5 3/4,+1/4,,1.00,
+33,measurement,,Armhole straight,8 7/8,,Okay,1.00,
+34,measurement,,Muscles one inch from underarm,15 1/4,,Okay,1.00,
+35,measurement,,Elbow position from cuff,13 1/4,,Okay; word 'ten' also heard before elbow,0.76,yes
+36,measurement,,"Sleeve opening, L oblique S at H",8 1/2,,Okay,0.84,yes
+37,measurement,,Sleeve cuff height,2 1/2,,Okay,1.00,
+38,measurement,,Sleeve placket opening length,4 1/2,-1/8,,1.00,
+39,measurement,,Placket width,3/4,,Okay,1.00,
+40,measurement,,Front neck drop from HPS,3,+1,,0.90,
+41,measurement,,Back neck drop from HPS to C,3/4,+1/8,Initially called okay; later stated 1/8 deviation,0.62,yes
+42,measurement,,Back neck width seam to seam,5 3/4,+1/8,Initially stated -1/8; later stated 1/8 without a clear sign,0.55,yes
+43,measurement,,Neck band height at center,1 1/8,,Okay,0.95,
+44,measurement,,Collar point,2 1/4,-1/8,Word order was unclear,0.69,yes
+45,measurement,,Collar length at outer edge,15 3/4,-1/4,,1.00,
+46,measurement,,Locker loop width,3/8,-1/8,,1.00,
+47,measurement,,Locker loop grade,2,,Okay,0.94,
+48,measurement,,Collar height at center back,2,,Okay,1.00,
+49,measurement,,Center front placket,1,,Okay,1.00,
+50,measurement,,"Button position from neck, first button",3,,Deviation not stated,0.92,
+51,measurement,,Button position from bottom edge,1/4,,Okay,1.00,
+52,measurement,,Center back yoke box pleat width,1 1/2,,Deviation not stated,0.94,
+53,measurement,,Chest pocket length at center,5 1/4,,Deviation not stated,0.95,
+54,measurement,,Pocket position,8 3/4,,Okay; reference point was unclear,0.69,yes
+55,measurement,,Pocket position from center front,1 1/8,,Deviation was not completed,0.80,yes

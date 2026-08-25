@@ -246,6 +246,52 @@ def run(
     return PipelineResult(name, transcript, sheet, *written, alignment=alignment, style=style)
 
 
+def run_from_transcript(
+    transcript_text: str,
+    name: str,
+    settings: Settings,
+    style_no: str = "",
+    announce: Progress | None = None,
+) -> PipelineResult:
+    """Run every stage from an ALREADY-TRANSCRIBED inspection.
+
+    Same as :func:`run` with stage 1 skipped. The caller already holds the text
+    — it came from a live meeting transcript rather than from an audio file we
+    transcribed ourselves.
+
+    `name` is used for both the saved transcript and the output files, so it has
+    to be filesystem-safe; the caller owns that, because only it knows whether
+    the source was a meeting id, a title, or something else.
+
+    The text is written to `transcripts_dir` exactly as the audio path does.
+    That is not bookkeeping for its own sake: it keeps `rerender` working for
+    these runs, and leaves the input that produced a report next to the report.
+    """
+    announce = announce or _silent
+    if not transcript_text.strip():
+        raise ValueError("transcript is empty")
+
+    template = load_form_template(settings)
+
+    transcript = settings.transcripts_dir / f"{name}.txt"
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    transcript.write_text(transcript_text, encoding="utf-8")
+    announce(f"saved transcript {transcript.name} ({len(transcript_text)} chars)")
+
+    announce(f"extracting with {settings.extract_model}")
+    sheet = extract_stage(transcript, settings, template)
+
+    announce(f"checking against style set {style_no}".rstrip())
+    validated = validate_stage(sheet, settings, style_no)
+
+    output_name = resolve_output_name(name, settings)
+    written = write_stage(sheet, output_name, settings, template, validated)
+    alignment, style = validated if validated else (None, None)
+    return PipelineResult(
+        output_name, transcript, sheet, *written, alignment=alignment, style=style
+    )
+
+
 def rerender(
     name: str, settings: Settings, new_version: bool = False, style_no: str = ""
 ) -> PipelineResult:

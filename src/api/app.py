@@ -9,13 +9,14 @@ from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
 
 from services.config import ConfigError, Settings
 from services.style_set import list_style_numbers
 from services.transcript import AUDIO_SUFFIXES
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
 
-from .jobs import DONE, DOWNLOADS, JobStore, process
+from .jobs import DONE, DOWNLOADS, JobStore, process, process_transcript
 
 log = logging.getLogger(__name__)
 
@@ -127,6 +128,63 @@ async def create_job(
     background.add_task(process, job, destination, settings, store)
     log.info("queued job %s for %s (style %s)", job.id, destination.name, chosen or "as announced")
     return job.as_dict()
+
+
+class TranscriptJobRequest(BaseModel):
+    """An inspection that was transcribed elsewhere — a live meeting."""
+
+    transcript: str
+    style_no: str = ""
+    # Names the saved transcript and the output files, so it must be
+    # filesystem-safe. The caller owns that: only it knows whether the source
+    # was a meeting id, a title, or something else. Sanitised again here
+    # because a bad name would write outside the output directory.
+    name: str = "inspection"
+
+
+# NOT "/api/jobs/from-transcript": that path also matches the earlier
+# `GET /api/jobs/{job_id}` route, and Starlette answers a path match with the
+# wrong method as 405 rather than falling through to a later route. A distinct
+# path is robust regardless of declaration order.
+@app.post("/api/transcript-jobs", status_code=202)
+def create_job_from_transcript(
+    background: BackgroundTasks,
+    request: TranscriptJobRequest,
+    settings: SettingsDep,
+) -> dict[str, object]:
+    """Queue an inspection from transcript text instead of a recording.
+
+    Everything after transcription is identical to the upload path, so the
+    report is the same regardless of how the audio reached us.
+    """
+    text = request.transcript.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="transcript is empty")
+
+    chosen = request.style_no.strip()
+    if chosen and chosen not in list_style_numbers(settings.style_sets_dir):
+        raise HTTPException(status_code=404, detail=f"no style set for style {chosen}")
+
+    name = _safe_name(request.name)
+    job = store.create(f"{name}.txt", style_no=chosen)
+    background.add_task(process_transcript, job, text, name, settings, store)
+    log.info(
+        "queued transcript job %s as %s (%d chars, style %s)",
+        job.id, name, len(text), chosen or "as announced",
+    )
+    return job.as_dict()
+
+
+def _safe_name(name: str) -> str:
+    """A filesystem-safe stem.
+
+    Meeting titles arrive here, and they carry slashes, quotes and emoji. Only
+    the last path component is kept and only safe characters survive, so a
+    crafted name cannot escape `transcripts_dir` or `output_dir`.
+    """
+    stem = Path(name or "").name
+    cleaned = "".join(c if (c.isalnum() or c in " -_()") else "-" for c in stem).strip()
+    return (cleaned or "inspection")[:80]
 
 
 @app.get("/api/jobs/{job_id}/download/{kind}")

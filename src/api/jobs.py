@@ -113,14 +113,43 @@ class JobStore:
 def process(job: Job, recording: Path, settings: Settings, store: JobStore) -> None:
     """Run the whole pipeline for one upload, recording progress on the job."""
     del store  # the job object is shared; the store is only needed to look it up
+    _run_and_record(
+        job,
+        lambda announce: pipeline.run(
+            recording, settings, announce=announce, style_no=job.style_no
+        ),
+    )
+
+
+def process_transcript(
+    job: Job, transcript_text: str, name: str, settings: Settings, store: JobStore
+) -> None:
+    """Same, for an inspection that was transcribed elsewhere.
+
+    The text arrives from a live meeting transcript, so stage 1 is skipped.
+    Everything after it — extraction, grading against the style set, and all
+    four outputs — is identical, which is the point: one report format, however
+    the audio reached us.
+    """
+    del store
+    _run_and_record(
+        job,
+        lambda announce: pipeline.run_from_transcript(
+            transcript_text, name, settings, style_no=job.style_no, announce=announce
+        ),
+    )
+
+
+def _run_and_record(job: Job, invoke) -> None:
+    """Run one pipeline call and copy its result onto the job.
+
+    Shared by both entry points so the status payload the browser polls cannot
+    drift between them — a field populated for uploads but not for meetings
+    would show up as a silently empty column in the UI.
+    """
     job.status = RUNNING
     try:
-        result = pipeline.run(
-            recording,
-            settings,
-            announce=lambda message: setattr(job, "message", message),
-            style_no=job.style_no,
-        )
+        result = invoke(lambda message: setattr(job, "message", message))
     except Exception as exc:  # noqa: BLE001 - a background task must not die silently
         log.exception("job %s failed", job.id)
         job.status, job.error = FAILED, str(exc)
