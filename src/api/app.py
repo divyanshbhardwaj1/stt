@@ -170,7 +170,10 @@ def create_job_from_transcript(
     background.add_task(process_transcript, job, text, name, settings, store)
     log.info(
         "queued transcript job %s as %s (%d chars, style %s)",
-        job.id, name, len(text), chosen or "as announced",
+        job.id,
+        name,
+        len(text),
+        chosen or "as announced",
     )
     return job.as_dict()
 

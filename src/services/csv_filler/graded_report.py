@@ -41,14 +41,22 @@ LOW_CONFIDENCE_HEX = "#1d4ed8"
 MISSING_HEX = "#a0a4ab"
 MUTED_HEX = "#6b7280"
 FAIL_BG = colors.HexColor("#fdf0e6")
+# Out of tolerance is drawn round the cell rather than through its figures, so
+# it stays legible next to the confidence colour: the outline says whether the
+# measurement passed, the ink says how well it was heard. Heavier than the
+# grid's 0.3pt hairline or it reads as an artefact of the table.
+FAIL_BORDER = colors.HexColor(FAIL_HEX)
+FAIL_BORDER_WIDTH = 1.0
 NOT_MEASURED_BG = colors.HexColor("#fafbfc")
 # Triburg highlight the base-size column in yellow on every sheet.
 BASE_SIZE_BG = colors.HexColor("#ffffcc")
 BASE_SIZE_HEAD = colors.HexColor("#ffff00")
 
 # Below this the transcription of the value was uncertain, so the number is
-# printed in blue: it may be right, but it was not clearly heard.
-CONFIDENCE_FLOOR = 0.90
+# printed in blue: it may be right, but it was not clearly heard. Set at 1.0,
+# so anything the model was not fully certain of is marked — a reviewer would
+# rather glance past a confident-looking 95% than trust it.
+CONFIDENCE_FLOOR = 1.0
 
 MARGIN = 12 * mm
 PAGE_WIDTH = landscape(A4)[0] - 2 * MARGIN
@@ -97,25 +105,28 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 
 def _cell_ink(row) -> str:
-    """Colour for a reading: orange out of tolerance, blue when poorly heard.
+    """Colour for a reading: blue when it was not heard with full confidence.
 
-    Out of tolerance wins when a value is both, because that is the finding a
-    vendor has to act on; the confidence figure underneath still shows the doubt.
+    Tolerance is not in here. It is drawn as an orange outline round the cell,
+    so the two facts a reviewer needs — did it pass, and was it heard properly —
+    no longer compete for the same channel. A cell can now be both: blue figures
+    inside an orange outline is an out-of-tolerance value that also wants
+    checking against the recording.
     """
-    if row.is_fail:
-        return FAIL_HEX
-    if row.confidence < CONFIDENCE_FLOOR:
-        return LOW_CONFIDENCE_HEX
-    return INK_HEX
+    return LOW_CONFIDENCE_HEX if row.confidence < CONFIDENCE_FLOOR else INK_HEX
 
 
 def _cell_text(row, pom_row=None, size: str = "") -> str:
-    """Measured value, its deviation, and how confidently it was transcribed.
+    """The sheet's specified measurement, the deviation heard, and confidence.
 
-    A size nobody measured falls back to the style set's own specification, in
-    grey and labelled "spec". Showing the sheet's number keeps the column
-    readable; the label and the colour are what stop it being mistaken for
-    something the inspector actually measured.
+    The number is the style set's own specification, not the absolute the
+    inspector read aloud. The sheet is a generated document and is right; the
+    spoken absolute is a long number that speech recognition mangles. What the
+    inspection contributes is the deviation printed beneath it.
+
+    A size nobody measured falls back to that same specification in grey and
+    labelled "spec". Showing the sheet's number keeps the column readable; the
+    label and the colour are what stop it being mistaken for a reading.
     """
     if row is None:
         spec = pom_row.spec_for(size) if pom_row is not None else None
@@ -127,12 +138,18 @@ def _cell_text(row, pom_row=None, size: str = "") -> str:
         )
 
     ink = _cell_ink(row)
-    measured = fmt(row.measured) if row.measured is not None else "?"
-    lines = [f'<font color="{ink}">{measured}</font>']
+    # Fall back to the rebuilt measurement only for a size the sheet does not
+    # grade, where there is no specification to print.
+    printed = row.spec if row.spec is not None else row.measured
+    lines = [f'<font color="{ink}">{fmt(printed) if printed is not None else "?"}</font>']
 
-    if row.deviation is not None:
-        stated = "ok" if row.deviation == 0 else fmt(row.deviation, signed=True)
-        lines.append(f'<font size="5" color="{ink}">{stated}</font>')
+    # "ok" only where the inspector said okay. Every stated deviation is printed,
+    # inside the tolerance band or not: a measurement that moved is a fact the
+    # vendor reads off this sheet, and collapsing it to "ok" hid it.
+    if row.on_spec:
+        lines.append(f'<font size="5" color="{ink}">ok</font>')
+    elif row.deviation is not None:
+        lines.append(f'<font size="5" color="{ink}">{fmt(row.deviation, signed=True)}</font>')
 
     confidence_ink = LOW_CONFIDENCE_HEX if row.confidence < CONFIDENCE_FLOOR else MUTED_HEX
     lines.append(f'<font size="4.5" color="{confidence_ink}">{row.confidence:.0%}</font>')
@@ -195,6 +212,9 @@ def _measurement_table(
             if result is not None and result.is_fail:
                 column = 4 + sizes.index(size)
                 style_commands.append(("BACKGROUND", (column, index), (column, index), FAIL_BG))
+                style_commands.append(
+                    ("BOX", (column, index), (column, index), FAIL_BORDER_WIDTH, FAIL_BORDER)
+                )
         data.append(cells)
         if index % 2 == 0:
             style_commands.append(("BACKGROUND", (0, index), (3, index), BAND))
@@ -222,76 +242,150 @@ def _labelled(label: str, value: str, css: dict[str, ParagraphStyle]) -> list[ob
 
 def _title_bar(style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
     """The navy STYLE bar, with the garment sketch left and the eagle right."""
-    art = style.artwork
-    sketch_width = 20 * mm if art.sketch else 0
-    eagle_width = 18 * mm if art.eagle else 0
-
-    cells: list[object] = []
-    widths: list[float] = []
-    if art.sketch:
-        cells.append(_image(art.sketch, 17 * mm))
-        widths.append(sketch_width)
-
-    text_width = PAGE_WIDTH - sketch_width - eagle_width
-    first = len(cells)
-    cells += [
-        Paragraph(f"STYLE: {style.style_no}", css["stylebar"]),
-        Paragraph(style.description, css["stylebar_mid"]),
-        Paragraph(style.season, css["stylebar_right"]),
-    ]
-    widths += [text_width * 0.22, text_width * 0.56, text_width * 0.22]
-
-    if art.eagle:
-        cells.append(_image(art.eagle, 9 * mm))
-        widths.append(eagle_width)
-
-    bar = Table([cells], colWidths=widths, rowHeights=[19 * mm], hAlign="LEFT")
+    bar = Table(
+        [
+            [
+                Paragraph(f"STYLE: {style.style_no}", css["stylebar"]),
+                Paragraph(style.description, css["stylebar_mid"]),
+                Paragraph(style.season, css["stylebar_right"]),
+            ]
+        ],
+        colWidths=[PAGE_WIDTH * 0.22, PAGE_WIDTH * 0.56, PAGE_WIDTH * 0.22],
+        rowHeights=[7 * mm],
+        hAlign="LEFT",
+    )
     bar.setStyle(
         TableStyle(
             [
-                # Only the text spans carry the navy; the artwork sits on white,
-                # the way the style sets print it.
-                ("BACKGROUND", (first, 0), (first + 2, 0), HEAD_BG),
+                ("BACKGROUND", (0, 0), (-1, -1), HEAD_BG),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (0, 0), (-1, -1), "CENTRE"),
-                ("BOX", (0, 0), (-1, -1), 0.5, RULE),
-                ("LEFTPADDING", (first, 0), (first + 2, 0), 6),
-                ("RIGHTPADDING", (first, 0), (first + 2, 0), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
     return bar
 
 
+def _page_furniture(canvas, document, style: StyleSet) -> None:
+    """The diagonal approval wash and the footer, drawn on every page.
+
+    Both belong to the sheet rather than to any row, so they are painted under
+    and around the flowables rather than sitting in the story.
+    """
+    canvas.saveState()
+    canvas.setFont("Helvetica-Bold", 44)
+    canvas.setFillColor(colors.HexColor("#e8e8ea"))
+    canvas.translate(landscape(A4)[0] / 2, landscape(A4)[1] / 2)
+    canvas.rotate(20)
+    canvas.drawCentredString(0, 0, "APPROVED FOR PRODUCTION")
+    canvas.restoreState()
+
+    canvas.saveState()
+    canvas.setFont("Helvetica", 5.5)
+    canvas.setFillColor(MUTED)
+    baseline = 7 * mm
+    canvas.drawString(MARGIN, baseline, f"Source: {style.source.name}")
+    canvas.drawCentredString(
+        landscape(A4)[0] / 2,
+        baseline,
+        "2026 AEO Management Co. All Rights Reserved. Proprietary and Confidential AEO Business "
+        "Information. Subject to Legal Action if Disclosed Without Authorization from AEO.",
+    )
+    canvas.drawRightString(landscape(A4)[0] - MARGIN, baseline, f"Page {canvas.getPageNumber()}")
+    canvas.restoreState()
+
+
+def _info_block(style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
+    """Sketch on the left, the company block in the middle, eagle on the right.
+
+    Laid out the way Triburg print it, so the page reads as the same document.
+    """
+    fields = [
+        ("Company:", style.company),
+        ("Division / Dept:", style.division),
+        ("Season:", style.season),
+        ("Style Desc:", style.description),
+        ("Fit / Other:", ""),
+    ]
+    inner = Table(
+        [
+            [Paragraph(f"<b>{label}</b>", css["label"]), Paragraph(value, css["meta"])]
+            for label, value in fields
+        ],
+        colWidths=[32 * mm, PAGE_WIDTH - 32 * mm - 74 * mm],
+        hAlign="LEFT",
+    )
+    inner.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]
+        )
+    )
+
+    art = style.artwork
+    block = Table(
+        [[_image(art.sketch, 22 * mm), inner, _image(art.eagle, 13 * mm)]],
+        colWidths=[38 * mm, PAGE_WIDTH - 38 * mm - 36 * mm, 36 * mm],
+        hAlign="LEFT",
+    )
+    block.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (0, 0), "CENTRE"),
+                ("ALIGN", (2, 0), (2, 0), "CENTRE"),
+                ("LINEBEFORE", (2, 0), (2, 0), 0.5, RULE),
+                ("BOX", (0, 0), (-1, -1), 0.5, RULE),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]
+        )
+    )
+    return block
+
+
 def _meta_block(alignment: Alignment, style: StyleSet, css: dict[str, ParagraphStyle]) -> Table:
-    """The four-by-two metadata grid Triburg print under the banner."""
-    rows = [
-        _labelled("Company:", style.company, css)
-        + _labelled("Tolerance Model:", style.tolerance_model, css)
-        + _labelled("Size Range:", ", ".join(style.sizes), css),
-        _labelled("Division / Dept:", style.division, css)
-        + _labelled("POM Descr:", style.pom_descr, css)
-        + _labelled("Base Size:", style.base_size, css),
-        _labelled("Season:", style.season, css)
-        + _labelled("Modified By:", style.modified_by, css)
-        + _labelled("Sizes Measured:", ", ".join(alignment.sizes), css),
-        _labelled("Style Desc:", style.description, css)
-        + _labelled("Status:", style.status, css)
-        + _labelled(
-            "Measurement Result:",
+    """The two-column metadata grid, with the inspection result appended."""
+    left = [
+        ("Tolerance Model :", style.tolerance_model),
+        ("POM Descr :", style.pom_descr),
+        ("Block :", ""),
+        ("Modified By :", style.modified_by),
+        ("Sizes Measured :", ", ".join(alignment.sizes) or BLANK),
+    ]
+    right = [
+        ("Size Range :", ", ".join(style.sizes)),
+        ("Base Size :", style.base_size),
+        ("Grading Method/UM :", "Incremental / IN"),
+        ("Status :", style.status),
+        (
+            "Measurement Result :",
             f"{alignment.verdict or BLANK} "
             f"({len(alignment.failures)} of {len(alignment.judged)} out of tolerance)",
-            css,
         ),
     ]
-    label_width = 26 * mm
-    value_width = (PAGE_WIDTH - 3 * label_width) / 3
-    table = Table(rows, colWidths=[label_width, value_width] * 3, hAlign="LEFT")
+    label_width = 34 * mm
+    value_width = PAGE_WIDTH / 2 - label_width
+    rows = [
+        [
+            Paragraph(f"<b>{ll}</b>", css["label"]),
+            Paragraph(lv, css["meta"]),
+            Paragraph(f"<b>{rl}</b>", css["label"]),
+            Paragraph(rv, css["meta"]),
+        ]
+        for (ll, lv), (rl, rv) in zip(left, right, strict=True)
+    ]
+    table = Table(rows, colWidths=[label_width, value_width] * 2, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("TOPPADDING", (0, 0), (-1, -1), 1.5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
@@ -317,7 +411,14 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
     )
 
     banner = Table(
-        [[Paragraph("GRADE MEASUREMENTS - SIZE SET INSPECTION RESULT", css["banner"])]],
+        [
+            [
+                Paragraph(
+                    "GRADE MEASUREMENTS - APPROVED FOR PRODUCTION - TRIBURG CONSULTANTS PVT LTD.",
+                    css["banner"],
+                )
+            ]
+        ],
         colWidths=[PAGE_WIDTH],
         hAlign="LEFT",
     )
@@ -331,24 +432,43 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
         )
     )
 
+    status = Table(
+        [[Paragraph(f"STATUS: {style.status or BLANK}", css["status"])]],
+        colWidths=[PAGE_WIDTH],
+        hAlign="LEFT",
+    )
+    status.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.5, RULE),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+
     story: list[object] = [
-        Paragraph(f"STATUS: {style.status or BLANK}", css["status"]),
-        Spacer(1, 1.5 * mm),
+        status,
         _title_bar(style, css),
+        _info_block(style, css),
         banner,
         _meta_block(alignment, style, css),
         Spacer(1, 3 * mm),
         _measurement_table(alignment, style, css),
         Spacer(1, 2 * mm),
         Paragraph(
-            f"Each cell shows the measured value, its deviation, and how confidently it "
-            f"was transcribed. &nbsp;"
-            f'<font color="{FAIL_HEX}"><b>Orange</b> = outside tolerance.</font> &nbsp;'
-            f'<font color="{LOW_CONFIDENCE_HEX}"><b>Blue</b> = heard with under '
-            f"{CONFIDENCE_FLOOR:.0%} confidence, so confirm against the recording.</font> "
-            f'&nbsp; <font color="{MISSING_HEX}"><b>Grey</b> = the style set\'s own '
-            f"specification, shown for a size marked * that this inspection did not "
-            f"measure. Those are not readings.</font>",
+            "Each cell shows this style set's specified measurement, the deviation the "
+            "inspector called against it, and how confidently that was transcribed. "
+            "<b>ok</b> means the inspector said okay; every stated deviation is shown, "
+            "whether or not it falls inside the tolerance band. &nbsp;"
+            f'<font color="{FAIL_HEX}"><b>An orange outline</b> = outside tolerance.</font> '
+            f'&nbsp; <font color="{LOW_CONFIDENCE_HEX}"><b>Blue figures</b> = heard with under '
+            f"{CONFIDENCE_FLOOR:.0%} confidence, so confirm against the recording. The two "
+            f"are independent: an outlined cell with blue figures is out of tolerance "
+            f"<i>and</i> wants checking.</font> "
+            f'&nbsp; <font color="{MISSING_HEX}"><b>Grey</b> = a size marked * that this '
+            "inspection did not measure, so the specification is shown alone. Those "
+            "carry no reading.</font>",
             css["note"],
         ),
         Spacer(1, 3 * mm),
@@ -386,7 +506,10 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
         )
     )
 
-    document.build(story)
+    def furniture(canvas, doc):
+        _page_furniture(canvas, doc, style)
+
+    document.build(story, onFirstPage=furniture, onLaterPages=furniture)
     log.info("wrote %s", path)
     return path
 
@@ -430,6 +553,9 @@ GRADED_COLUMNS = (
     "pom",
     "description",
     "spoken_as",
+    # The absolute the inspector read aloud. It no longer drives the report, but
+    # a reviewer confirming a row against the recording needs to see it.
+    "heard",
     "spec",
     "measured",
     "deviation",
@@ -464,9 +590,14 @@ def save_graded_csv(alignment: Alignment, style: StyleSet, path: Path) -> Path:
                     row.pom,
                     row.description,
                     row.spoken,
+                    fmt(row.heard) if row.heard is not None else "",
                     fmt(row.spec) if row.spec is not None else "",
                     fmt(row.measured) if row.measured is not None else "",
-                    fmt(row.deviation, signed=True) if row.deviation is not None else "",
+                    "ok"
+                    if row.on_spec
+                    else fmt(row.deviation, signed=True)
+                    if row.deviation is not None
+                    else "",
                     fmt(row.tolerance_minus, signed=True)
                     if row.tolerance_minus is not None
                     else "",

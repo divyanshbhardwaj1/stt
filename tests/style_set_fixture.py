@@ -18,8 +18,9 @@ from reportlab.pdfgen import canvas
 SIZES = ("XXS", "XS", "S", "M", "L", "XL", "XXL")
 
 # (POM, description, tol-, tol+, one value per size). Includes the awkward cases
-# the parser must survive: a '*' note, a zero-tolerance reference row, fractions
-# written with a space, and a description long enough to wrap.
+# the parser must survive: a '*' note, a real point of measure that is also filed
+# under '*', a zero-tolerance reference row, fractions written with a space, and
+# a description long enough to wrap.
 ROWS = (
     ("*", "A FREE TEXT NOTE FROM DEVELOPMENT", "0", "0", ("0",) * 7),
     ("0.00A", "DISCLAIMER (KNIT): MEASURE GMTS IN WIDTH", "0", "0", ("0",) * 7),
@@ -52,7 +53,14 @@ ROWS = (
         "3/8",
         ("12", "13", "14", "15", "16 1/2", "18", "20"),
     ),
+    # A real point of measure with no POM code assigned yet, so Triburg file it
+    # under '*' alongside their notes. It is graded and toleranced like any
+    # other row and the inspector reads it aloud in this position.
+    ("*", "TIE WIDTH", "-1/4", "1/4", ("1",) * 7),
 )
+
+# The '*' rows that are genuine free text rather than points of measure.
+NOTE_DESCRIPTIONS = ("A FREE TEXT NOTE FROM DEVELOPMENT",)
 
 # The POM whose description is split across lines in the row layout, mirroring
 # how Triburg's exports wrap long text.
@@ -65,7 +73,7 @@ PAGE_BREAK_AFTER = 3
 EXPECTED_BASE_SIZE_SPECS = {
     pom: values[SIZES.index("M")] for pom, _, _, _, values in ROWS if pom != "*"
 }
-MEASURED_POMS = ("1.01C", "2.01A", "1.20A", "1.28A", "1.30A")
+MEASURED_POMS = ("1.01C", "2.01A", "1.20A", "1.28A", "1.30A", "*")
 
 PREAMBLE = (
     "STATUS: FNL",

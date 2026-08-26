@@ -17,6 +17,7 @@ from .conftest import REAL_STYLE_SETS
 from .style_set_fixture import (
     EXPECTED_BASE_SIZE_SPECS,
     MEASURED_POMS,
+    NOTE_DESCRIPTIONS,
     SIZES,
     write_cell_layout_style_set,
     write_scanned_style_set,
@@ -58,12 +59,38 @@ def test_every_row_is_parsed(style_set):
         "1.20A",
         "1.28A",
         "1.30A",
+        "*",
     ]
 
 
 def test_notes_and_zero_tolerance_rows_are_not_measured(style_set):
     """'*' notes and reference rows carry no tolerance, so nothing is checked."""
     assert [row.pom for row in style_set.measured_rows()] == list(MEASURED_POMS)
+
+
+def test_a_point_of_measure_filed_under_a_star_is_not_mistaken_for_a_note(style_set):
+    """Triburg file un-coded points of measure under '*', beside their notes.
+
+    Reading the code alone dropped them, and a row dropped from the middle of
+    the sheet shifts every row after it during alignment. Only the row with no
+    tolerance and no specs is a note.
+    """
+    notes = [row for row in style_set.rows if row.is_note]
+
+    assert [row.description for row in notes] == list(NOTE_DESCRIPTIONS)
+    tie = next(row for row in style_set.rows if row.description == "TIE WIDTH")
+    assert not tie.is_note
+    assert tie.is_measured
+    assert tie.spec_for("M") == F(1)
+    assert tie.tolerance_plus == F(1, 4)
+
+
+def test_an_uncoded_point_of_measure_keeps_its_place_in_the_sequence(style_set):
+    """It is read aloud in sheet order, so it has to be aligned against."""
+    spoken = style_set.spoken_rows()
+
+    assert [row.description for row in spoken][-1] == "TIE WIDTH"
+    assert all(not row.is_note for row in spoken)
 
 
 def test_both_layouts_describe_the_same_sheet(tmp_path):

@@ -1,1 +1,41 @@
-﻿no,size,pom,description,spoken_as,spec,measured,deviation,tol_minus,tol_plus,verdict,confidence,note
+﻿no,size,pom,description,spoken_as,heard,spec,measured,deviation,tol_minus,tol_plus,verdict,confidence,note
+7,S,1.01A,FRONT LENGTH FROM HPS,Front length from HPS,26,27 1/4,27 3/8,+1/8,-1/2,+1/2,pass,1.00,
+8,S,1.01B,BACK LENGTH FROM HPS,Back length from HPS,26 1/4,27 1/2,27 5/8,+1/8,-1/2,+1/2,pass,1.00,
+9,S,2.02A,SHOULDER SLOPE FROM HPS,Shoulder slope from HPS,1 7/8,1 7/8,2,+1/8,-1/4,+1/4,pass,1.00,
+10,S,2.01A,SHOULDER SEAM FORWARD @ NECK,Shoulder seam forward at neck,1/2,1/2,1/2,ok,-1/8,+1/8,pass,1.00,
+11,S,2.01B,SHOULDER SEAM FORWARD AT ARMHOLE,Shoulder seam forward at armhole,3/4,3/4,3/4,ok,-1/8,+1/8,pass,1.00,
+12,S,1.20A,ACROSS SHOULDER SEAM TO SEAM,Across shoulder seam to seam,17 3/4,18 3/4,19,+1/4,-3/8,+3/8,pass,1.00,
+13,S,1.22A,ACROSS FRONT POSITION,Across front position from HPS,5,5,5,ok,,,pass,0.95,
+14,S,1.23A,ACROSS FRONT SEAM TO SEAM,Across front seam to seam,16 1/4,17 1/4,17 1/2,+1/4,-3/8,+3/8,pass,1.00,
+15,S,1.25A,ACROSS BACK AT YOKE SEAM,Across back at yoke seam,17,18,18 1/4,+1/4,-3/8,+3/8,pass,1.00,
+16,S,1.28A,"CHEST 1"" BELOW ARMHOLE-PLEAT EXTENDED","Chest 1 inch below armhole, pleat extended",45,49,49 1/2,+1/2,-3/4,+3/4,pass,1.00,
+17,S,4.21A,BOTTOM OPENING STRAIGHT-ABOVE SHIRT TAIL,Bottom opening straight above side seam,45,49,49,ok,-3/4,+3/4,pass,0.55,Deviation spoken as plus/minus 1/8
+18,S,4.20A,FRONT SHIRT TAIL HEIGHT,Front side seam height,4 3/4,4 3/4,4 7/8,+1/8,-1/8,+1/8,pass,1.00,
+19,S,4.20A,BACK SHIRT TAIL HEIGHT,Back side seam height,4,4,4 1/8,+1/8,-1/8,+1/8,pass,1.00,
+20,S,3.22B,BOTTOM HEM HEIGHT - SELF TURN,"Bottom hem height, self turn",1/4,1/4,1/4,ok,-1/8,+1/8,pass,1.00,
+21,S,3.01A,SLEEVE LENGTH FROM CB LONG,Sleeve length from center back long,32 1/2,33 1/2,33 1/4,-1/4,-3/8,+3/8,pass,1.00,
+22,S,3.05A,SLEEVE CAP HEIGHT,Sleeve cap height,5 3/4,6 1/4,6 1/2,+1/4,-1/4,+1/4,pass,1.00,
+23,S,3.06B,ARMHOLE STRAIGHT,Armhole straight,8 7/8,9 5/8,9 5/8,ok,-3/8,+3/8,pass,1.00,
+24,S,3.13A,"MUSCLE 1"" FROM UNDERARM",Muscle 1 inch from underarm,15 1/4,16 3/4,16 3/4,ok,-1/4,+1/4,pass,1.00,
+25,S,3.14B,ELBOW POSITION FROM CUFF EDGE,Elbow position from cuff,10,10,10,ok,0,0,unjudged,0.90,
+26,S,3.15A,ELBOW,Elbow,13 1/4,14 1/2,14 1/2,ok,-1/4,+1/4,pass,0.85,
+27,S,3.19A,SLEEVE OPENING (L/S) @ EDGE,Sleeve opening L oblique S at H,8 1/2,9 1/2,9 1/2,ok,-1/4,+1/4,pass,0.80,
+28,S,3.22A,SLEEVE CUFF HEIGHT,Sleeve cuff height,2 1/2,2 1/2,2 1/2,ok,-1/8,+1/8,pass,1.00,
+29,S,3.24A,SLEEVE PLACKET OPENING LENGTH,Sleeve placket opening length,4 1/2,4 1/2,4 3/8,-1/8,-1/8,+1/8,pass,1.00,
+30,S,3.24C,SLEEVE PLACKET WIDTH,Sleeve placket width,3/4,3/4,3/4,ok,-1/8,+1/8,pass,0.85,Spoken as 'three placket width'
+31,S,2.03A,FRONT NECK DROP FROM HPS TO SEAM,Front neck drop from HPS,3,4,5,+1,-1/8,+1/8,FAIL,0.90,
+32,S,2.04A,BACK NECK DROP FROM HPS TO SEAM,Back neck drop from HPS to C,3/4,3/4,3/4,ok,-1/8,+1/8,pass,0.75,Later wording was unclear
+33,S,2.05C,BACK NECK WIDTH SEAM TO SEAM,Back neck width seam to seam,5 3/4,6 1/4,6 3/8,+1/8,-1/4,+1/4,pass,0.65,"Initially stated minus 1/8, then repeated as plus 1/8; last stated deviation used"
+34,S,2.09A,NECKBAND HEIGHT AT CB,Neck band height at center,1 1/8,1 1/8,1 1/8,ok,-1/8,+1/8,pass,0.95,
+35,S,2.11A,COLLAR POINT,Collar point,2 1/4,2 1/4,2 1/8,-1/8,-1/8,+1/8,pass,0.75,Word order was unclear
+36,S,2.08C,COLLAR LENGTH AT OUTER EDGE,Collar length at outer edge,15 3/4,17,16 3/4,-1/4,-1/4,+1/4,pass,1.00,
+37,S,9.01B,LOCKER LOOP WIDTH,Locker loop width,3/8,3/8,1/4,-1/8,-1/8,+1/8,pass,1.00,
+38,S,9.01C,LOCKER LOOP SPREAD,Locker loop grade,2,2,2,ok,-1/8,+1/8,pass,0.90,
+39,S,2.10A,COLLAR HEIGHT AT CB,Collar height at center back,2,2,2,ok,-1/8,+1/8,pass,1.00,
+40,S,2.18A,CENTER FRONT PLACKET WIDTH,Center front placket,1,1,1,ok,0,0,unjudged,0.95,
+41,S,*,BUTTON POSITION FRM NK SM TO 1ST BTN,Button position from neck to first button,3,3 1/4,3 1/4,ok,-1/8,+1/8,pass,0.95,Deviation not stated
+42,S,7.04B,BUTTON POSITION FROM BOTTOM EDGE,Button position from bottom edge,1/4,4 1/4,4 1/4,ok,-1/8,+1/8,pass,1.00,
+43,S,2.20B,CB YOKE BOX PLEAT WIDTH,Center back yoke box pleat width,1 1/2,1 1/2,1 1/2,ok,-1/8,+1/8,pass,0.95,Deviation not stated
+44,S,6.01A GR,CHEST POCKET LENGTH AT CENTER,Chest pocket length at center,5 1/4,5 1/2,5 1/2,ok,-1/8,+1/8,pass,0.95,Deviation not stated
+45,S,6.50A GR,CHEST POCKET POSITION FROM HPS,Pocket position,8 3/4,9 1/4,9 1/4,ok,-1/8,+1/8,pass,0.70,Reference point was unclear
+46,S,6.50C GR,CHEST POCKET POSITION FROM CF,Pocket position from center front,1 1/8,1 3/4,1 3/4,ok,-1/8,+1/8,pass,0.90,Deviation not stated

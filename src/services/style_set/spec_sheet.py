@@ -87,16 +87,33 @@ class PomRow:
     specs: dict[str, Fraction | None]
 
     @property
+    def _carries_measurements(self) -> bool:
+        """Whether the row has a tolerance band and a specification per size."""
+        if not any(value for value in self.specs.values()):
+            return False
+        return not (self.tolerance_minus == 0 and self.tolerance_plus == 0)
+
+    @property
     def is_note(self) -> bool:
-        """Triburg mixes free-text notes into the sheet under a '*' code."""
-        return self.pom == "*"
+        """Free text Triburg mix into the sheet, carrying no measurement.
+
+        Notes come in under a '*' code — but so do real points of measure that
+        have no POM code assigned yet: 'FRT LEG DEPTH 3" FRM CF', 'TIE WIDTH',
+        'START BUST SHIRRING FROM CF SEAM'. Those carry a tolerance band and a
+        graded value for every size; a note ("8/19/25 GD: FOLLOW BROWN RETAIL
+        BOXER") carries neither.
+
+        Reading the code alone dropped those real rows out of the middle of the
+        sheet, and a row dropped mid-sheet shifts every row after it during
+        alignment — style 2463 lost four and its whole graded report past the
+        hem was handed to the wrong points of measure.
+        """
+        return self.pom == "*" and not self._carries_measurements
 
     @property
     def is_measured(self) -> bool:
         """Whether this row carries a real measurement to check against."""
-        if self.is_note or not any(v for v in self.specs.values()):
-            return False
-        return not (self.tolerance_minus == 0 and self.tolerance_plus == 0)
+        return self._carries_measurements
 
     def spec_for(self, size: str) -> Fraction | None:
         return self.specs.get(size)

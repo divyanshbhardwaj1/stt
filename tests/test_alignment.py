@@ -57,7 +57,9 @@ def test_wording_outranks_a_value_that_fits_a_neighbour():
     own row (spec 13 1/2) but exactly equals the later "across back" row. Letting
     the value decide would move the reading onto the wrong POM and report a pass.
     """
-    result = align_size([spoken(1, "Across shoulder seam to seam", "13")], SHEET, "M")
+    result = align_size(
+        [spoken(1, "Across shoulder seam to seam", "13", deviation="-1/2")], SHEET, "M"
+    )
 
     assert result[0].pom == "1.20A"
     assert result[0].in_tolerance is False
@@ -96,16 +98,97 @@ def test_a_deviation_alone_pins_the_measurement():
 
 
 def test_a_reading_outside_the_band_fails():
-    result = align_size([spoken(1, "Across back seam to seam", "13 1/2")], SHEET, "M")
+    result = align_size(
+        [spoken(1, "Across back seam to seam", "13 1/2", deviation="+1/2")], SHEET, "M"
+    )
 
     assert result[0].is_fail
     assert fmt(result[0].deviation, signed=True) == "+1/2"
 
 
 def test_a_reading_on_the_boundary_passes():
-    result = align_size([spoken(1, "Across back seam to seam", "13 1/4")], SHEET, "M")
+    result = align_size(
+        [spoken(1, "Across back seam to seam", "13 1/4", deviation="+1/4")], SHEET, "M"
+    )
 
     assert result[0].in_tolerance is True
+
+
+def test_the_measurement_comes_from_the_sheet_not_the_recording():
+    """The style set is right; the spoken absolute is what ASR mangles.
+
+    "Across back seam to seam" is 13 on the sheet. The inspector called minus a
+    quarter, but the absolute came through as a garbled 11 5/8. The report must
+    read 13 with a -1/4 deviation, not 11 5/8.
+    """
+    result = align_size(
+        [spoken(1, "Across back seam to seam", "11 5/8", deviation="-1/4")], SHEET, "M"
+    )
+    row = result[0]
+
+    assert fmt(row.spec) == "13"
+    assert fmt(row.deviation, signed=True) == "-1/4"
+    assert fmt(row.measured) == "12 3/4"  # rebuilt from the sheet, not from 11 5/8
+    assert fmt(row.heard) == "11 5/8"  # kept for the audit trail only
+    assert row.in_tolerance is True
+
+
+def test_okay_is_only_okay_when_the_inspector_said_so():
+    """A blank deviation is the spoken "okay", not missing data."""
+    result = align_size([spoken(1, "Across back seam to seam", "13")], SHEET, "M")
+    row = result[0]
+
+    assert row.on_spec
+    assert row.deviation == 0
+    assert fmt(row.measured) == "13"
+
+
+def test_a_deviation_that_cannot_be_read_is_not_called_okay():
+    """A "±1/8" is the tolerance band quoted back, not a signed deviation.
+
+    A blank deviation means the inspector passed the row. Anything that was
+    said but could not be read is not that, and must not borrow the pass.
+    """
+    result = align_size([spoken(1, "Across back seam to seam", "13", deviation="±1/8")], SHEET, "M")
+    row = result[0]
+
+    assert row.matched
+    assert not row.on_spec
+    assert row.deviation is None
+    assert row.in_tolerance is None  # unjudged, so it shows up for review
+    assert row.needs_attention
+
+
+def test_a_deviation_inside_the_tolerance_band_is_still_reported():
+    """Passing is not the same as being on spec, and the vendor reads both."""
+    result = align_size(
+        [spoken(1, "Across back seam to seam", "13 1/8", deviation="+1/8")], SHEET, "M"
+    )
+    row = result[0]
+
+    assert row.in_tolerance is True  # +1/8 sits inside the -1/4 / +1/4 band
+    assert not row.on_spec  # but it is not "ok"
+    assert fmt(row.deviation, signed=True) == "+1/8"
+
+
+def test_a_transposed_pair_does_not_shift_everything_after_it():
+    """Style 7147: the inspector read back neck drop before front neck drop.
+
+    A pointer that only moves forward stepped past the front row and handed
+    every following reading to the next row down the sheet — the front neck drop
+    landed on the back fish dart and still reported a confident pass.
+    """
+    result = align_size(
+        [
+            spoken(1, "Across back seam to seam", "13", deviation="-1/8"),
+            spoken(2, "Across front seam to seam", "11 5/8", deviation="+1/8"),
+        ],
+        SHEET,
+        "M",
+    )
+
+    assert [row.pom for row in result] == ["1.25A", "1.23A"]
+    assert fmt(result[1].spec) == "11 5/8"  # the front row, not whatever followed it
 
 
 def test_something_unrecognisable_is_left_unmatched():

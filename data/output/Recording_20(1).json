@@ -16,29 +16,37 @@
     "cut_quantity": "",
     "size_set_inspection_result": "Pass with comment",
     "shrinkage": "L -2.4% to -2.8%, W -0.8%",
+    "lining_shrinkage": "",
+    "shrinkage_note": "",
     "measurement_result": "",
     "measurement_graded_nest": "OK",
     "corrections_to_be_done": "Maintain approved crinkle effect on placket; add shanking to buttons to prevent gaping; print label",
+    "bring_back_to_specs": "",
     "cutting_check": "OK",
     "seam_allowance": "",
-    "checks_corrections_implemented": ""
+    "checks_corrections_implemented": "",
+    "overall": ""
   },
   "accessories": [
     {
       "item": "MAIN LABEL",
-      "status": "ALT"
+      "status": "ALT",
+      "note": ""
     },
     {
       "item": "BUTTON",
-      "status": "ALT"
+      "status": "ALT",
+      "note": ""
     },
     {
       "item": "THREAD",
-      "status": "ACT"
+      "status": "ACT",
+      "note": ""
     },
     {
       "item": "INTERLINING",
-      "status": "ACT"
+      "status": "ACT",
+      "note": ""
     }
   ],
   "comments": [

@@ -29,6 +29,13 @@ log = logging.getLogger(__name__)
 # than right.
 LOOKAHEAD = 6
 
+# How far back to look. The inspector sometimes reads a neighbouring pair the
+# other way round — front neck drop and back neck drop on style 7147 — and a
+# pointer that only ever moves forward cannot recover: it steps past the row it
+# skipped and every following reading lands one row down the sheet. Kept tight,
+# because a row already passed is usually passed for a reason.
+LOOKBEHIND = 2
+
 # Below this the spoken name resembles no nearby row well enough to claim a match.
 MATCH_THRESHOLD = 0.32
 
@@ -65,6 +72,12 @@ class AlignedRow:
     sheet_index: int = -1
     tolerance_minus: Fraction | None = None
     tolerance_plus: Fraction | None = None
+    # The absolute the inspector read aloud. Carried for the audit trail only:
+    # it is the part speech recognition mangles, so it never decides a verdict.
+    heard: Fraction | None = None
+    # The inspector said "okay" rather than calling a deviation. Distinct from a
+    # deviation that merely computes to zero, which is not the same claim.
+    on_spec: bool = False
 
     @property
     def matched(self) -> bool:
@@ -155,29 +168,53 @@ def _value_score(measured: Fraction | None, row: PomRow, size: str) -> float:
 
 def _judge(
     row: PomRow, size: str, value: str, stated_deviation: str
-) -> tuple[Fraction | None, Fraction | None, bool | None]:
-    """Measured value, deviation from spec, and whether it is inside tolerance."""
-    spec = row.spec_for(size)
-    measured = parse(value)
-    stated = parse(stated_deviation)
+) -> tuple[Fraction | None, Fraction | None, bool | None, bool]:
+    """Measurement, deviation, verdict, and whether the inspector called it okay.
 
-    # An inspector who only calls the deviation still pins the measurement down.
-    if measured is None and stated is not None and spec is not None:
-        measured = spec + stated
-    if measured is None or spec is None:
-        return measured, stated, None
+    The style set is authoritative for the measurement. The inspector dictates
+    every point of measure as an absolute followed by either a deviation or
+    "okay" — and the absolute is the part speech recognition mangles ("two
+    ampere, one quarter" for 2 1/4, "3 sixteen" for 3/16), while the deviation
+    phrase comes through clean. So the deviation is taken as stated and the
+    measurement is rebuilt from the sheet as spec + deviation.
+
+    A blank deviation is the spoken "okay", not missing data: no point of
+    measure is left without one. The heard absolute is never used to derive a
+    deviation — trusting it is what put mis-transcribed numbers on the report.
+    """
+    spec = row.spec_for(size)
+    spoken = stated_deviation.strip()
+    stated = parse(spoken)
+    heard = parse(value)
+
+    if spec is None:
+        # A size this sheet does not grade. Nothing to rebuild from, and nothing
+        # to judge against, so the recording is all there is.
+        return heard, stated, None, False
+
+    if spoken and stated is None:
+        # Something was said, but it is not a signed deviation: "±1/8" is the
+        # tolerance band quoted back, not a reading. Left unjudged and without a
+        # deviation rather than called okay — a blank deviation means the
+        # inspector passed the row, and this is not that.
+        return spec, None, None, False
+
+    on_spec = not spoken
+    deviation = Fraction(0) if on_spec else stated
+    measured = spec + deviation
+
     if not row.is_measured:
         # Position and reference rows are read aloud but carry no tolerance,
         # so there is nothing to pass or fail against.
-        return measured, measured - spec, None
+        return measured, deviation, None, on_spec
 
-    deviation, ok = check_tolerance(
+    _, ok = check_tolerance(
         spec,
         measured,
         row.tolerance_minus if row.tolerance_minus is not None else Fraction(0),
         row.tolerance_plus if row.tolerance_plus is not None else Fraction(0),
     )
-    return measured, deviation, ok
+    return measured, deviation, ok, on_spec
 
 
 def align_size(
@@ -192,14 +229,18 @@ def align_size(
     """
     aligned: list[AlignedRow] = []
     pointer = 0
+    # Sheet rows already spoken for. This is what keeps two readings off the
+    # same row, which the forward-only pointer used to guarantee on its own.
+    claimed: set[int] = set()
 
     for number, field, value, deviation, confidence, note in spoken_rows:
         measured = parse(value)
         candidates = []
-        for offset in range(LOOKAHEAD):
-            index = pointer + offset
+        for index in range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD):
             if index >= len(sheet_rows):
                 break
+            if index in claimed:
+                continue
             candidate = sheet_rows[index]
             candidates.append(
                 (
@@ -232,13 +273,17 @@ def align_size(
                     in_tolerance=None,
                     confidence=confidence,
                     note=note,
+                    heard=measured,
                 )
             )
             continue
 
         row = sheet_rows[best_index]
-        pointer = best_index + 1
-        actual, gap, ok = _judge(row, size, value, deviation)
+        claimed.add(best_index)
+        # Never backwards: a reading that reclaimed a skipped row must not send
+        # the search back over ground already covered.
+        pointer = max(pointer, best_index + 1)
+        actual, gap, ok, on_spec = _judge(row, size, value, deviation)
         aligned.append(
             AlignedRow(
                 number=number,
@@ -255,6 +300,8 @@ def align_size(
                 sheet_index=best_index,
                 tolerance_minus=row.tolerance_minus,
                 tolerance_plus=row.tolerance_plus,
+                heard=measured,
+                on_spec=on_spec,
             )
         )
     return aligned
