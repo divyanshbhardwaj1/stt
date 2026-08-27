@@ -59,8 +59,24 @@ ROWS = (
     ("*", "TIE WIDTH", "-1/4", "1/4", ("1",) * 7),
 )
 
+# Lines Triburg print among the measurement rows as words: an instruction and a
+# dated development note. They carry one padding zero per size and NO tolerance
+# columns, which is what used to cost them the tail of their wording. They are
+# part of the client's document, so they must come through verbatim.
+TEXT_LINES = (
+    ("*", '***CATCH ELASTIC W/ WB STITCH 1/2" AT WB'),
+    ("*", "8/19/25 GD: FOLLOW BROWN RETAIL BOXER FOR FIT"),
+)
+
+# Where TEXT_LINES are dropped in, as an index into ROWS.
+TEXT_LINES_AFTER = 2
+
+# A real point of measure whose tolerance columns are blank, as Triburg leave
+# them on position rows. Its numbers are the per-size column, not tolerances.
+BLANK_TOLERANCE_ROW = ("1.22A", "ACROSS FRONT POSITION FROM HPS", ("5",) * 7)
+
 # The '*' rows that are genuine free text rather than points of measure.
-NOTE_DESCRIPTIONS = ("A FREE TEXT NOTE FROM DEVELOPMENT",)
+NOTE_DESCRIPTIONS = ("A FREE TEXT NOTE FROM DEVELOPMENT", *(d for _, d in TEXT_LINES))
 
 # The POM whose description is split across lines in the row layout, mirroring
 # how Triburg's exports wrap long text.
@@ -94,6 +110,11 @@ def row_layout_lines() -> list[str]:
     """One line per row, the layout most Triburg exports use."""
     lines = [*PREAMBLE, f"POM Description Tol- Tol+ {' '.join(SIZES)}"]
     for index, (pom, description, minus, plus, values) in enumerate(ROWS):
+        if index == TEXT_LINES_AFTER:
+            # Words plus one padding zero per size, no tolerance columns.
+            lines += [f"{pom} {text} {' '.join(['0'] * len(SIZES))}" for pom, text in TEXT_LINES]
+            blank_pom, blank_desc, blank_values = BLANK_TOLERANCE_ROW
+            lines.append(f"{blank_pom} {blank_desc} {' '.join(blank_values)}")
         numbers = f"{minus} {plus} {' '.join(values)}"
         if pom == WRAPPED_POM:
             head, tail = description.rsplit(" ", 1)
@@ -133,7 +154,13 @@ def cell_layout_lines() -> list[str]:
         " Tol+",
         *[f" {size}" for size in SIZES],
     ]
-    for pom, description, minus, plus, values in ROWS:
+    for index, (pom, description, minus, plus, values) in enumerate(ROWS):
+        if index == TEXT_LINES_AFTER:
+            for text_pom, text in TEXT_LINES:
+                lines += [text_pom, text]
+                lines += [" 0"] * len(SIZES)
+            blank_pom, blank_desc, blank_values = BLANK_TOLERANCE_ROW
+            lines += [blank_pom, blank_desc, *[f" {v}" for v in blank_values]]
         lines += [pom, description, f" {minus}", f" {plus}"]
         lines += [f" {value}" for value in values]
     return lines

@@ -47,6 +47,7 @@ def save_measurements_csv(sheet: InspectionSheet, path: Path) -> Path:
                     row.field,
                     row.value,
                     row.deviation,
+                    row.verdict,
                     row.note,
                     f"{row.confidence:.2f}",
                     "yes" if row.needs_review else "",

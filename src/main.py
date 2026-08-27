@@ -101,6 +101,19 @@ def report_verdicts(result: pipeline.PipelineResult) -> None:
     )
     print(f"measurement result: {alignment.verdict or 'not determined'}")
 
+    open_questions = alignment.unconfirmed
+    if open_questions:
+        print()
+        print(
+            f"{len(open_questions)} point(s) of measure have NO captured verdict. "
+            "These are not passes - listen back and fill them in:"
+        )
+        for row in open_questions[:MAX_FLAGGED_SHOWN]:
+            spec = fmt(row.spec) if row.spec is not None else "?"
+            print(f"  {row.pom:<9}{row.size:>3}  {row.description[:42]:<42} spec {spec}")
+        if len(open_questions) > MAX_FLAGGED_SHOWN:
+            print(f"  ... and {len(open_questions) - MAX_FLAGGED_SHOWN} more, see the graded CSV")
+
     failures = alignment.failures
     if not failures:
         return

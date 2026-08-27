@@ -15,6 +15,12 @@ DEFAULT_TRANSCRIBE_MODEL = "gpt-transcribe"
 DEFAULT_EXTRACT_MODEL = "gpt-5.6-sol"
 DEFAULT_FORM_TEMPLATE = "size-set.xls"
 
+# How many independent transcriptions of each recording to take. Two, because a
+# single pass silently drops short verdicts and there is no way to tell from the
+# result that it did. Set SIZESET_TRANSCRIBE_PASSES=1 to halve the transcription
+# cost, accepting that more points of measure will come back unconfirmed.
+DEFAULT_TRANSCRIBE_PASSES = 2
+
 
 class ConfigError(RuntimeError):
     """Required configuration is missing or invalid."""
@@ -33,6 +39,14 @@ def load_env_file(path: Path | None = None) -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
+def _whole(text: str | None, fallback: int) -> int:
+    """A positive integer from the environment, or the fallback if it is not one."""
+    try:
+        return int(str(text).strip())
+    except (TypeError, ValueError):
+        return fallback
+
+
 @dataclass(frozen=True)
 class Settings:
     """Resolved configuration, passed to every service."""
@@ -42,6 +56,7 @@ class Settings:
     extract_model: str
     data_dir: Path
     form_template_name: str = DEFAULT_FORM_TEMPLATE
+    transcribe_passes: int = DEFAULT_TRANSCRIBE_PASSES
 
     @property
     def recordings_dir(self) -> Path:
@@ -93,4 +108,8 @@ class Settings:
             extract_model=env.get("SIZESET_EXTRACT_MODEL", DEFAULT_EXTRACT_MODEL),
             data_dir=Path(env.get("SIZESET_DATA_DIR") or PROJECT_ROOT / "data"),
             form_template_name=env.get("SIZESET_FORM_TEMPLATE", DEFAULT_FORM_TEMPLATE),
+            transcribe_passes=max(
+                1,
+                _whole(env.get("SIZESET_TRANSCRIBE_PASSES"), DEFAULT_TRANSCRIBE_PASSES),
+            ),
         )

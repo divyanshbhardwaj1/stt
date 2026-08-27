@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,7 @@ from services.csv_filler import (
     FormTemplate,
     InspectionSheet,
     attach_to_report,
+    combine_passes,
     extract_inspection,
     load_json,
     load_template,
@@ -38,7 +40,13 @@ from services.style_set import (
     align,
     find_style_set,
 )
-from services.transcript import save_transcript, transcribe_recording, transcript_path_for
+from services.transcript import (
+    compress_for_upload,
+    compressed_name,
+    save_transcript,
+    transcribe_recording,
+    transcript_path_for,
+)
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +83,14 @@ class PipelineResult:
             return None
         base = self.pdf_path.with_suffix("")
         return base.with_name(f"{base.name}-graded.csv"), base.with_name(f"{base.name}-graded.pdf")
+
+    @property
+    def graded_csv_path(self) -> Path | None:
+        return self.graded_paths[0] if self.graded_paths else None
+
+    @property
+    def graded_pdf_path(self) -> Path | None:
+        return self.graded_paths[1] if self.graded_paths else None
 
 
 def _silent(_: str) -> None:
@@ -138,9 +154,46 @@ def transcribe_stage(
     return save_transcript(recording, text, settings)
 
 
-def extract_stage(transcript: Path, settings: Settings, template: FormTemplate) -> InspectionSheet:
-    """Stage 2. Transcript -> filled inspection sheet, via one LLM call."""
-    return extract_inspection(transcript.read_text(encoding="utf-8"), settings, template)
+def second_pass_path(transcript: Path) -> Path:
+    """Where the second transcription of a recording is kept, for audit."""
+    return transcript.with_name(f"{transcript.stem}.pass2{transcript.suffix}")
+
+
+def transcribe_again(recording: Path, settings: Settings, announce: Progress | None = None) -> str:
+    """A second, independent transcription of the same audio.
+
+    Repeating the request verbatim is worthless: the API returns the same text
+    for the same bytes, verified on both a two-minute and a fifty-six-minute
+    recording. So the audio is re-encoded first — to the 16 kHz mono the
+    recogniser resamples to anyway, which changes every byte while leaving the
+    speech identical. That is enough to get a genuinely independent reading: on
+    a two-minute sample each pass recovered words the other had dropped.
+
+    Returns "" rather than raising. A lost second pass costs some certainty; it
+    must not cost the whole run.
+    """
+    try:
+        with tempfile.TemporaryDirectory(prefix="sizeset-pass2-") as scratch:
+            recoded = compress_for_upload(recording, Path(scratch) / compressed_name(recording))
+            return transcribe_recording(recoded, settings)
+    except Exception as exc:  # noqa: BLE001 - a second opinion is a bonus, never a blocker
+        log.warning("second transcription pass failed, continuing on one pass: %s", exc)
+        if announce:
+            announce("second pass failed; continuing on one transcription")
+        return ""
+
+
+def extract_stage(
+    transcript: Path, settings: Settings, template: FormTemplate, second: str = ""
+) -> InspectionSheet:
+    """Stage 2. Transcript -> filled inspection sheet, via one LLM call.
+
+    When a second transcription is supplied both are sent together and the model
+    reconciles them, which is what turns a verdict one pass dropped from an open
+    question back into an answer.
+    """
+    text = combine_passes(transcript.read_text(encoding="utf-8"), second)
+    return extract_inspection(text, settings, template)
 
 
 def validate_stage(
@@ -228,14 +281,17 @@ def run(
     template = load_form_template(settings)
 
     transcript = transcript_path_for(recording, settings)
-    if transcript.is_file() and not retranscribe:
+    reused = transcript.is_file() and not retranscribe
+    if reused:
         announce(f"reusing transcript {transcript.name}")
     else:
         announce(f"transcribing {recording.name}")
         transcript = transcribe_stage(recording, settings, on_delta=on_delta, announce=announce)
 
+    second = _second_pass(recording, transcript, settings, reused, announce)
+
     announce(f"extracting with {settings.extract_model}")
-    sheet = extract_stage(transcript, settings, template)
+    sheet = extract_stage(transcript, settings, template, second)
 
     announce(f"checking against style set {style_no}".rstrip())
     validated = validate_stage(sheet, settings, style_no)
@@ -244,6 +300,35 @@ def run(
     written = write_stage(sheet, name, settings, template, validated)
     alignment, style = validated if validated else (None, None)
     return PipelineResult(name, transcript, sheet, *written, alignment=alignment, style=style)
+
+
+def _second_pass(
+    recording: Path,
+    transcript: Path,
+    settings: Settings,
+    reused: bool,
+    announce: Progress,
+) -> str:
+    """The second transcription: read from disk if we already have one, else taken.
+
+    Saved beside the first so a reviewer can see both readings of the audio, and
+    so a rerun does not pay for it twice.
+    """
+    if settings.transcribe_passes < 2:
+        return ""
+
+    saved = second_pass_path(transcript)
+    if reused and saved.is_file():
+        announce(f"reusing second pass {saved.name}")
+        return saved.read_text(encoding="utf-8")
+
+    announce("transcribing a second time to cross-check the verdicts")
+    text = transcribe_again(recording, settings, announce=announce)
+    if text:
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        saved.write_text(text, encoding="utf-8")
+        announce(f"second pass saved ({len(text)} chars)")
+    return text
 
 
 def run_from_transcript(

@@ -1,12 +1,13 @@
 """Matching spoken measurements to POM rows, and judging them against tolerance."""
 
+import types
 from fractions import Fraction as F
 
 import pytest
 
 from services.csv_filler.graded_report import BLANK, MISSING_HEX
 from services.measurements import format_measurement as fmt
-from services.style_set import align_size, read_style_set
+from services.style_set import align, align_size, read_style_set
 from services.style_set.spec_sheet import PomRow
 
 from .style_set_fixture import write_style_set
@@ -22,8 +23,50 @@ def pom(code, description, minus="-1/4", plus="1/4", **specs):
     )
 
 
-def spoken(number, field, value, deviation="", confidence=1.0, note=""):
-    return (number, field, value, deviation, confidence, note)
+def spoken(number, field, value, deviation="", confidence=1.0, note="", verdict=None):
+    """One dictated row.
+
+    `verdict` defaults to what the words imply — a deviation was called, or the
+    inspector passed it aloud. Pass "not stated" for the case where the
+    transcript captured neither.
+    """
+    if verdict is None:
+        verdict = "deviation" if deviation else "okay"
+    return (number, field, value, deviation, confidence, note, verdict == "okay")
+
+
+class _Row:
+    """One extracted measurement row, as `align` consumes it."""
+
+    def __init__(self, field, value, deviation, verdict):
+        self.section, self.size = "measurement", "M"
+        self.field, self.value, self.deviation = field, value, deviation
+        self.confidence, self.note, self.verdict = 1.0, "", verdict
+
+    @property
+    def confirmed_okay(self):
+        return self.verdict == "okay"
+
+
+class _SheetStub:
+    def __init__(self, rows):
+        self.rows = [_Row(*r) for r in rows]
+
+    def sizes(self):
+        return ["M"]
+
+    def rows_in(self, section, size=None):
+        return [(i, r) for i, r in enumerate(self.rows, 1) if r.section == section]
+
+
+def _sheet_stub(rows):
+    return _SheetStub(rows)
+
+
+def _style_stub():
+    return types.SimpleNamespace(
+        style_no="9999", sizes=("M",), base_size="M", spoken_rows=lambda: SHEET
+    )
 
 
 SHEET = [
@@ -189,6 +232,64 @@ def test_a_transposed_pair_does_not_shift_everything_after_it():
 
     assert [row.pom for row in result] == ["1.25A", "1.23A"]
     assert fmt(result[1].spec) == "11 5/8"  # the front row, not whatever followed it
+
+
+def test_a_missing_verdict_is_never_reported_as_on_spec():
+    """The costly case: transcription drops the short verdict after a value.
+
+    A blank deviation is equally consistent with "the inspector said okay" and
+    "we lost the word". Only the first may print ok, so the second comes out as
+    an open question rather than borrowing the pass.
+    """
+    result = align_size(
+        [spoken(1, "Across back seam to seam", "13", verdict="not stated")], SHEET, "M"
+    )
+    row = result[0]
+
+    assert row.unconfirmed
+    assert not row.on_spec
+    assert row.deviation is None
+    assert row.in_tolerance is None
+    assert row.needs_attention
+
+
+def test_a_heard_okay_still_passes_cleanly():
+    """The guarantee must not turn every clean row into an open question."""
+    result = align_size([spoken(1, "Across back seam to seam", "13", verdict="okay")], SHEET, "M")
+    row = result[0]
+
+    assert row.on_spec
+    assert not row.unconfirmed
+    assert row.in_tolerance is True
+
+
+def test_a_gap_cannot_report_a_clean_pass():
+    """A run with an unanswered point of measure is not a PASS."""
+    clean = align(_sheet_stub([("Across back seam to seam", "13", "", "okay")]), _style_stub())
+    assert clean.verdict == "PASS"
+
+    gapped = align(
+        _sheet_stub(
+            [
+                ("Across back seam to seam", "13", "", "okay"),
+                ("Across front seam to seam", "11 5/8", "", "not stated"),
+            ]
+        ),
+        _style_stub(),
+    )
+
+    assert gapped.verdict == "PASS PENDING 1 CHECK"
+    assert len(gapped.unconfirmed) == 1
+
+
+def test_a_run_with_nothing_confirmed_is_not_called_a_pass():
+    """No verdict captured anywhere. There is no pass to be pending on."""
+    nothing = align(
+        _sheet_stub([("Across back seam to seam", "13", "", "not stated")]), _style_stub()
+    )
+
+    assert nothing.verdict == "UNVERIFIED - 1 CHECK OUTSTANDING"
+    assert not nothing.judged
 
 
 def test_something_unrecognisable_is_left_unmatched():

@@ -15,7 +15,7 @@ from openai import OpenAI
 
 from services.config import Settings
 
-from .inspection_record import FORM_FIELDS, ROW_COLUMNS, SECTIONS, InspectionSheet
+from .inspection_record import FORM_FIELDS, ROW_COLUMNS, SECTIONS, VERDICTS, InspectionSheet
 from .report_template import ACCESSORY_STATUSES, FormTemplate
 
 log = logging.getLogger(__name__)
@@ -23,6 +23,23 @@ log = logging.getLogger(__name__)
 
 class ExtractionError(RuntimeError):
     """The transcript could not be turned into a filled sheet."""
+
+
+# Marks the join between two independent transcriptions of the same recording.
+# Spelled out in words rather than a symbol because the model has to understand
+# what it is looking at, not just find a delimiter.
+PASS_SEPARATOR = """
+
+===== SECOND INDEPENDENT TRANSCRIPTION OF THE SAME RECORDING =====
+
+"""
+
+
+def combine_passes(first: str, second: str) -> str:
+    """Join two transcriptions of one recording into a single extraction input."""
+    if not second.strip():
+        return first
+    return f"{first}{PASS_SEPARATOR}{second}"
 
 
 # Style numbers are dictated digit by digit at the top of the recording, and
@@ -122,7 +139,19 @@ def build_schema(accessory_items: list[str]) -> dict[str, Any]:
                         },
                         "deviation": {
                             "type": "string",
-                            "description": "Signed deviation, e.g. '+1/8'. '' if not given.",
+                            "description": (
+                                "Signed deviation, e.g. '+1/8'. '' unless verdict is 'deviation'."
+                            ),
+                        },
+                        "verdict": {
+                            "type": "string",
+                            "enum": list(VERDICTS),
+                            "description": (
+                                "What was actually heard after this point of measure: "
+                                "'deviation' if a signed amount was called, 'okay' if the "
+                                "inspector passed it aloud, 'not stated' if neither is in "
+                                "the transcript. Never guess 'okay'."
+                            ),
                         },
                         "note": {"type": "string", "description": "Any qualifier. '' if none."},
                         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -197,7 +226,15 @@ Rules for rows:
    following measurement to the size most recently announced, until the next one.
    Map to XXS, XS, S, M, L, XL, XXL. The first size discussed is usually the PP sample.
 3. Deviations are spoken right after a value: "minus one by eight" -> "-1/8",
-   "plus one by four" -> "+1/4". A bare "okay" means deviation "" (on spec).
+   "plus one by four" -> "+1/4". Set `verdict` to "deviation" and put the signed
+   amount in `deviation`.
+   A bare "okay", "ok", "theek hai" or "sahi hai" after the value means the
+   inspector passed it: `verdict` = "okay", `deviation` = "".
+   If the transcript shows NEITHER a deviation nor a spoken pass for a point of
+   measure, set `verdict` = "not stated" and leave `deviation` "". This is not a
+   failure to try — transcription drops these short words, and reporting a
+   missing verdict as "okay" sends a real deviation to a vendor as a pass.
+   Never infer "okay" from the absence of words. Only from their presence.
 4. Speakers correct themselves mid-sentence and re-confirm numbers. The last confirmed
    value wins. Put the disagreement in `note` and lower `confidence`.
 5. Never invent a value. If a size is announced but no measurements follow, emit no rows
@@ -205,6 +242,22 @@ Rules for rows:
 6. `confidence` is your genuine certainty that the row is correct: 1.0 for a clearly
    stated value, below 0.7 for anything ambiguous, garbled or reconstructed.
 Keep `field` close to the words spoken so it can be matched against the spec sheet later.
+
+TWO TRANSCRIPTIONS
+The transcript may contain the SAME inspection transcribed twice, separated by a line
+reading "SECOND INDEPENDENT TRANSCRIPTION OF THE SAME RECORDING". When it does:
+  - Both halves are the same audio and describe ONE inspection. Produce one set of
+    rows covering it once. Never emit a row twice because it appears in both halves.
+  - Use the halves to cross-check each other. Speech recognition drops short
+    unstressed words, so where one pass records a deviation or an "okay" that the
+    other is missing, the word WAS spoken: take it, and set `verdict` accordingly.
+  - Only when NEITHER pass has a deviation or a spoken pass for a point of measure
+    may `verdict` be "not stated".
+  - Where the two passes give DIFFERENT measured values, or different deviations, for
+    the same point of measure, that is a real ambiguity and must not be smoothed over.
+    Take the reading you judge more likely, say what the other pass said in `note`,
+    and set `confidence` below 0.7 so a human checks it.
+  - Prefer the wording of whichever pass reads more like the spec sheet.
 """
 
 

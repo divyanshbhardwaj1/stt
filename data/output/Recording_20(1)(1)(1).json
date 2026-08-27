@@ -75,7 +75,8 @@
       "value": "",
       "deviation": "",
       "note": "Armhole aligned; waist grading uniform; shoulder slope and neck constant; bottom okay.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -84,7 +85,8 @@
       "value": "",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -93,7 +95,8 @@
       "value": "",
       "deviation": "",
       "note": "PP placket is flat compared with crinkle effect on fit sample.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -102,7 +105,8 @@
       "value": "",
       "deviation": "",
       "note": "Collar, body, five front buttons, back shirring and sleeve construction okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -111,7 +115,8 @@
       "value": "22",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -120,7 +125,8 @@
       "value": "13 1/2",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -129,7 +135,8 @@
       "value": "1 3/8",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -138,7 +145,8 @@
       "value": "5/8",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -147,7 +155,8 @@
       "value": "5/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -156,7 +165,8 @@
       "value": "12 3/4",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -165,7 +175,8 @@
       "value": "11 1/4",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -174,7 +185,8 @@
       "value": "2",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -183,7 +195,8 @@
       "value": "9",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -192,7 +205,8 @@
       "value": "13 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -201,7 +215,8 @@
       "value": "38",
       "deviation": "-1/2",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -210,7 +225,8 @@
       "value": "35",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -219,7 +235,8 @@
       "value": "39",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -228,7 +245,8 @@
       "value": "2 3/4",
       "deviation": "+1/4",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -237,7 +255,8 @@
       "value": "1 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -246,7 +265,8 @@
       "value": "6 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -255,7 +275,8 @@
       "value": "12",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -264,7 +285,8 @@
       "value": "17 1/2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -273,7 +295,8 @@
       "value": "7 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -282,7 +305,8 @@
       "value": "3 7/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -291,7 +315,8 @@
       "value": "1/2",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -300,7 +325,8 @@
       "value": "15 3/8",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -309,7 +335,8 @@
       "value": "16 1/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -318,7 +345,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -327,7 +355,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -336,7 +365,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -345,7 +375,8 @@
       "value": "8 1/4",
       "deviation": "",
       "note": "Measured diagonally.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -354,7 +385,8 @@
       "value": "2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -363,7 +395,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -372,7 +405,8 @@
       "value": "4 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -381,7 +415,8 @@
       "value": "24 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -390,7 +425,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -399,7 +435,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -408,7 +445,8 @@
       "value": "22 5/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -417,7 +455,8 @@
       "value": "14 1/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -426,7 +465,8 @@
       "value": "13 1/2",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -435,7 +475,8 @@
       "value": "12",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 0.8
+      "confidence": 0.8,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -444,7 +485,8 @@
       "value": "7 1/2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -453,7 +495,8 @@
       "value": "4",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -462,7 +505,8 @@
       "value": "8 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -471,7 +515,8 @@
       "value": "41",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -480,7 +525,8 @@
       "value": "38",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -489,7 +535,8 @@
       "value": "42",
       "deviation": "-1/2",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -498,7 +545,8 @@
       "value": "9 5/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -507,7 +555,8 @@
       "value": "7 1/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -516,7 +565,8 @@
       "value": "13 1/4",
       "deviation": "+1/2",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -525,7 +575,8 @@
       "value": "18 3/4",
       "deviation": "",
       "note": "Briefly called as 19, then reconfirmed as 18 3/4; gauze may be opening up.",
-      "confidence": 0.75
+      "confidence": 0.75,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -534,7 +585,8 @@
       "value": "16",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -543,7 +595,8 @@
       "value": "16 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -552,7 +605,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -561,7 +615,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -570,7 +625,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -579,7 +635,8 @@
       "value": "14",
       "deviation": "+1/4",
       "note": "Position was first called 5 1/2 inches, then corrected to 5 inches.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -588,7 +645,8 @@
       "value": "1/2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -597,7 +655,8 @@
       "value": "2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -606,7 +665,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -615,7 +675,8 @@
       "value": "2 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -624,7 +685,8 @@
       "value": "1 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -633,7 +695,8 @@
       "value": "25 1/2",
       "deviation": "-1",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -642,7 +705,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -651,7 +715,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -660,7 +725,8 @@
       "value": "21 1/8",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -669,7 +735,8 @@
       "value": "12 3/8",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -678,7 +745,8 @@
       "value": "1 3/8",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -687,7 +755,8 @@
       "value": "5/8",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -696,7 +765,8 @@
       "value": "11 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -705,7 +775,8 @@
       "value": "9 3/4",
       "deviation": "+1/4",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -714,7 +785,8 @@
       "value": "11 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -723,7 +795,8 @@
       "value": "32",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -732,7 +805,8 @@
       "value": "29",
       "deviation": "+1/2",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -741,7 +815,8 @@
       "value": "33",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -750,7 +825,8 @@
       "value": "6",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -759,7 +835,8 @@
       "value": "7 7/8",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -768,7 +845,8 @@
       "value": "9 3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -777,7 +855,8 @@
       "value": "15 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -786,7 +865,8 @@
       "value": "6 1/2",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -795,7 +875,8 @@
       "value": "3 1/2",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -804,7 +885,8 @@
       "value": "1/2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -813,7 +895,8 @@
       "value": "2",
       "deviation": "",
       "note": "Fine.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -822,7 +905,8 @@
       "value": "13 1/2",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -831,7 +915,8 @@
       "value": "14 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -840,7 +925,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -849,7 +935,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Initially spoken while discussing back neck, then identified as collar height.",
-      "confidence": 0.8
+      "confidence": 0.8,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -858,7 +945,8 @@
       "value": "2 1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -867,7 +955,8 @@
       "value": "3/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -876,7 +965,8 @@
       "value": "2 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -885,7 +975,8 @@
       "value": "1 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -894,7 +985,8 @@
       "value": "",
       "deviation": "",
       "note": "No shanking; gaping visible. Add shanking to buttons.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -903,7 +995,8 @@
       "value": "4 3/8",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -912,7 +1005,8 @@
       "value": "23 1/4",
       "deviation": "-1",
       "note": "Initially disputed as 21 3/4, then clearly reconfirmed as 23 1/4.",
-      "confidence": 0.82
+      "confidence": 0.82,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -921,7 +1015,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -930,7 +1025,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Okay.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -939,7 +1035,8 @@
       "value": "",
       "deviation": "",
       "note": "Monica seersucker; RMP solid; 91% cotton and 9% other fibre stated.",
-      "confidence": 0.75
+      "confidence": 0.75,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -948,7 +1045,8 @@
       "value": "",
       "deviation": "",
       "note": "Fox shell button; 69K mentioned.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -957,7 +1055,8 @@
       "value": "",
       "deviation": "",
       "note": "Vardhman Core Eco thread.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -966,7 +1065,8 @@
       "value": "",
       "deviation": "",
       "note": "Eco thread.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -975,7 +1075,8 @@
       "value": "",
       "deviation": "",
       "note": "Compatibility report confirms code EG9231DR; ER was briefly stated and rejected.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -984,7 +1085,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "White colour.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -993,7 +1095,8 @@
       "value": "2.4%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -1002,7 +1105,8 @@
       "value": "0.8%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -1011,7 +1115,8 @@
       "value": "2.8%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -1020,7 +1125,8 @@
       "value": "0.8%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -1029,7 +1135,8 @@
       "value": "2.4%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -1038,7 +1145,8 @@
       "value": "0.8%",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "marker",
@@ -1047,7 +1155,8 @@
       "value": "",
       "deviation": "",
       "note": "Two way marker; each garment is one way.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "marker",
@@ -1056,7 +1165,8 @@
       "value": "0.76",
       "deviation": "",
       "note": "",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -1065,7 +1175,8 @@
       "value": "",
       "deviation": "",
       "note": "Maintain approved seersucker/crinkle look and correct FOB quality.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -1074,7 +1185,8 @@
       "value": "",
       "deviation": "",
       "note": "Add shanking to prevent gaping.",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -1083,7 +1195,8 @@
       "value": "",
       "deviation": "",
       "note": "Label needs to be printed.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     }
   ]
 }

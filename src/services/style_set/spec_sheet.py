@@ -89,9 +89,18 @@ class PomRow:
     @property
     def _carries_measurements(self) -> bool:
         """Whether the row has a tolerance band and a specification per size."""
+        if self.tolerance_minus is None and self.tolerance_plus is None:
+            # Blank tolerance columns. Read aloud and kept in sequence, but there
+            # is no band to judge against, so no verdict is possible.
+            return False
         if not any(value for value in self.specs.values()):
             return False
         return not (self.tolerance_minus == 0 and self.tolerance_plus == 0)
+
+    @property
+    def is_text(self) -> bool:
+        """The sheet prints words here, with no specification for any size."""
+        return not any(value is not None for value in self.specs.values())
 
     @property
     def is_note(self) -> bool:
@@ -108,7 +117,7 @@ class PomRow:
         alignment — style 2463 lost four and its whole graded report past the
         hem was handed to the wrong points of measure.
         """
-        return self.pom == "*" and not self._carries_measurements
+        return self.is_text or (self.pom == "*" and not self._carries_measurements)
 
     @property
     def is_measured(self) -> bool:
@@ -151,6 +160,24 @@ class StyleSet:
         """
         return [row for row in self.rows if not row.is_note]
 
+    def rows_in_sheet_order(self) -> list[tuple[PomRow, int | None]]:
+        """Every row exactly as the sheet prints it, with its alignment index.
+
+        The index is the row's position in `spoken_rows`, which is what
+        `Alignment.result_at` is keyed on. It is None for the free-text rows:
+        those are not read aloud and carry no reading, but they are part of the
+        client's document and so are reproduced rather than dropped.
+        """
+        ordered: list[tuple[PomRow, int | None]] = []
+        spoken = 0
+        for row in self.rows:
+            if row.is_note:
+                ordered.append((row, None))
+            else:
+                ordered.append((row, spoken))
+                spoken += 1
+        return ordered
+
     def find(self, pom: str) -> PomRow | None:
         wanted = pom.strip().casefold()
         return next((row for row in self.rows if row.pom.casefold() == wanted), None)
@@ -167,14 +194,59 @@ def _take_values(tokens: list[str], count: int) -> tuple[list[str], list[str]]:
     index = len(tokens)
     while len(values) < count and index > 0:
         token = tokens[index - 1]
-        if "/" in token and index >= 2 and INTEGER.fullmatch(tokens[index - 2]):
-            values.append(f"{tokens[index - 2]} {token}")
-            index -= 2
+        paired = (
+            f"{tokens[index - 2]} {token}"
+            if "/" in token and index >= 2 and INTEGER.fullmatch(tokens[index - 2])
+            else None
+        )
+        # Prefer the two-token reading, but only when it is actually a number.
+        # "4 -1/8" looks like a mixed fraction and is not one: it is the last
+        # description word followed by a signed tolerance.
+        if paired is not None and parse(paired) is not None:
+            candidate, step = paired, 2
+        elif parse(token) is not None:
+            candidate, step = token, 1
         else:
-            values.append(token)
-            index -= 1
+            # A word, so the numbers have run out. Taking it anyway ate the tail
+            # of every description on a row carrying fewer numbers than the
+            # sheet has columns: "MEASURE GMTS IN CIRCUMFERENCE 0 0 0 0" lost
+            # "IN CIRCUMFERENCE" to the two tolerance slots.
+            break
+        values.append(candidate)
+        index -= step
     values.reverse()
     return values, tokens[:index]
+
+
+def _row_from_values(
+    pom: str, description: str, values: list[str], sizes: tuple[str, ...]
+) -> PomRow:
+    """Build a row from the numbers found on it.
+
+    Two shapes occur and the count tells them apart. Usually the two tolerance
+    columns precede the per-size ones. But Triburg leave the tolerances blank on
+    position rows ("1.22A ACROSS FRONT POSITION FROM HPS 5 5 5 5 5 5 5") and on
+    the padded zeros under a free-text line, and reading two of those numbers as
+    tolerances shifted every size across by one.
+    """
+    if len(values) == len(sizes):
+        return PomRow(
+            pom=pom,
+            description=description.strip(),
+            tolerance_minus=None,
+            tolerance_plus=None,
+            specs={size: parse(value) for size, value in zip(sizes, values, strict=True)},
+        )
+    return PomRow(
+        pom=pom,
+        description=description.strip(),
+        tolerance_minus=parse(values[0]),
+        tolerance_plus=parse(values[1]),
+        specs={
+            size: parse(value)
+            for size, value in zip(sizes, values[TOLERANCE_COLUMNS:], strict=True)
+        },
+    )
 
 
 def _header_value(lines: list[str], label: str, first_token: bool = False) -> str:
@@ -239,19 +311,12 @@ def _parse_cell_layout(lines: list[str], sizes: tuple[str, ...]) -> list[PomRow]
             values.append(value)
             index += 1
 
-        if len(values) == wanted:
-            rows.append(
-                PomRow(
-                    pom=code.group(1),
-                    description=" ".join(description).strip(),
-                    tolerance_minus=parse(values[0]),
-                    tolerance_plus=parse(values[1]),
-                    specs={
-                        size: parse(value)
-                        for size, value in zip(sizes, values[TOLERANCE_COLUMNS:], strict=True)
-                    },
-                )
-            )
+        if len(values) in (wanted, len(sizes)):
+            rows.append(_row_from_values(code.group(1), " ".join(description), values, sizes))
+        elif description:
+            text = _text_row(code.group(1), " ".join(description), sizes)
+            if text is not None:
+                rows.append(text)
     return rows
 
 
@@ -284,19 +349,37 @@ def _parse_row(block: list[str], sizes: tuple[str, ...]) -> PomRow | None:
     if furniture:
         remainder = remainder[: furniture.start()]
 
-    wanted = len(sizes) + 2  # the two tolerance columns precede the sizes
+    wanted = len(sizes) + TOLERANCE_COLUMNS
     values, description_tokens = _take_values(remainder.split(), wanted)
-    if len(values) < wanted:
-        return None
 
-    tolerance_minus, tolerance_plus = parse(values[0]), parse(values[1])
-    specs = {size: parse(value) for size, value in zip(sizes, values[2:], strict=True)}
+    if len(values) < wanted and len(values) != len(sizes):
+        # No per-size column at all. Triburg print instructions and disclaimers
+        # among the rows ("***CATCH ELASTIC W/ WB STITCH"), and the sheet is the
+        # client's own document, so the words are carried through verbatim
+        # rather than dropped. They get no specification and so no verdict.
+        return _text_row(pom, remainder, sizes)
+
+    return _row_from_values(pom, " ".join(description_tokens), values, sizes)
+
+
+def _text_row(pom: str, text: str, sizes: tuple[str, ...]) -> PomRow | None:
+    """A row the sheet prints as words. Its text is kept exactly as printed.
+
+    Only the trailing zeros Triburg pad these lines with are dropped. Numbers
+    inside the wording stay — 'PKT BB 1/2" PLACKET REDU TO 1"' is an instruction,
+    and the sheet is the client's document, so it is reproduced as printed.
+    """
+    words = text.split()
+    while words and parse(words[-1]) is not None:
+        words.pop()
+    if not words:
+        return None  # a blank line on the sheet; there is nothing to reproduce
     return PomRow(
         pom=pom,
-        description=" ".join(description_tokens).strip(),
-        tolerance_minus=tolerance_minus,
-        tolerance_plus=tolerance_plus,
-        specs=specs,
+        description=" ".join(words).strip(),
+        tolerance_minus=None,
+        tolerance_plus=None,
+        specs=dict.fromkeys(sizes),
     )
 
 
@@ -382,6 +465,16 @@ def read_style_set(path: Path) -> StyleSet:
     # A row silently dropped shifts every row after it during alignment, so say
     # so loudly. This is how "7.09B GR" went missing and handed belt-length
     # readings to the belt-width row.
+    demoted = [row.pom for row in rows if row.is_text and row.pom != "*"]
+    if demoted:
+        log.warning(
+            "%s: %d coded row(s) carry no measurements and are reproduced as text, "
+            "so they get no verdict: %s",
+            path.name,
+            len(demoted),
+            ", ".join(demoted),
+        )
+
     skipped = _unparsed_codes(body, rows)
     if skipped:
         log.warning(

@@ -47,6 +47,21 @@ FAIL_BG = colors.HexColor("#fdf0e6")
 # grid's 0.3pt hairline or it reads as an artefact of the table.
 FAIL_BORDER = colors.HexColor(FAIL_HEX)
 FAIL_BORDER_WIDTH = 1.0
+
+# A point of measure whose verdict never made it out of the recording. Violet
+# and heavier than the tolerance outline, because this is not a finding about
+# the garment — it is a hole in the report, and it outranks everything else a
+# reviewer might do with the page.
+UNCONFIRMED_HEX = "#6d28d9"
+UNCONFIRMED_BORDER = colors.HexColor(UNCONFIRMED_HEX)
+UNCONFIRMED_BORDER_WIDTH = 1.4
+UNCONFIRMED_BG = colors.HexColor("#f4f0ff")
+UNCONFIRMED_MARK = "??"
+
+# Instructions and disclaimers the sheet prints among its measurement rows.
+# Reproduced word for word, on their own band so they read as the sheet talking
+# rather than as a point of measure.
+SHEET_NOTE_BG = colors.HexColor("#fbfbf4")
 NOT_MEASURED_BG = colors.HexColor("#fafbfc")
 # Triburg highlight the base-size column in yellow on every sheet.
 BASE_SIZE_BG = colors.HexColor("#ffffcc")
@@ -98,6 +113,14 @@ def _styles() -> dict[str, ParagraphStyle]:
         "desc": ParagraphStyle("d", base, fontSize=6.2, leading=8),
         "cell": ParagraphStyle("c", base, fontSize=6.4, leading=8, alignment=1),
         "note": ParagraphStyle("n", base, fontName="Helvetica-Oblique", fontSize=6.5, leading=9),
+        "sheetnote": ParagraphStyle(
+            "sn",
+            base,
+            fontName="Helvetica-Oblique",
+            fontSize=6.2,
+            leading=8,
+            textColor=colors.HexColor(INK_HEX),
+        ),
         "footer": ParagraphStyle(
             "f", base, fontName="Helvetica-Oblique", fontSize=6, textColor=MUTED
         ),
@@ -143,10 +166,14 @@ def _cell_text(row, pom_row=None, size: str = "") -> str:
     printed = row.spec if row.spec is not None else row.measured
     lines = [f'<font color="{ink}">{fmt(printed) if printed is not None else "?"}</font>']
 
-    # "ok" only where the inspector said okay. Every stated deviation is printed,
-    # inside the tolerance band or not: a measurement that moved is a fact the
-    # vendor reads off this sheet, and collapsing it to "ok" hid it.
-    if row.on_spec:
+    # "ok" only where the inspector was heard to say okay. Every stated deviation
+    # is printed, inside the tolerance band or not. And where no verdict was
+    # captured the cell says so rather than borrowing either answer — silence is
+    # not a pass, and this is the one thing on the page that must never be
+    # guessed.
+    if row.unconfirmed:
+        lines.append(f'<font size="5.5" color="{UNCONFIRMED_HEX}"><b>{UNCONFIRMED_MARK}</b></font>')
+    elif row.on_spec:
         lines.append(f'<font size="5" color="{ink}">ok</font>')
     elif row.deviation is not None:
         lines.append(f'<font size="5" color="{ink}">{fmt(row.deviation, signed=True)}</font>')
@@ -154,6 +181,15 @@ def _cell_text(row, pom_row=None, size: str = "") -> str:
     confidence_ink = LOW_CONFIDENCE_HEX if row.confidence < CONFIDENCE_FLOOR else MUTED_HEX
     lines.append(f'<font size="4.5" color="{confidence_ink}">{row.confidence:.0%}</font>')
     return "<br/>".join(lines)
+
+
+def _tolerance_text(value) -> str:
+    """The sheet's tolerance, left blank where the sheet leaves it blank.
+
+    A real zero still prints 0 — that is a tolerance of nothing, which is a
+    different statement from a column the sheet never filled in.
+    """
+    return BLANK if value is None else fmt(value, signed=True)
 
 
 def _measurement_table(
@@ -199,22 +235,43 @@ def _measurement_table(
             # "not done" rather than "nothing found".
             style_commands.append(("BACKGROUND", (column, 1), (column, -1), NOT_MEASURED_BG))
 
-    for index, pom_row in enumerate(style.spoken_rows(), start=1):
+    # Every row the sheet prints, in its own order. The style set is the client's
+    # document and is the authority here, so its free-text lines are reproduced
+    # verbatim alongside the graded ones rather than quietly left out.
+    for index, (pom_row, spoken_index) in enumerate(style.rows_in_sheet_order(), start=1):
+        if spoken_index is None:
+            data.append(
+                [
+                    Paragraph(pom_row.pom, css["pom"]),
+                    Paragraph(pom_row.description, css["sheetnote"]),
+                    *[""] * (2 + len(sizes)),
+                ]
+            )
+            # Run the wording across the value columns: it is a sentence off the
+            # sheet, not a measurement, and squeezing it into one column would
+            # either wrap to nothing or get mistaken for a point of measure.
+            style_commands.append(("SPAN", (1, index), (-1, index)))
+            style_commands.append(("BACKGROUND", (0, index), (-1, index), SHEET_NOTE_BG))
+            continue
+
         cells = [
             Paragraph(pom_row.pom, css["pom"]),
             Paragraph(pom_row.description, css["desc"]),
-            Paragraph(fmt(pom_row.tolerance_minus or 0, signed=True), css["cell"]),
-            Paragraph(fmt(pom_row.tolerance_plus or 0, signed=True), css["cell"]),
+            Paragraph(_tolerance_text(pom_row.tolerance_minus), css["cell"]),
+            Paragraph(_tolerance_text(pom_row.tolerance_plus), css["cell"]),
         ]
         for size in sizes:
-            result = alignment.result_at(index - 1, size)
+            result = alignment.result_at(spoken_index, size)
             cells.append(Paragraph(_cell_text(result, pom_row, size), css["cell"]))
-            if result is not None and result.is_fail:
+            if result is not None and (result.is_fail or result.unconfirmed):
                 column = 4 + sizes.index(size)
-                style_commands.append(("BACKGROUND", (column, index), (column, index), FAIL_BG))
-                style_commands.append(
-                    ("BOX", (column, index), (column, index), FAIL_BORDER_WIDTH, FAIL_BORDER)
+                fill, width, border = (
+                    (UNCONFIRMED_BG, UNCONFIRMED_BORDER_WIDTH, UNCONFIRMED_BORDER)
+                    if result.unconfirmed
+                    else (FAIL_BG, FAIL_BORDER_WIDTH, FAIL_BORDER)
                 )
+                style_commands.append(("BACKGROUND", (column, index), (column, index), fill))
+                style_commands.append(("BOX", (column, index), (column, index), width, border))
         data.append(cells)
         if index % 2 == 0:
             style_commands.append(("BACKGROUND", (0, index), (3, index), BAND))
@@ -461,6 +518,10 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
             "inspector called against it, and how confidently that was transcribed. "
             "<b>ok</b> means the inspector said okay; every stated deviation is shown, "
             "whether or not it falls inside the tolerance band. &nbsp;"
+            f'<font color="{UNCONFIRMED_HEX}"><b>{UNCONFIRMED_MARK} in a violet outline</b> '
+            f"= no verdict for this point of measure was captured from the recording. It "
+            f"is NOT on spec and NOT a pass; it is unanswered and must be checked against "
+            f"the audio.</font> &nbsp;"
             f'<font color="{FAIL_HEX}"><b>An orange outline</b> = outside tolerance.</font> '
             f'&nbsp; <font color="{LOW_CONFIDENCE_HEX}"><b>Blue figures</b> = heard with under '
             f"{CONFIDENCE_FLOOR:.0%} confidence, so confirm against the recording. The two "
@@ -495,6 +556,28 @@ def save_graded_pdf(alignment: Alignment, style: StyleSet, path: Path, source: s
                 css["note"],
             )
         )
+
+    if alignment.unconfirmed:
+        story.append(
+            Paragraph(
+                f'<font color="{UNCONFIRMED_HEX}"><b>{len(alignment.unconfirmed)} of '
+                f"{len(alignment.rows)} points of measure have no captured verdict "
+                f"({UNCONFIRMED_MARK}). This report is NOT final. Each one must be "
+                f"listened back to and filled in before it is sent to a vendor — a "
+                f"missing verdict is not a pass.</b></font>",
+                css["note"],
+            )
+        )
+        for row in alignment.unconfirmed:
+            story.append(
+                Paragraph(
+                    f"{UNCONFIRMED_MARK} {row.pom} {row.description} &mdash; size "
+                    f"{row.size}: spec {fmt(row.spec) if row.spec is not None else BLANK}, "
+                    f'spoken as "{row.spoken}", no deviation or okay captured',
+                    css["note"],
+                )
+            )
+        story.append(Spacer(1, 2 * mm))
 
     story.append(Spacer(1, 3 * mm))
     story.append(
@@ -577,6 +660,8 @@ def save_graded_csv(alignment: Alignment, style: StyleSet, path: Path) -> Path:
             verdict = (
                 "unmatched"
                 if not row.matched
+                else "UNCONFIRMED"
+                if row.unconfirmed
                 else "pass"
                 if row.in_tolerance
                 else "FAIL"

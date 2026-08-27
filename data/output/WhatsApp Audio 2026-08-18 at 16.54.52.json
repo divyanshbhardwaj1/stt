@@ -78,7 +78,8 @@
       "value": "",
       "deviation": "",
       "note": "Uneven; follow pattern notches and spread gathering evenly.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -87,7 +88,8 @@
       "value": "",
       "deviation": "",
       "note": "Incorrect; close with New York.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -96,7 +98,8 @@
       "value": "",
       "deviation": "",
       "note": "High-low; take approval on fabric trim approvals.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -105,7 +108,8 @@
       "value": "",
       "deviation": "",
       "note": "Unacceptable; open all stitches and close again.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -114,7 +118,8 @@
       "value": "",
       "deviation": "",
       "note": "Stain; remove and rewash garment.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -123,7 +128,8 @@
       "value": "",
       "deviation": "",
       "note": "Uncut threads; cut properly.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     }
   ]
 }

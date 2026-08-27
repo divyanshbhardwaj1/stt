@@ -9,7 +9,12 @@ from .csv_writer import (
 )
 from .form_filler import fill_form
 from .graded_report import attach_to_report, save_graded_csv, save_graded_pdf
-from .inspection_extractor import ExtractionError, extract_inspection, normalise_style_no
+from .inspection_extractor import (
+    ExtractionError,
+    combine_passes,
+    extract_inspection,
+    normalise_style_no,
+)
 from .inspection_record import (
     FORM_FIELDS,
     REVIEW_THRESHOLD,
@@ -36,6 +41,7 @@ __all__ = [
     "InspectionSheet",
     "TemplateError",
     "attach_to_report",
+    "combine_passes",
     "extract_inspection",
     "fill_form",
     "load_json",

@@ -1,5 +1,7 @@
 """The pipeline wiring, and main.py's argument handling."""
 
+from dataclasses import replace
+
 import pytest
 
 import main
@@ -19,15 +21,94 @@ def stub_stages(monkeypatch):
         calls["transcribed"] += 1
         if on_delta:
             on_delta("streamed text")
-        return "streamed text"
+        # The second pass runs over a re-encoded copy, so its name differs. Give
+        # it different words, the way two real passes differ.
+        return "second pass text" if recording.suffix == ".mp3" else "streamed text"
 
     def fake_extract(transcript, settings, template, client=None):
         calls["extracted"] += 1
+        calls["input"] = transcript
         return InspectionSheet.from_payload(SHEET_PAYLOAD)
+
+    def fake_compress(source, destination):
+        calls["compressed"] += 1
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"recoded")
+        return destination
 
     monkeypatch.setattr(pipeline.inspection_pipeline, "transcribe_recording", fake_transcribe)
     monkeypatch.setattr(pipeline.inspection_pipeline, "extract_inspection", fake_extract)
+    monkeypatch.setattr(pipeline.inspection_pipeline, "compress_for_upload", fake_compress)
+    calls["compressed"] = 0
     return calls
+
+
+def test_the_audio_is_transcribed_twice_and_both_readings_are_used(
+    settings, recording, template, stub_stages
+):
+    """One pass silently drops short verdicts, and nothing in the result says so.
+
+    So the recording is read twice and both readings go to the extractor
+    together. Repeating the request verbatim is useless — the API returns the
+    same text for the same bytes — so the second pass runs over a re-encoded
+    copy, which changes every byte and leaves the speech alone.
+    """
+    pipeline.run(recording, settings)
+
+    assert stub_stages["transcribed"] == 2
+    assert stub_stages["compressed"] == 1
+    assert stub_stages["extracted"] == 1  # one extraction over both readings
+    sent = stub_stages["input"]
+    assert "streamed text" in sent
+    assert "second pass text" in sent
+    assert "SECOND INDEPENDENT TRANSCRIPTION" in sent
+
+
+def test_the_second_reading_is_kept_beside_the_first(settings, recording, template, stub_stages):
+    """A reviewer has to be able to see both readings of the audio."""
+    result = pipeline.run(recording, settings)
+    saved = pipeline.inspection_pipeline.second_pass_path(result.transcript_path)
+
+    assert saved.is_file()
+    assert saved.read_text(encoding="utf-8") == "second pass text"
+
+
+def test_a_reused_transcript_does_not_pay_for_the_second_pass_again(
+    settings, recording, template, stub_stages
+):
+    pipeline.run(recording, settings)
+    pipeline.run(recording, settings)
+
+    assert stub_stages["transcribed"] == 2  # not four
+    assert stub_stages["compressed"] == 1
+
+
+def test_one_pass_can_be_asked_for(settings, recording, template, stub_stages):
+    """Halving the transcription cost is allowed; it just confirms less."""
+    thrifty = replace(settings, transcribe_passes=1)
+
+    pipeline.run(recording, thrifty)
+
+    assert stub_stages["transcribed"] == 1
+    assert stub_stages["compressed"] == 0
+    assert "SECOND INDEPENDENT TRANSCRIPTION" not in stub_stages["input"]
+
+
+def test_a_failed_second_pass_does_not_cost_the_run(
+    settings, recording, template, stub_stages, monkeypatch
+):
+    """A second opinion is a bonus. Losing it must not lose the report."""
+
+    def boom(source, destination):
+        raise RuntimeError("ffmpeg unavailable")
+
+    monkeypatch.setattr(pipeline.inspection_pipeline, "compress_for_upload", boom)
+
+    result = pipeline.run(recording, settings)
+
+    assert result.pdf_path.is_file()
+    assert stub_stages["transcribed"] == 1
+    assert "SECOND INDEPENDENT TRANSCRIPTION" not in stub_stages["input"]
 
 
 def test_run_produces_every_output(settings, recording, template, stub_stages):
@@ -45,7 +126,8 @@ def test_run_reuses_an_existing_transcript(settings, recording, template, stub_s
     pipeline.run(recording, settings)
     pipeline.run(recording, settings)
 
-    assert stub_stages["transcribed"] == 1  # second run reused the saved transcript
+    # One fresh set of readings, then nothing: the second run reused both.
+    assert stub_stages["transcribed"] == settings.transcribe_passes
     assert stub_stages["extracted"] == 2
 
 
@@ -53,7 +135,8 @@ def test_retranscribe_forces_a_fresh_transcription(settings, recording, template
     pipeline.run(recording, settings)
     pipeline.run(recording, settings, retranscribe=True)
 
-    assert stub_stages["transcribed"] == 2
+    # Both runs read the audio afresh, each pass included.
+    assert stub_stages["transcribed"] == 2 * settings.transcribe_passes
 
 
 def test_run_announces_each_stage(settings, recording, template, stub_stages):

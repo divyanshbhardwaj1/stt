@@ -1,0 +1,997 @@
+{
+  "form": {
+    "style_no": "2463",
+    "division": "airy",
+    "date": "26th 8, 26",
+    "description": "flannel girl boxer",
+    "colour": "tomato glaze",
+    "grain_line": "OK",
+    "notches": "Not OK – one notch missing at side seam",
+    "graded_nest": "OK",
+    "corrections_implemented": "OK",
+    "yy_mini_marker": "15.7 cm on jersey",
+    "planned_submission_date": "",
+    "actual_submission_date": "",
+    "pcd": "29.08.26",
+    "cut_quantity": "7 pieces",
+    "size_set_inspection_result": "Pass with comment",
+    "shrinkage": "L = 1%  W = 0%",
+    "lining_shrinkage": "L = 1.5%  W = 0%",
+    "shrinkage_note": "Good; sample count not stated",
+    "measurement_result": "PASS",
+    "measurement_graded_nest": "OK",
+    "corrections_to_be_done": "Add missing side-seam notch; use light press and avoid creases; remove red thread seam grinning at main label; prevent broken stitches at bottom hem",
+    "bring_back_to_specs": "",
+    "cutting_check": "",
+    "seam_allowance": "",
+    "checks_corrections_implemented": "",
+    "overall": "passed with these corrections"
+  },
+  "accessories": [
+    {
+      "item": "MAIN LABEL",
+      "status": "ACT",
+      "note": "red thread seam grinning"
+    },
+    {
+      "item": "POLYBAG",
+      "status": "ALT",
+      "note": "alternate"
+    },
+    {
+      "item": "BUTTON",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "PRINT",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "POLY BAG STICKER",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "HOOK EYE/BAR",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "LAYOUT",
+      "status": "ACT",
+      "note": "print layout actual"
+    },
+    {
+      "item": "LOT STICKER",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "LACE",
+      "status": "",
+      "note": "not there"
+    },
+    {
+      "item": "HANG TAG",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "PRE PACK STICKER",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "BUCKLE",
+      "status": "",
+      "note": "not there"
+    },
+    {
+      "item": "PLACEMENT",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "CARTON MARKINGS",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "SNAP",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "BEADS/SEQUINS",
+      "status": "",
+      "note": "not there"
+    },
+    {
+      "item": "WASHCARE",
+      "status": "MIS",
+      "note": "missing right now"
+    },
+    {
+      "item": "PLACEMENT UPC/P.PACK",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "THREAD",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "BEADS/SEQUINS LAYOUT",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "INTERLINING",
+      "status": "",
+      "note": "no interlining on this style"
+    },
+    {
+      "item": "FOLDING",
+      "status": "ALT",
+      "note": "alternate right now"
+    },
+    {
+      "item": "LINING",
+      "status": "ACT",
+      "note": "single jersey instead of lining"
+    },
+    {
+      "item": "AFTER TREATMENT",
+      "status": "ACT",
+      "note": ""
+    },
+    {
+      "item": "SPARE BUTTON POSITION",
+      "status": "",
+      "note": "not needed"
+    },
+    {
+      "item": "ZIPPER",
+      "status": "",
+      "note": "not there"
+    },
+    {
+      "item": "PH",
+      "status": "ACT",
+      "note": "okay as on report"
+    }
+  ],
+  "comments": [
+    {
+      "comment": "One notch missing at side seam",
+      "vendor_action": "Add the missing side-seam notch"
+    },
+    {
+      "comment": "Overall press is very hard",
+      "vendor_action": "Use light press and ensure no creases are made"
+    },
+    {
+      "comment": "Red thread seam grinning at main label",
+      "vendor_action": "Ensure seam grinning is not present"
+    },
+    {
+      "comment": "Broken stitch at bottom hem",
+      "vendor_action": "Maintain all seams and ensure there is no stitch breaking"
+    }
+  ],
+  "rows": [
+    {
+      "section": "marker",
+      "size": "",
+      "field": "Mini marker consumption",
+      "value": "52.92 cm",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "marker",
+      "size": "",
+      "field": "YY on jersey",
+      "value": "15.7 cm",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell length shrinkage",
+      "value": "1%",
+      "deviation": "",
+      "note": "Average shrinkage; stated as good",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell width shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "Stated as good",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Jersey length shrinkage",
+      "value": "1.5%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Jersey width shrinkage",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Waistband height",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "Required in extra small",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Waistband elastic height",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Waist relaxed at top edge",
+      "value": "26 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Waist extended at top edge minimum",
+      "value": "39",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Low hip placement from top waist",
+      "value": "5 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "3 point low hip",
+      "value": "40 1/2",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Front rise straight to top waist",
+      "value": "9 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Back rise straight to top waist",
+      "value": "15",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Short leg opening",
+      "value": "27",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Inseam short",
+      "value": "2 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Outseam from top waist",
+      "value": "10 5/8",
+      "deviation": "+1/8",
+      "note": "Initially called okay, then corrected to plus 1/8",
+      "confidence": 0.95,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Fly J-stitch length below waist seam",
+      "value": "4 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Fly J-stitch width",
+      "value": "1 1/8",
+      "deviation": "+1/16",
+      "note": "Initially said minus, then corrected to plus",
+      "confidence": 0.95,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Hem height",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Front leg depth 3 inch from center front top edge relaxed",
+      "value": "10 7/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Back leg depth 3 inch from center back top edge relaxed",
+      "value": "12 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Saddle width 2 inch up from crotch reference point",
+      "value": "8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Button space on fly front",
+      "value": "1 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Button position from waist stitch",
+      "value": "1 1/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "On-seam pocket hem height",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Pocket position from below waist stitch",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Pocket opening length",
+      "value": "5 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Pocket bag length",
+      "value": "8 5/8",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XS",
+      "field": "Pocket bag width",
+      "value": "6 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband height",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband elastic height",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist relaxed at top edge",
+      "value": "28 3/4",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist extended at top edge minimum",
+      "value": "41",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Low hip placement from top waist",
+      "value": "5 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "3 point low hip",
+      "value": "42 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front rise straight to top waist",
+      "value": "10 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 0.92,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back rise straight to top waist",
+      "value": "15 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Short leg opening",
+      "value": "28 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Inseam short",
+      "value": "2 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Outseam from top waist",
+      "value": "11",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Fly J-stitch length below waist seam",
+      "value": "4 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Fly J-stitch width",
+      "value": "1 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Hem height",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front leg opening 3 inch from center front top edge relaxed",
+      "value": "11 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 0.93,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back leg opening 3 inch from center back top edge relaxed",
+      "value": "12 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Saddle width 2 inch up from crotch",
+      "value": "8 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 0.93,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button space on fly front",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button position from waist stitch",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "On-seam pocket hem height",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Pocket position from below waist stitch",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Pocket opening length",
+      "value": "5 3/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Pocket bag length",
+      "value": "9",
+      "deviation": "-1/4",
+      "note": "Value repeated for confirmation",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Pocket bag width",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waistband height",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "Value repeated for confirmation",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waistband elastic height",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waist relaxed at top edge",
+      "value": "30 3/4",
+      "deviation": "-1/2",
+      "note": "Spoken as 'thirty-three quarter'",
+      "confidence": 0.82,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Waist extended at top edge minimum",
+      "value": "43",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Low hip placement from top waist",
+      "value": "6",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "3 point low hip",
+      "value": "44 1/2",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front rise straight to top waist",
+      "value": "10 3/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back rise straight to top waist",
+      "value": "16",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Short leg opening",
+      "value": "30",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Inseam short",
+      "value": "2 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Outseam from top waist",
+      "value": "11 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Fly J-stitch length below waist seam",
+      "value": "5 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 0.95,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Fly J-stitch width",
+      "value": "1 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Hem height",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front leg depth 3 inch from center front top edge relaxed",
+      "value": "11 5/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back leg depth 3 inch from center back top edge relaxed",
+      "value": "12 7/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Saddle width 2 inch up from crotch",
+      "value": "8 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button space on fly front",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button position from waist edge",
+      "value": "1 1/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "On-seam pocket hem height",
+      "value": "1/4",
+      "deviation": "",
+      "note": "Value repeated, but no spoken pass or deviation",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Pocket position from below waist edge",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Pocket bag length",
+      "value": "9",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Pocket bag width",
+      "value": "6 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Missing side-seam notch",
+      "value": "",
+      "deviation": "",
+      "note": "Add the missing notch",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Overall press is very hard",
+      "value": "",
+      "deviation": "",
+      "note": "Use light press and avoid creases",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Red thread seam grinning at main label",
+      "value": "",
+      "deviation": "",
+      "note": "Ensure it is not present",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Broken stitch at bottom hem",
+      "value": "",
+      "deviation": "",
+      "note": "Maintain seams and prevent stitch breaking",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    }
+  ]
+}

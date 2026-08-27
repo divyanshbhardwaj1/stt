@@ -13,6 +13,7 @@
   --good: #15803d; --good-soft: #e9f6ee;
   --warn: #b45309; --warn-soft: #fdf3e3;
   --bad:  #b42318; --bad-soft:  #fdecea;
+  --open: #6d28d9; --open-soft: #f4f0ff;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -23,6 +24,7 @@
     --good: #57c98a; --good-soft: #16261d;
     --warn: #e0a35a; --warn-soft: #2a2114;
     --bad:  #f2836f; --bad-soft:  #2c1a17;
+    --open: #a78bfa; --open-soft: #241b38;
   }
 }
 * { box-sizing: border-box; }
@@ -154,6 +156,27 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 @keyframes sp { to { transform: rotate(360deg); } }
 .fail { background: var(--bad-soft); color: var(--bad); border-radius: 9px; padding: 12px 14px; font-size: 12.5px; }
 
+/* An unanswered point of measure. Deliberately the loudest thing on the page:
+   a missing verdict is not a pass, and a report shipped as though it were is
+   the expensive mistake this whole screen exists to prevent. */
+.open {
+  background: var(--open-soft); border: 1.5px solid var(--open);
+  border-radius: 9px; padding: 12px 14px; font-size: 12.5px;
+}
+.open b { color: var(--open); }
+.stat.open-stat { background: var(--open-soft); box-shadow: inset 0 0 0 1.5px var(--open); }
+.stat.open-stat b { color: var(--open); }
+.stat.bad-stat { background: var(--bad-soft); }
+.stat.bad-stat b { color: var(--bad); }
+.verdict { font-weight: 650; }
+.verdict.ok { color: var(--good); }
+.verdict.pending { color: var(--open); }
+.verdict.bad { color: var(--bad); }
+.warn-box {
+  background: var(--warn-soft); color: var(--warn); border-radius: 9px;
+  padding: 12px 14px; font-size: 12.5px;
+}
+
 @media (max-width: 780px) {
   .shell { grid-template-columns: 1fr; height: auto; }
   aside { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -194,8 +217,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 
 <script>
 const $ = id => document.getElementById(id);
-const TITLES = { report: "Report PDF", form: "Form CSV",
-                 measurements: "Measurements CSV", data: "JSON" };
+const TITLES = { report: "Report PDF", graded: "Graded sheet PDF", form: "Form CSV",
+                 measurements: "Measurements CSV", graded_data: "Graded sheet CSV",
+                 data: "JSON" };
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const dash = v => v ? esc(v) : '<span class="blank">&mdash;</span>';
@@ -289,6 +313,53 @@ function flaggedTable(rows) {
     </tr>`).join("")}</table>`;
 }
 
+function openQuestions(job) {
+  if (!job.graded) return `<div class="panel"><h3>Checked against spec</h3>
+    <div class="warn-box"><b>No style set matched, so nothing was checked against spec.</b><br>
+    The recording announced style <b>${dash(job.announced_style_no)}</b>, which has no sheet in
+    data/StyleSets. Re-upload and pick the style from the dropdown to get a graded sheet.</div></div>`;
+
+  const v = job.measurement_result || "not determined";
+  const cls = job.out_of_tolerance ? "bad" : job.unconfirmed ? "pending" : "ok";
+  const gap = job.unconfirmed ? `
+    <div class="open">
+      <b>${job.unconfirmed} point(s) of measure have no captured verdict.</b><br>
+      These are <b>not</b> passes. The recording never ruled on them, so each has to be
+      listened back to before this report goes to a vendor.
+      ${job.unconfirmed_rows.length ? `<table style="margin-top:9px">
+        <tr><th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
+            <th>Heard as</th></tr>
+        ${job.unconfirmed_rows.map(r => `<tr>
+          <td>${esc(r.pom)}</td><td>${dash(r.size)}</td><td>${esc(r.description)}</td>
+          <td class="num">${dash(r.spec)}</td><td class="note">${esc(r.spoken)}</td>
+        </tr>`).join("")}</table>` : ""}
+    </div>` : "";
+
+  const fails = job.failed_rows.length ? `<table style="margin-top:9px">
+    <tr><th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
+        <th class="num">Measured</th><th class="num">Dev</th></tr>
+    ${job.failed_rows.map(r => `<tr>
+      <td>${esc(r.pom)}</td><td>${dash(r.size)}</td><td>${esc(r.description)}</td>
+      <td class="num">${dash(r.spec)}</td><td class="num">${dash(r.measured)}</td>
+      <td class="num low">${esc(r.deviation)}</td>
+    </tr>`).join("")}</table>` : "";
+
+  return `<div class="panel">
+    <h3>Checked against style ${esc(job.graded_style_no)}</h3>
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat"><b>${job.judged}</b><span>judged</span></div>
+      <div class="stat ${job.out_of_tolerance ? "bad-stat" : ""}">
+        <b>${job.out_of_tolerance}</b><span>out of tolerance</span></div>
+      <div class="stat ${job.unconfirmed ? "open-stat" : ""}">
+        <b>${job.unconfirmed}</b><span>no verdict</span></div>
+    </div>
+    <div class="sub">Measurement result:
+      <span class="verdict ${cls}">${esc(v)}</span></div>
+    ${gap}
+    ${fails ? `<h3 style="margin-top:14px">Out of tolerance</h3>${fails}` : ""}
+  </div>`;
+}
+
 function detail(job) {
   if (!job) return `<div class="blank-state"><div>
     <b>No job selected</b>Upload a recording to get started.</div></div>`;
@@ -318,7 +389,10 @@ function detail(job) {
       <div class="stat"><b>${job.accessories}</b><span>accessories</span></div>
       <div class="stat"><b>${job.comments}</b><span>comments</span></div>
       <div class="stat ${job.flagged ? "alert" : ""}"><b>${job.flagged}</b><span>need review</span></div>
+      <div class="stat ${job.unconfirmed ? "open-stat" : ""}"><b>${job.unconfirmed}</b><span>no verdict</span></div>
     </div></div>
+
+    ${openQuestions(job)}
 
     <div class="panel"><h3>Downloads</h3><div class="links">
       ${job.downloads.map(k =>

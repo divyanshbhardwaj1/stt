@@ -78,6 +78,10 @@ class AlignedRow:
     # The inspector said "okay" rather than calling a deviation. Distinct from a
     # deviation that merely computes to zero, which is not the same claim.
     on_spec: bool = False
+    # No verdict was captured for this point of measure. Not a pass, not a
+    # failure — an unanswered question that a human has to settle against the
+    # recording before the report goes anywhere.
+    unconfirmed: bool = False
 
     @property
     def matched(self) -> bool:
@@ -89,7 +93,7 @@ class AlignedRow:
 
     @property
     def needs_attention(self) -> bool:
-        """A human must look: out of tolerance, unmatched, or unjudged."""
+        """A human must look: out of tolerance, unmatched, unjudged or unconfirmed."""
         return self.is_fail or not self.matched or self.in_tolerance is None
 
 
@@ -128,11 +132,35 @@ class Alignment:
         return [row for row in self.rows if row.in_tolerance is not None]
 
     @property
+    def unconfirmed(self) -> list[AlignedRow]:
+        """Points of measure whose verdict never made it out of the recording."""
+        return [row for row in self.rows if row.unconfirmed]
+
+    @property
     def verdict(self) -> str:
-        """PASS when every judged measurement is inside its tolerance band."""
+        """PASS only when every measurement was both heard and inside tolerance.
+
+        A gap cannot pass. An unconfirmed point of measure is one nobody has
+        ruled on, and a report that quietly counted it as good is the failure
+        this whole stage exists to prevent — so the verdict says how many
+        answers are still owed.
+        """
+        if self.failures:
+            return "FAIL CONDITIONALLY"
+        if self.unconfirmed:
+            checks = _plural(len(self.unconfirmed), "CHECK")
+            # Nothing judged at all: there is no pass here to be pending on, and
+            # saying so would read as approval of a sheet nobody has ruled on.
+            if not self.judged:
+                return f"UNVERIFIED - {checks} OUTSTANDING"
+            return f"PASS PENDING {checks}"
         if not self.judged:
             return ""
-        return "FAIL CONDITIONALLY" if self.failures else "PASS"
+        return "PASS"
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}S"
 
 
 def _words(text: str) -> list[str]:
@@ -167,9 +195,9 @@ def _value_score(measured: Fraction | None, row: PomRow, size: str) -> float:
 
 
 def _judge(
-    row: PomRow, size: str, value: str, stated_deviation: str
-) -> tuple[Fraction | None, Fraction | None, bool | None, bool]:
-    """Measurement, deviation, verdict, and whether the inspector called it okay.
+    row: PomRow, size: str, value: str, stated_deviation: str, confirmed_okay: bool = False
+) -> tuple[Fraction | None, Fraction | None, bool | None, bool, bool]:
+    """Measurement, deviation, tolerance result, on-spec, and unconfirmed.
 
     The style set is authoritative for the measurement. The inspector dictates
     every point of measure as an absolute followed by either a deviation or
@@ -190,14 +218,20 @@ def _judge(
     if spec is None:
         # A size this sheet does not grade. Nothing to rebuild from, and nothing
         # to judge against, so the recording is all there is.
-        return heard, stated, None, False
+        return heard, stated, None, False, False
 
     if spoken and stated is None:
         # Something was said, but it is not a signed deviation: "±1/8" is the
-        # tolerance band quoted back, not a reading. Left unjudged and without a
-        # deviation rather than called okay — a blank deviation means the
-        # inspector passed the row, and this is not that.
-        return spec, None, None, False
+        # tolerance band quoted back, not a reading. Unconfirmed rather than
+        # okay — a value nobody ruled on must not borrow a pass.
+        return spec, None, None, False, True
+
+    if not spoken and not confirmed_okay:
+        # No deviation and no spoken pass. Transcription drops these short words,
+        # so silence is an open question, not a clean sheet. Legacy extractions
+        # carry no verdict at all and land here too, which is honest: for those
+        # we cannot tell an unspoken verdict from a lost one.
+        return spec, None, None, False, True
 
     on_spec = not spoken
     deviation = Fraction(0) if on_spec else stated
@@ -206,7 +240,7 @@ def _judge(
     if not row.is_measured:
         # Position and reference rows are read aloud but carry no tolerance,
         # so there is nothing to pass or fail against.
-        return measured, deviation, None, on_spec
+        return measured, deviation, None, on_spec, False
 
     _, ok = check_tolerance(
         spec,
@@ -214,18 +248,21 @@ def _judge(
         row.tolerance_minus if row.tolerance_minus is not None else Fraction(0),
         row.tolerance_plus if row.tolerance_plus is not None else Fraction(0),
     )
-    return measured, deviation, ok, on_spec
+    return measured, deviation, ok, on_spec, False
 
 
 def align_size(
-    spoken_rows: list[tuple[int, str, str, str, float, str]],
+    spoken_rows: list[tuple[int, str, str, str, float, str, bool]],
     sheet_rows: list[PomRow],
     size: str,
 ) -> list[AlignedRow]:
     """Walk one size's dictation against the sheet, in order.
 
-    `spoken_rows` are (number, field, value, deviation, confidence, note) in the
-    order they were said.
+    `spoken_rows` are (number, field, value, deviation, confidence, note,
+    confirmed_okay) in the order they were said. `confirmed_okay` is True only
+    when the inspector was heard to pass the row aloud — never inferred from a
+    blank deviation, which is equally consistent with the transcription having
+    dropped the word.
     """
     aligned: list[AlignedRow] = []
     pointer = 0
@@ -233,7 +270,7 @@ def align_size(
     # same row, which the forward-only pointer used to guarantee on its own.
     claimed: set[int] = set()
 
-    for number, field, value, deviation, confidence, note in spoken_rows:
+    for number, field, value, deviation, confidence, note, confirmed_okay in spoken_rows:
         measured = parse(value)
         candidates = []
         for index in range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD):
@@ -283,7 +320,7 @@ def align_size(
         # Never backwards: a reading that reclaimed a skipped row must not send
         # the search back over ground already covered.
         pointer = max(pointer, best_index + 1)
-        actual, gap, ok, on_spec = _judge(row, size, value, deviation)
+        actual, gap, ok, on_spec, unconfirmed = _judge(row, size, value, deviation, confirmed_okay)
         aligned.append(
             AlignedRow(
                 number=number,
@@ -302,6 +339,7 @@ def align_size(
                 tolerance_plus=row.tolerance_plus,
                 heard=measured,
                 on_spec=on_spec,
+                unconfirmed=unconfirmed,
             )
         )
     return aligned
@@ -332,18 +370,35 @@ def align(sheet, style: StyleSet) -> Alignment:
         sizes.append(size)
         measured = sheet.rows_in("measurement") if unsized else sheet.rows_in("measurement", size)
         spoken = [
-            (number, row.field, row.value, row.deviation, row.confidence, row.note)
+            (
+                number,
+                row.field,
+                row.value,
+                row.deviation,
+                row.confidence,
+                row.note,
+                row.confirmed_okay,
+            )
             for number, row in measured
         ]
         rows.extend(align_size(spoken, sheet_rows, size))
 
     alignment = Alignment(style_no=style.style_no, sizes=tuple(sizes), rows=tuple(rows))
     log.info(
-        "aligned %d measurements to style %s: %d judged, %d out of tolerance, %d unmatched",
+        "aligned %d measurements to style %s: %d judged, %d out of tolerance, "
+        "%d unmatched, %d verdict(s) not captured",
         len(alignment.rows),
         style.style_no,
         len(alignment.judged),
         len(alignment.failures),
         len(alignment.unmatched),
+        len(alignment.unconfirmed),
     )
+    if alignment.unconfirmed:
+        log.warning(
+            "%d point(s) of measure have no captured verdict and are reported "
+            "unconfirmed, not on spec: %s",
+            len(alignment.unconfirmed),
+            ", ".join(f"{r.size} {r.pom or r.spoken}" for r in alignment.unconfirmed[:8]),
+        )
     return alignment

@@ -14,7 +14,25 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 SECTIONS = ("measurement", "construction", "bom", "shrinkage", "marker", "comment")
-ROW_COLUMNS = ("section", "size", "field", "value", "deviation", "note", "confidence")
+ROW_COLUMNS = (
+    "section",
+    "size",
+    "field",
+    "value",
+    "deviation",
+    "verdict",
+    "note",
+    "confidence",
+)
+
+# What the inspector was heard to say about a point of measure. A blank
+# `deviation` used to carry two very different meanings — "he said okay" and
+# "we did not hear one" — and reporting the second as on-spec is how a real
+# deviation reaches a vendor as a pass. The model now has to say which it was.
+VERDICT_DEVIATION = "deviation"
+VERDICT_OKAY = "okay"
+VERDICT_NOT_STATED = "not stated"
+VERDICTS = (VERDICT_DEVIATION, VERDICT_OKAY, VERDICT_NOT_STATED)
 
 # The named boxes on the form, in the order they appear on it.
 FORM_FIELDS = (
@@ -62,6 +80,20 @@ class InspectionRow:
     deviation: str
     note: str
     confidence: float
+    # One of VERDICTS. Defaulted so extractions saved before this field existed
+    # still load — they are treated as unconfirmed, because for those we
+    # genuinely cannot tell an unspoken verdict from a lost one.
+    verdict: str = ""
+
+    @property
+    def confirmed_okay(self) -> bool:
+        """The inspector was heard to pass this point of measure."""
+        return self.verdict == VERDICT_OKAY
+
+    @property
+    def verdict_missing(self) -> bool:
+        """No verdict was captured, so nothing may be concluded from silence."""
+        return self.verdict in ("", VERDICT_NOT_STATED) and not self.deviation.strip()
 
     @property
     def needs_review(self) -> bool:

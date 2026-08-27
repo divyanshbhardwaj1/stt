@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pipeline
 from services.config import Settings
+from services.measurements import format_measurement
 
 log = logging.getLogger(__name__)
 
@@ -29,10 +30,16 @@ MAX_FLAGGED_DETAIL = 25
 # one comes from.
 DOWNLOADS = {
     "report": ("pdf_path", "application/pdf"),
+    "graded": ("graded_pdf_path", "application/pdf"),
     "form": ("form_csv_path", "text/csv"),
     "measurements": ("measurements_csv_path", "text/csv"),
+    "graded_data": ("graded_csv_path", "text/csv"),
     "data": ("json_path", "application/json"),
 }
+
+# How many open questions the status endpoint carries. The count is always
+# exact; this only caps the detail rendered on screen.
+MAX_UNCONFIRMED_DETAIL = 25
 
 
 @dataclass
@@ -54,6 +61,18 @@ class Job:
     accessories: int = 0
     comments: int = 0
     flagged_rows: list[dict[str, object]] = field(default_factory=list)
+    # The check against the graded spec sheet. `graded` is False when no style
+    # set could be matched, in which case nothing was verified against spec and
+    # the operator has to pick the style by hand.
+    graded: bool = False
+    graded_style_no: str = ""
+    announced_style_no: str = ""
+    measurement_result: str = ""
+    judged: int = 0
+    out_of_tolerance: int = 0
+    unconfirmed: int = 0
+    unconfirmed_rows: list[dict[str, object]] = field(default_factory=list)
+    failed_rows: list[dict[str, object]] = field(default_factory=list)
     started_at: float = field(default_factory=time.time)
     finished_at: float = 0.0
 
@@ -79,6 +98,15 @@ class Job:
             "accessories": self.accessories,
             "comments": self.comments,
             "flagged_rows": self.flagged_rows,
+            "graded": self.graded,
+            "graded_style_no": self.graded_style_no,
+            "announced_style_no": self.announced_style_no,
+            "measurement_result": self.measurement_result,
+            "judged": self.judged,
+            "out_of_tolerance": self.out_of_tolerance,
+            "unconfirmed": self.unconfirmed,
+            "unconfirmed_rows": self.unconfirmed_rows,
+            "failed_rows": self.failed_rows,
             "elapsed": round(self.elapsed, 1),
         }
 
@@ -162,7 +190,11 @@ def _run_and_record(job: Job, invoke) -> None:
     job.rows = len(sheet.rows)
     job.flagged = result.flagged_count
     job.sizes = sheet.sizes()
-    job.files = {kind: getattr(result, attribute) for kind, (attribute, _) in DOWNLOADS.items()}
+    job.files = {
+        kind: path
+        for kind, (attribute, _) in DOWNLOADS.items()
+        if (path := getattr(result, attribute)) is not None
+    }
     job.form = dict(sheet.form)
     job.accessories = len(sheet.accessories)
     job.comments = len(sheet.comments)
@@ -178,6 +210,57 @@ def _run_and_record(job: Job, invoke) -> None:
         }
         for number, row in sheet.flagged()[:MAX_FLAGGED_DETAIL]
     ]
+    _record_grading(job, result)
     job.message = f"{job.rows} rows, {job.flagged} need review"
+    if job.unconfirmed:
+        job.message += f", {job.unconfirmed} verdict(s) not captured"
     job.finished_at = time.time()
     job.status = DONE
+
+
+def _record_grading(job: Job, result) -> None:
+    """Copy the check against the spec sheet onto the job.
+
+    The unconfirmed points of measure matter most: those are the ones the
+    recording never ruled on, and the browser has to show them or an operator
+    downloads a report believing the blanks were passes.
+    """
+    job.announced_style_no = result.sheet.field("style_no")
+    alignment = result.alignment
+    if alignment is None:
+        job.graded = False
+        return
+
+    job.graded = True
+    job.graded_style_no = alignment.style_no
+    job.measurement_result = alignment.verdict
+    job.judged = len(alignment.judged)
+    job.out_of_tolerance = len(alignment.failures)
+    job.unconfirmed = len(alignment.unconfirmed)
+    job.unconfirmed_rows = [
+        {
+            "no": row.number,
+            "size": row.size,
+            "pom": row.pom,
+            "description": row.description,
+            "spec": _measure(row.spec),
+            "spoken": row.spoken,
+        }
+        for row in alignment.unconfirmed[:MAX_UNCONFIRMED_DETAIL]
+    ]
+    job.failed_rows = [
+        {
+            "no": row.number,
+            "size": row.size,
+            "pom": row.pom,
+            "description": row.description,
+            "spec": _measure(row.spec),
+            "measured": _measure(row.measured),
+            "deviation": _measure(row.deviation, signed=True),
+        }
+        for row in alignment.failures[:MAX_UNCONFIRMED_DETAIL]
+    ]
+
+
+def _measure(value, signed: bool = False) -> str:
+    return "" if value is None else format_measurement(value, signed=signed)

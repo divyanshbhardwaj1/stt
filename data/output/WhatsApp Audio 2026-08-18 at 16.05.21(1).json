@@ -58,7 +58,8 @@
       "value": "22 3/4",
       "deviation": "",
       "note": "Measurement stated in first-fit comments",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -67,7 +68,8 @@
       "value": "13 1/2",
       "deviation": "",
       "note": "Measurement stated in first-fit comments",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -76,7 +78,8 @@
       "value": "",
       "deviation": "",
       "note": "Straight; revise for more saddle and curve",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -85,7 +88,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Shift as per attached digitals",
-      "confidence": 0.78
+      "confidence": 0.78,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -94,7 +98,8 @@
       "value": "1/4",
       "deviation": "+1/4",
       "note": "Increase opening and relax",
-      "confidence": 0.82
+      "confidence": 0.82,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -103,7 +108,8 @@
       "value": "",
       "deviation": "",
       "note": "Bring all specs back to spec",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     }
   ]
 }

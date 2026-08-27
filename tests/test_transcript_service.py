@@ -17,14 +17,15 @@ from services.transcript import transcription_service as service
 class FakeTranscriptionClient:
     """Replays the event stream the transcription API emits."""
 
-    def __init__(self, final="hello world"):
+    def __init__(self, final="hello world", deltas=("hello ", "world")):
         self.final = final
+        self.deltas = deltas
         self.calls = []
         self.audio = types.SimpleNamespace(transcriptions=self)
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
-        for delta in ("hello ", "world"):
+        for delta in self.deltas:
             yield types.SimpleNamespace(type="transcript.text.delta", delta=delta)
         yield types.SimpleNamespace(type="transcript.text.other", delta="ignored")
         if self.final is not None:
@@ -54,6 +55,41 @@ def test_sends_model_and_domain_prompt(settings, recording):
     assert "style number" in sent["prompt"]  # the opening announcement, as digits
 
 
+def test_long_audio_is_chunked(settings, recording):
+    """Unset, the API transcribes the whole upload as one block.
+
+    A size-set inspection runs 30 to 60 minutes, and over that length the short
+    verdict after each measurement goes missing. Chunking recovered most of
+    them, so the parameter is pinned rather than left to a default.
+    """
+    client = FakeTranscriptionClient()
+
+    service.transcribe_recording(recording, settings, client=client)
+
+    assert client.calls[0]["chunking_strategy"] == "auto"
+
+
+def test_deviation_vocabulary_is_boosted_and_both_languages_declared(settings, recording):
+    client = FakeTranscriptionClient()
+
+    service.transcribe_recording(recording, settings, client=client)
+
+    sent = client.calls[0]
+    assert "minus one by eight" in sent["keywords"]
+    assert "okay" in sent["keywords"]
+    assert sorted(sent["languages"]) == ["en", "hi"]
+    assert sent["temperature"] == 0
+
+
+def test_the_same_recording_transcribes_the_same_way(settings, recording):
+    """Runs were differing by four deviation calls on identical audio."""
+    client = FakeTranscriptionClient()
+
+    service.transcribe_recording(recording, settings, client=client)
+
+    assert client.calls[0]["temperature"] == 0
+
+
 def test_rejects_oversized_recordings(settings, recording, monkeypatch):
     monkeypatch.setattr(service, "MAX_UPLOAD_BYTES", 1)
 
@@ -61,10 +97,30 @@ def test_rejects_oversized_recordings(settings, recording, monkeypatch):
         service.transcribe_recording(recording, settings, client=FakeTranscriptionClient())
 
 
-def test_raises_when_the_stream_has_no_final_event(settings, recording):
+def test_the_streamed_deltas_survive_a_missing_done_event(settings, recording):
+    """Chunked audio can deliver a "done" per chunk, or none at all.
+
+    The deltas carry every word regardless, so a transcript already in hand is
+    never thrown away for want of the closing event.
+    """
+    text = service.transcribe_recording(
+        recording, settings, client=FakeTranscriptionClient(final=None)
+    )
+
+    assert text == "hello world"
+
+
+def test_a_done_event_holding_only_the_last_chunk_does_not_win(settings, recording):
+    """One "done" per chunk would otherwise truncate the whole transcript to it."""
+    client = FakeTranscriptionClient(final="world", deltas=("hello ", "world"))
+
+    assert service.transcribe_recording(recording, settings, client=client) == "hello world"
+
+
+def test_raises_when_the_stream_is_empty(settings, recording):
     with pytest.raises(TranscriptionError, match="without a final transcript"):
         service.transcribe_recording(
-            recording, settings, client=FakeTranscriptionClient(final=None)
+            recording, settings, client=FakeTranscriptionClient(final=None, deltas=())
         )
 
 

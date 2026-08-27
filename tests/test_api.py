@@ -43,6 +43,96 @@ def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=Non
     return client.post("/api/jobs", files={"recording": (name, content, "audio/mp4")}, data=data)
 
 
+def _finish(client, style_no="7270"):
+    """Upload, then read the finished job back."""
+    body = upload(client, style_no=style_no).json()
+    return client.get(f"/api/jobs/{body['id']}").json()
+
+
+def test_a_graded_job_reports_the_check_against_spec(client, template, style_sets, stub_pipeline):
+    """The browser has to show the spec check, or it is invisible to the operator."""
+    job = _finish(client)
+
+    assert job["graded"] is True
+    assert job["graded_style_no"] == "7270"
+    assert job["measurement_result"] == "FAIL CONDITIONALLY"
+    assert job["judged"] == 2
+    assert job["out_of_tolerance"] == 1
+    assert job["failed_rows"][0]["pom"]
+    assert job["failed_rows"][0]["deviation"]
+
+
+def test_the_graded_sheet_is_downloadable(client, template, style_sets, stub_pipeline):
+    job = _finish(client)
+
+    assert {"graded", "graded_data"} <= set(job["downloads"])
+    pdf = client.get(f"/api/jobs/{job['id']}/download/graded")
+    csv = client.get(f"/api/jobs/{job['id']}/download/graded_data")
+
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert csv.status_code == 200
+    assert b"UNCONFIRMED" in csv.content or b"pom" in csv.content
+
+
+def test_a_verdict_the_recording_never_gave_reaches_the_browser(
+    client, template, style_sets, monkeypatch
+):
+    """The costly case, end to end through the web path.
+
+    A point of measure the recording never ruled on must not reach the operator
+    looking like a pass. It has to arrive as an open question with the POM, the
+    size and the spec, so it can be listened back to.
+    """
+    silent = {
+        "form": dict(SHEET_PAYLOAD["form"]),
+        "accessories": [],
+        "comments": [],
+        "rows": [
+            {
+                "section": "measurement",
+                "size": "M",
+                "field": "Front length from HPS - NK seam",
+                "value": "32 3/4",
+                "deviation": "",
+                "verdict": "not stated",
+                "note": "",
+                "confidence": 1.0,
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        pipeline.inspection_pipeline,
+        "transcribe_recording",
+        lambda recording, settings, client=None, on_delta=None, announce=None: "text",
+    )
+    monkeypatch.setattr(
+        pipeline.inspection_pipeline,
+        "extract_inspection",
+        lambda transcript, settings, template, client=None: InspectionSheet.from_payload(silent),
+    )
+
+    job = _finish(client)
+
+    assert job["unconfirmed"] == 1
+    assert job["measurement_result"] == "UNVERIFIED - 1 CHECK OUTSTANDING"
+    open_question = job["unconfirmed_rows"][0]
+    assert open_question["pom"] == "1.01C"
+    assert open_question["size"] == "M"
+    assert open_question["spec"] == "32 3/4"
+    assert "no verdict" in job["message"] or "not captured" in job["message"]
+
+
+def test_a_job_with_no_style_set_says_which_style_was_announced(client, template, stub_pipeline):
+    """Without a sheet nothing was checked, and the operator needs to know why."""
+    job = _finish(client, style_no=None)
+
+    assert job["graded"] is False
+    assert job["announced_style_no"] == "7270"
+    assert job["unconfirmed"] == 0
+    assert "graded" not in job["downloads"]
+
+
 def test_style_sets_are_listed_for_the_dropdown(client, style_sets):
     assert client.get("/api/style-sets").json() == ["7270"]
 

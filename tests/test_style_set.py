@@ -54,13 +54,56 @@ def test_every_row_is_parsed(style_set):
     assert [row.pom for row in style_set.rows] == [
         "*",
         "0.00A",
+        "*",  # ***CATCH ELASTIC ...
+        "*",  # 8/19/25 GD: ...
+        "1.22A",  # tolerance columns blank
         "1.01C",
         "2.01A",
         "1.20A",
         "1.28A",
         "1.30A",
-        "*",
+        "*",  # TIE WIDTH, a real POM filed under '*'
     ]
+
+
+def test_the_sheets_own_wording_is_reproduced_whole(style_set):
+    """The style set is the client's document, so its text is not edited.
+
+    Their free-text lines carry one padding zero per size and no tolerance
+    columns. Reading two of those words as tolerances used to bite the tail off
+    every one of them: "MEASURE GMTS IN CIRCUMFERENCE" lost "IN CIRCUMFERENCE".
+    """
+    printed = [row.description for row in style_set.rows if row.is_note]
+
+    assert printed == list(NOTE_DESCRIPTIONS)
+    # A measurement inside the wording is part of the instruction, not padding.
+    assert '1/2"' in printed[1]
+
+
+def test_a_row_with_blank_tolerance_columns_keeps_its_sizes(style_set):
+    """Triburg leave the tolerance columns empty on position rows.
+
+    Taking the first two per-size numbers as tolerances shifted every size
+    across by one. And with no band there is nothing to judge, so the row is
+    carried in sequence but never given a verdict.
+    """
+    row = next(r for r in style_set.rows if r.pom == "1.22A")
+
+    assert row.tolerance_minus is None
+    assert row.tolerance_plus is None
+    assert [row.spec_for(size) for size in SIZES] == [F(5)] * len(SIZES)
+    assert not row.is_measured
+    assert not row.is_note  # still read aloud, so it keeps its place
+
+
+def test_free_text_lines_are_reproduced_but_never_aligned_against(style_set):
+    """They are part of the sheet, so they appear; they are not points of measure."""
+    ordered = style_set.rows_in_sheet_order()
+
+    assert len(ordered) == len(style_set.rows)
+    assert [row.pom for row, index in ordered if index is None] == ["*"] * 3
+    spoken = [index for _, index in ordered if index is not None]
+    assert spoken == list(range(len(style_set.spoken_rows())))
 
 
 def test_notes_and_zero_tolerance_rows_are_not_measured(style_set):

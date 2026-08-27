@@ -62,7 +62,8 @@
       "value": "22 3/4",
       "deviation": "",
       "note": "PP sample measurement stated in fit comments",
-      "confidence": 0.98
+      "confidence": 0.98,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -71,7 +72,8 @@
       "value": "13 1/2",
       "deviation": "",
       "note": "PP sample measurement stated in fit comments",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -80,7 +82,8 @@
       "value": "",
       "deviation": "",
       "note": "Straight; revise for more saddle and curve",
-      "confidence": 0.98
+      "confidence": 0.98,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -89,7 +92,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Shift as per attached digitals",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -98,7 +102,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Increase/relax",
-      "confidence": 0.94
+      "confidence": 0.94,
+      "verdict": ""
     },
     {
       "section": "comment",
@@ -107,7 +112,8 @@
       "value": "",
       "deviation": "",
       "note": "Bring all measurements back to spec",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "verdict": ""
     }
   ]
 }

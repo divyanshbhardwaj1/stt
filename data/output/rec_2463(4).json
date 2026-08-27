@@ -189,7 +189,8 @@
       "value": "52.92 cm",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "marker",
@@ -198,7 +199,8 @@
       "value": "15.7 cm",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -207,7 +209,8 @@
       "value": "1%",
       "deviation": "",
       "note": "taken band; good",
-      "confidence": 0.96
+      "confidence": 0.96,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -216,7 +219,8 @@
       "value": "0%",
       "deviation": "",
       "note": "good",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -225,7 +229,8 @@
       "value": "1 1/2%",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "shrinkage",
@@ -234,7 +239,8 @@
       "value": "0%",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -243,7 +249,8 @@
       "value": "1 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -252,7 +259,8 @@
       "value": "1 3/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -261,7 +269,8 @@
       "value": "26 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -270,7 +279,8 @@
       "value": "39",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -279,7 +289,8 @@
       "value": "5 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -288,7 +299,8 @@
       "value": "40 1/2",
       "deviation": "+1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -297,7 +309,8 @@
       "value": "9 3/4",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -306,7 +319,8 @@
       "value": "15",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -315,7 +329,8 @@
       "value": "27",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -324,7 +339,8 @@
       "value": "2 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -333,7 +349,8 @@
       "value": "10 5/8",
       "deviation": "+1/8",
       "note": "Initially called okay, then corrected to plus 1/8.",
-      "confidence": 0.96
+      "confidence": 0.96,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -342,7 +359,8 @@
       "value": "4 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -351,7 +369,8 @@
       "value": "1 1/8",
       "deviation": "+1/16",
       "note": "Deviation initially started as minus, then corrected to plus 1/16.",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -360,7 +379,8 @@
       "value": "1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -369,7 +389,8 @@
       "value": "10 7/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -378,7 +399,8 @@
       "value": "12 1/8",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -387,7 +409,8 @@
       "value": "8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -396,7 +419,8 @@
       "value": "1 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -405,7 +429,8 @@
       "value": "1 1/4",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -414,7 +439,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -423,7 +449,8 @@
       "value": "1",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -432,7 +459,8 @@
       "value": "5 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -441,7 +469,8 @@
       "value": "8 5/8",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -450,7 +479,8 @@
       "value": "6 1/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -459,7 +489,8 @@
       "value": "1 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -468,7 +499,8 @@
       "value": "1 3/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -477,7 +509,8 @@
       "value": "28 3/4",
       "deviation": "-1/2",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -486,7 +519,8 @@
       "value": "41",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -495,7 +529,8 @@
       "value": "5 5/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -504,7 +539,8 @@
       "value": "42 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -513,7 +549,8 @@
       "value": "10 1/4",
       "deviation": "-1/4",
       "note": "Spoken as 'ten quarter.'",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -522,7 +559,8 @@
       "value": "15 1/2",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -531,7 +569,8 @@
       "value": "28 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -540,7 +579,8 @@
       "value": "2 1/2",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -549,7 +589,8 @@
       "value": "11",
       "deviation": "+1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -558,7 +599,8 @@
       "value": "4 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -567,7 +609,8 @@
       "value": "1 1/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -576,7 +619,8 @@
       "value": "1/2",
       "deviation": "",
       "note": "",
-      "confidence": 0.88
+      "confidence": 0.88,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -585,7 +629,8 @@
       "value": "11 1/4",
       "deviation": "-1/4",
       "note": "Spoken as 'eleven quarter.'",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -594,7 +639,8 @@
       "value": "12 1/2",
       "deviation": "+1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -603,7 +649,8 @@
       "value": "8 1/4",
       "deviation": "-1/4",
       "note": "Spoken as 'eight quarter.'",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -612,7 +659,8 @@
       "value": "2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -621,7 +669,8 @@
       "value": "1 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -630,7 +679,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -639,7 +689,8 @@
       "value": "1",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -648,7 +699,8 @@
       "value": "5 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -657,7 +709,8 @@
       "value": "9",
       "deviation": "-1/4",
       "note": "Value repeated and confirmed.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -666,7 +719,8 @@
       "value": "6 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -675,7 +729,8 @@
       "value": "1 1/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -684,7 +739,8 @@
       "value": "1 3/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -693,7 +749,8 @@
       "value": "30 3/4",
       "deviation": "",
       "note": "Spoken as 'thirty-three quarter'; interpreted as thirty and three quarters.",
-      "confidence": 0.65
+      "confidence": 0.65,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -702,7 +759,8 @@
       "value": "43",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -711,7 +769,8 @@
       "value": "6",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -720,7 +779,8 @@
       "value": "44 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -729,7 +789,8 @@
       "value": "10 3/4",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -738,7 +799,8 @@
       "value": "16",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -747,7 +809,8 @@
       "value": "30",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -756,7 +819,8 @@
       "value": "2 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -765,7 +829,8 @@
       "value": "11 3/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -774,7 +839,8 @@
       "value": "5 1/4",
       "deviation": "",
       "note": "Spoken as 'five quarter.'",
-      "confidence": 0.92
+      "confidence": 0.92,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -783,7 +849,8 @@
       "value": "1 1/8",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -792,7 +859,8 @@
       "value": "1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -801,7 +869,8 @@
       "value": "11 5/8",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -810,7 +879,8 @@
       "value": "12 7/8",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -819,7 +889,8 @@
       "value": "8 1/2",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -828,7 +899,8 @@
       "value": "2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -837,7 +909,8 @@
       "value": "1 1/4",
       "deviation": "-1/8",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -846,7 +919,8 @@
       "value": "1/4",
       "deviation": "",
       "note": "Value repeated and confirmed.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -855,7 +929,8 @@
       "value": "1",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -864,7 +939,8 @@
       "value": "9",
       "deviation": "-1/4",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "measurement",
@@ -873,7 +949,8 @@
       "value": "6 1/2",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -882,7 +959,8 @@
       "value": "OK",
       "deviation": "",
       "note": "Fine on all patterns.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -891,7 +969,8 @@
       "value": "Not OK",
       "deviation": "",
       "note": "One notch missing at the side seam.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -900,7 +979,8 @@
       "value": "OK",
       "deviation": "",
       "note": "",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "bom",
@@ -909,7 +989,8 @@
       "value": "Actual",
       "deviation": "",
       "note": "Single jersey used instead of lining.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -918,7 +999,8 @@
       "value": "Very hard",
       "deviation": "",
       "note": "Do light press and ensure no creases are made.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -927,7 +1009,8 @@
       "value": "Not OK",
       "deviation": "",
       "note": "Red thread seam grinning; ensure it is not there.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     },
     {
       "section": "construction",
@@ -936,7 +1019,8 @@
       "value": "Not OK",
       "deviation": "",
       "note": "Broken stitch; maintain all seams and prevent stitch breaking.",
-      "confidence": 1
+      "confidence": 1,
+      "verdict": ""
     }
   ]
 }

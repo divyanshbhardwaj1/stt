@@ -1,7 +1,7 @@
-﻿no,section,size,field,value,deviation,note,confidence,needs_review
-1,comment,,Body from HPS,22 3/4,,Sample measurement stated in PP comments,0.98,
-2,comment,,Waist on body,13 1/2,,Sample measurement stated in PP comments,0.98,
-3,construction,,Front armhole shape,,,Straight; revise for more saddle and curve,1.00,
-4,comment,,Transpose armhole,1/4,,Shift as per attached digitals,0.82,yes
-5,comment,,C opening relax,1/4,,Increase and relax,0.78,yes
-6,comment,,Out-of-tolerance specs,,,Bring all back to spec,1.00,
+﻿no,section,size,field,value,deviation,verdict,note,confidence,needs_review
+1,comment,,Body from HPS,22 3/4,,,Sample measurement stated in PP comments,0.98,
+2,comment,,Waist on body,13 1/2,,,Sample measurement stated in PP comments,0.98,
+3,construction,,Front armhole shape,,,,Straight; revise for more saddle and curve,1.00,
+4,comment,,Transpose armhole,1/4,,,Shift as per attached digitals,0.82,yes
+5,comment,,C opening relax,1/4,,,Increase and relax,0.78,yes
+6,comment,,Out-of-tolerance specs,,,,Bring all back to spec,1.00,
