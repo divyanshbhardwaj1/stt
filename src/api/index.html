@@ -5,183 +5,545 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Size Set Inspection Reports</title>
 <style>
+/* ============================================================
+   Tokens
+
+   Light-first, deliberately. The screen is read twice: standing on a lit
+   factory floor to run a recording, then at a desk to decide whether a
+   report is safe to send. Dark surfaces lose on the first of those, and the
+   thing under review is a printed white document, so the page is ink on
+   paper. A dark theme follows for late desk work, not as the default.
+
+   Semantic hues are keyed to graded_report.py, which prints the same four
+   states into the PDF: fail is orange (#c2410c), no-verdict is violet
+   (#6d28d9), low confidence is blue (#1d4ed8). Screen and paper must say the
+   same thing in the same colour or a reviewer relearns the language halfway
+   through the job.
+
+   Which is why actions are INK, not blue: the old accent (#2563eb) sat a
+   hair from the low-confidence blue, so "you can click this" and "this
+   measurement was misheard" rendered nearly identically. Interactive weight
+   now comes from near-black; every hue on the page means something.
+   ============================================================ */
 :root {
-  --bg: #f6f7f9;   --panel: #fff;    --side: #fbfbfc;
-  --ink: #14161a;  --dim: #6b7280;   --faint: #9aa1ac;
-  --line: #e5e8ec; --soft: #f1f3f6;
-  --accent: #2563eb; --accent-soft: #eef4ff;
-  --good: #15803d; --good-soft: #e9f6ee;
-  --warn: #b45309; --warn-soft: #fdf3e3;
-  --bad:  #b42318; --bad-soft:  #fdecea;
-  --open: #6d28d9; --open-soft: #f4f0ff;
+  color-scheme: light;
+
+  --paper:    oklch(0.975 0.002 250);  /* app background */
+  --surface:  oklch(1     0     0);    /* panels: white, like the report */
+  --rail:     oklch(0.955 0.004 250);  /* sidebar: second neutral layer */
+  --sunken:   oklch(0.965 0.003 250);  /* wells, table heads */
+
+  --ink:      oklch(0.24  0.012 265);  /* body text, primary actions */
+  --ink-soft: oklch(0.42  0.012 265);  /* secondary text */
+  --ink-mute: oklch(0.53  0.010 265);  /* labels, captions (AA on surface) */
+  --line:     oklch(0.905 0.005 265);  /* hairlines */
+  --line-firm:oklch(0.84  0.006 265);  /* control borders */
+
+  /* State. Each pairs an ink (text/glyph) with a tint (fill). */
+  --pass:      oklch(0.47 0.115 152);
+  --pass-tint: oklch(0.965 0.030 152);
+  --fail:      oklch(0.505 0.165 43);
+  --fail-tint: oklch(0.968 0.030 43);
+  --open:      oklch(0.455 0.215 296);   /* no verdict: the loudest state */
+  --open-tint: oklch(0.968 0.028 296);
+  --heard:     oklch(0.455 0.185 264);   /* low confidence */
+  --heard-tint:oklch(0.968 0.028 264);
+  --work:      oklch(0.52  0.125 68);    /* in progress */
+  --work-tint: oklch(0.972 0.035 68);
+
+  --focus: oklch(0.455 0.215 296);
+
+  --r-panel: 10px;
+  --r-ctl: 7px;
+  --r-chip: 5px;
+
+  /* Semantic layers. Two is all this page needs; never a bare 999. */
+  --z-sticky: 10;
+  --z-toast: 20;
+
+  --ease: cubic-bezier(.22, .61, .36, 1);   /* ease-out-quart */
+  --fast: 140ms;
+  --med: 220ms;
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e1014;   --panel: #15181e;  --side: #121419;
-    --ink: #e9ebef;  --dim: #99a0ab;    --faint: #6e7583;
-    --line: #262a32; --soft: #1c2028;
-    --accent: #6b9bff; --accent-soft: #1a2334;
-    --good: #57c98a; --good-soft: #16261d;
-    --warn: #e0a35a; --warn-soft: #2a2114;
-    --bad:  #f2836f; --bad-soft:  #2c1a17;
-    --open: #a78bfa; --open-soft: #241b38;
+    color-scheme: dark;
+
+    --paper:    oklch(0.185 0.008 265);
+    --surface:  oklch(0.225 0.010 265);
+    --rail:     oklch(0.205 0.009 265);
+    --sunken:   oklch(0.255 0.010 265);
+
+    --ink:      oklch(0.945 0.006 265);
+    --ink-soft: oklch(0.795 0.010 265);
+    --ink-mute: oklch(0.685 0.012 265);
+    --line:     oklch(0.315 0.010 265);
+    --line-firm:oklch(0.395 0.012 265);
+
+    --pass:      oklch(0.78 0.145 152);
+    --pass-tint: oklch(0.295 0.055 152);
+    --fail:      oklch(0.775 0.135 47);
+    --fail-tint: oklch(0.305 0.060 43);
+    --open:      oklch(0.775 0.145 296);
+    --open-tint: oklch(0.305 0.070 296);
+    --heard:     oklch(0.775 0.130 264);
+    --heard-tint:oklch(0.305 0.065 264);
+    --work:      oklch(0.80 0.130 72);
+    --work-tint: oklch(0.305 0.055 68);
+
+    --focus: oklch(0.775 0.145 296);
   }
 }
+
+/* ============================================================
+   Base
+   ============================================================ */
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font: 14.5px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Every measurement on this page is a fraction in a column of fractions. */
+  font-variant-numeric: tabular-nums;
 }
-.shell { display: grid; grid-template-columns: 310px 1fr; height: 100vh; }
+h1, h2, h3 { margin: 0; font-weight: 620; letter-spacing: -0.011em; text-wrap: balance; }
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.shell { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100vh; }
 
-/* ---------- sidebar ---------- */
-aside {
-  background: var(--side); border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; min-height: 0;
-}
-.brand { padding: 20px 18px 16px; border-bottom: 1px solid var(--line); }
-.brand h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
-.brand p { margin: 3px 0 0; font-size: 11.5px; color: var(--faint); }
-
-.upload { padding: 16px 18px; border-bottom: 1px solid var(--line); }
-.drop {
-  display: block; border: 1.5px dashed var(--line); border-radius: 10px;
-  padding: 18px 12px; text-align: center; cursor: pointer;
-  transition: border-color .15s, background .15s;
-}
-.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.drop b { display: block; font-size: 12.5px; font-weight: 600; }
-.drop span { font-size: 10.5px; color: var(--faint); }
-input[type=file] { display: none; }
+/* ============================================================
+   Controls
+   ============================================================ */
 button {
-  font: inherit; font-size: 13px; font-weight: 600; width: 100%; margin-top: 10px;
-  padding: 9px 12px; border: 0; border-radius: 8px;
-  background: var(--accent); color: #fff; cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 580;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: var(--ink);
+  color: var(--surface);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease),
+              color var(--fast) var(--ease);
 }
-button:disabled { opacity: .4; cursor: default; }
-.pick { display: block; margin: 12px 0 4px; font-size: 10.5px; font-weight: 650;
-        color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+button:hover:not(:disabled) { background: color-mix(in oklch, var(--ink) 84%, var(--paper)); }
+button:active:not(:disabled) { background: color-mix(in oklch, var(--ink) 74%, var(--paper)); }
+button:disabled { opacity: .38; cursor: not-allowed; }
+
+button.ghost { background: var(--surface); color: var(--ink); border-color: var(--line-firm); }
+button.ghost:hover:not(:disabled) { background: var(--sunken); border-color: var(--ink-mute); }
+button.danger { background: var(--surface); color: var(--fail); border-color: var(--line-firm); }
+button.danger:hover:not(:disabled) { background: var(--fail-tint); border-color: var(--fail); }
+
 select {
-  width: 100%; font: inherit; font-size: 12.5px; padding: 7px 8px; color: inherit;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 9px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line-firm);
+  border-radius: var(--r-ctl);
+  max-width: 100%;
 }
-select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.bar { height: 5px; background: var(--soft); border-radius: 99px; overflow: hidden; margin-top: 10px; }
-.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
-.err { margin-top: 9px; font-size: 12px; color: var(--bad); }
+input[type=file] { display: none; }
+
+/* ============================================================
+   Sidebar: navigation only. Intake moved to the top of the work pane, where
+   a waveform has the width to be worth drawing.
+   ============================================================ */
+aside {
+  background: var(--rail);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.brand { padding: 17px 18px 15px; border-bottom: 1px solid var(--line); }
+.brand h1 { font-size: 14.5px; }
+.brand p { margin: 2px 0 0; font-size: 12px; color: var(--ink-mute); }
 
 .listhead {
-  padding: 14px 18px 7px; font-size: 10.5px; font-weight: 650; color: var(--faint);
-  text-transform: uppercase; letter-spacing: .07em;
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 15px 18px 6px;
+  font-size: 12px; font-weight: 580; color: var(--ink-soft);
 }
-.list { flex: 1; overflow-y: auto; padding: 0 10px 16px; min-height: 0; }
-.item {
-  display: block; width: 100%; text-align: left; background: none; border: 0;
-  border-radius: 9px; padding: 10px 10px; margin: 0 0 2px; cursor: pointer;
-  font: inherit; color: inherit;
-}
-.item:hover { background: var(--soft); }
-.item.on { background: var(--accent-soft); }
-.item .n { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 550; }
-.item .n em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item .s { font-size: 11px; color: var(--dim); margin-top: 3px; padding-left: 15px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
-.dot.queued { background: var(--faint); }
-.dot.running { background: var(--warn); animation: pulse 1.1s ease-in-out infinite; }
-.dot.done { background: var(--good); }
-.dot.failed { background: var(--bad); }
-@keyframes pulse { 50% { opacity: .25; } }
-.none { padding: 10px 12px; font-size: 12.5px; color: var(--faint); }
+.listhead span { font-size: 11.5px; color: var(--ink-mute); font-weight: 400; }
+.list { flex: 1; overflow-y: auto; padding: 0 9px 14px; min-height: 0; }
 
-/* ---------- main ---------- */
-main { overflow-y: auto; min-height: 0; padding: 26px 30px 60px; }
-.wrap { max-width: 820px; }
-.blank-state { display: grid; place-content: center; height: 100%; text-align: center; color: var(--faint); }
-.blank-state b { display: block; font-size: 15px; color: var(--dim); margin-bottom: 4px; }
+.item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin-bottom: 2px;
+  font: inherit;
+  font-weight: 400;
+  color: inherit;
+  white-space: normal;
+  cursor: pointer;
+}
+.item:hover { background: var(--surface); border-color: var(--line); }
+.item[aria-current="true"] {
+  background: var(--surface);
+  border-color: var(--line-firm);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+.item .n { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 540; }
+.item .n em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .s { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; padding-left: 16px; }
+.item .s.flag { color: var(--open); font-weight: 560; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+.dot.queued  { background: var(--ink-mute); }
+.dot.running { background: var(--work); animation: pulse 1.2s var(--ease) infinite; }
+.dot.done    { background: var(--pass); }
+.dot.failed  { background: var(--fail); }
+@keyframes pulse { 50% { opacity: .2; } }
+.empty { padding: 11px 11px; font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+
+/* ============================================================
+   Intake: the recorder, top of the work pane.
+
+   Sticky, because it is the primary action and because a running waveform
+   should stay visible while a reviewer scrolls the report underneath it.
+   It lives outside #detail on purpose: the poll rewrites that element every
+   two seconds, which would destroy a recording in progress.
+   ============================================================ */
+main { overflow-y: auto; min-height: 0; }
+
+.intake {
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  background: color-mix(in oklch, var(--paper) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  padding: 13px 32px;
+}
+.intake.dragging { background: var(--sunken); border-bottom-color: var(--ink); }
+.intake.live { background: var(--surface); }
+.intake .inner { max-width: 940px; }
+
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row.tight { gap: 7px; }
+.spacer { flex: 1 1 auto; min-width: 0; }
+
+.hint { font-size: 12.5px; color: var(--ink-mute); }
+.hint b { font-weight: 560; color: var(--ink-soft); overflow-wrap: anywhere; }
+.pickfile {
+  font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+  border-bottom: 1px solid var(--line-firm); padding-bottom: 1px;
+}
+.pickfile:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.opts { display: flex; align-items: center; gap: 8px; }
+.opts label { font-size: 12.5px; color: var(--ink-mute); }
+
+/* Recording state */
+.recdot {
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--fail);
+  animation: pulse 1.2s var(--ease) infinite;
+}
+.recdot.held { background: var(--work); animation: none; }
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 20px; font-weight: 620; letter-spacing: -0.02em;
+  min-width: 5.4ch;
+}
+.state {
+  font-size: 11.5px; font-weight: 620; letter-spacing: .01em;
+  padding: 2px 8px; border-radius: var(--r-chip); border: 1px solid;
+}
+.state.on   { color: var(--fail); background: var(--fail-tint); border-color: var(--fail); }
+.state.held { color: var(--work); background: var(--work-tint); border-color: var(--work); }
+
+/* The waveform. Data, not decoration: it is the only way to tell a live
+   microphone from a dead one before spending an hour recording silence. */
+.wave {
+  display: block; width: 100%; height: 46px;
+  margin: 10px 0 0;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+}
+.silence {
+  display: flex; gap: 8px; align-items: baseline;
+  margin-top: 9px; padding: 8px 11px;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--fail); background: var(--fail-tint);
+  border: 1px solid var(--fail); border-radius: var(--r-ctl);
+}
+.silence b { font-weight: 620; }
+
+audio { width: 100%; max-width: 420px; height: 34px; }
+
+.bar {
+  height: 4px; margin-top: 11px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.bar i { display: block; height: 100%; width: 0; background: var(--ink); transition: width var(--fast) linear; }
+.msg { margin-top: 9px; font-size: 12.5px; line-height: 1.45; }
+.msg.bad { color: var(--fail); }
+
+/* ============================================================
+   Report
+   ============================================================ */
+.wrap { max-width: 940px; padding: 22px 32px 72px; }
 
 .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.title h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.01em; word-break: break-all; }
+.title h2 { font-size: 19px; overflow-wrap: anywhere; }
+.meta { color: var(--ink-mute); font-size: 12.5px; margin: 4px 0 22px; }
+.meta b { font-weight: 560; color: var(--ink-soft); }
+
 .pill {
-  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 5px;
+  font-size: 11px; font-weight: 620; letter-spacing: .01em;
+  padding: 2px 8px; border-radius: var(--r-chip);
+  border: 1px solid;
 }
-.pill.queued { background: var(--soft); color: var(--dim); }
-.pill.running { background: var(--warn-soft); color: var(--warn); }
-.pill.done { background: var(--good-soft); color: var(--good); }
-.pill.failed { background: var(--bad-soft); color: var(--bad); }
-.sub { color: var(--dim); font-size: 12.5px; margin-top: 5px; }
+.pill.queued  { background: var(--sunken);    color: var(--ink-soft); border-color: var(--line-firm); }
+.pill.running { background: var(--work-tint); color: var(--work);     border-color: var(--work); }
+.pill.done    { background: var(--pass-tint); color: var(--pass);     border-color: var(--pass); }
+.pill.failed  { background: var(--fail-tint); color: var(--fail);     border-color: var(--fail); }
 
-.panel {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: 16px 18px; margin-top: 18px;
-}
-.panel > h3 {
-  margin: 0 0 12px; font-size: 11px; font-weight: 650; color: var(--faint);
-  text-transform: uppercase; letter-spacing: .07em;
-}
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
-.stat { background: var(--soft); border-radius: 9px; padding: 11px 12px; }
-.stat b { display: block; font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.stat span { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
-.stat.alert { background: var(--warn-soft); }
-.stat.alert b { color: var(--warn); }
+/* Blank slate teaches the two ways in rather than saying "nothing here". */
+.blank { display: grid; place-content: center; min-height: 52vh; padding: 30px; }
+.blank div { max-width: 400px; text-align: center; }
+.blank b { display: block; font-size: 16px; margin-bottom: 6px; }
+.blank p { margin: 0; color: var(--ink-mute); font-size: 13px; line-height: 1.6; }
 
-.links { display: flex; flex-wrap: wrap; gap: 8px; }
-.links a {
-  font-size: 12.5px; font-weight: 550; text-decoration: none; color: var(--accent);
-  border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px; background: var(--panel);
+/* ---------- verdict ----------
+   The answer to the only question that matters on this screen: is this report
+   safe to send? It is a sentence, at the top, before any table. The glyph and
+   the word carry the state as well as the colour does, so it survives a
+   greyscale print and a colour-blind reviewer. */
+.verdict {
+  display: flex; gap: 13px; align-items: flex-start;
+  border: 1px solid; border-radius: var(--r-panel);
+  padding: 15px 17px;
+  margin-bottom: 22px;
 }
-.links a:hover { background: var(--accent-soft); border-color: var(--accent); }
+.verdict .glyph {
+  flex: 0 0 auto;
+  font-size: 15px; font-weight: 700; line-height: 1.25;
+  min-width: 20px; text-align: center;
+}
+.verdict h3 { font-size: 14.5px; letter-spacing: -0.005em; }
+.verdict p { margin: 5px 0 0; font-size: 13px; line-height: 1.55; max-width: 68ch; }
+.verdict.is-open { background: var(--open-tint); border-color: var(--open); }
+.verdict.is-open .glyph, .verdict.is-open h3 { color: var(--open); }
+.verdict.is-fail { background: var(--fail-tint); border-color: var(--fail); }
+.verdict.is-fail .glyph, .verdict.is-fail h3 { color: var(--fail); }
+.verdict.is-pass { background: var(--pass-tint); border-color: var(--pass); }
+.verdict.is-pass .glyph, .verdict.is-pass h3 { color: var(--pass); }
+.verdict.is-none { background: var(--sunken); border-color: var(--line-firm); }
+.verdict.is-none .glyph, .verdict.is-none h3 { color: var(--ink-soft); }
+.verdict code, .fail-box code, .blank code {
+  font: inherit; font-weight: 620;
+  background: color-mix(in oklch, currentColor 12%, transparent);
+  padding: 0 4px; border-radius: 3px;
+}
 
-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th {
-  text-align: left; font-size: 10px; font-weight: 650; color: var(--faint);
-  text-transform: uppercase; letter-spacing: .05em; padding: 0 8px 7px;
+/* ---------- sections ----------
+   A heading and a rule, not a card. Panels-inside-panels was the old shape
+   and nesting cards is always wrong; the page is one document with sections. */
+section { margin-bottom: 30px; }
+section > h3 {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 13px;
 }
-td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.low { color: var(--warn); font-weight: 650; }
-.note { color: var(--dim); }
-.kv { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; gap: 5px 18px; font-size: 12.5px; }
-.kv dt { color: var(--dim); }
-.kv dd { margin: 0; word-break: break-word; }
-.blank { color: var(--faint); opacity: .55; }
-.running-note { display: flex; align-items: center; gap: 9px; color: var(--dim); font-size: 13px; }
+section > h3 .count { font-size: 12.5px; font-weight: 400; color: var(--ink-mute); }
+section > h3 .count.warn { color: var(--fail); font-weight: 560; }
+section > h3 .count.open { color: var(--open); font-weight: 560; }
+.lede { margin: -4px 0 13px; font-size: 12.5px; color: var(--ink-soft); max-width: 72ch; line-height: 1.55; }
+
+/* ---------- readout ----------
+   Label-over-value pairs on a hairline strip. The old six-up grid of tiles
+   gave the same visual weight to "4 comments" and "12 unanswered verdicts",
+   which is exactly backwards. */
+.readout {
+  display: flex; flex-wrap: wrap; margin: 0;
+  border: 1px solid var(--line); border-radius: var(--r-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+.readout div { flex: 1 1 108px; padding: 11px 14px; border-right: 1px solid var(--line); }
+.readout div:last-child { border-right: 0; }
+.readout dt { font-size: 11.5px; color: var(--ink-mute); margin-bottom: 3px; }
+.readout dd { margin: 0; font-size: 17px; font-weight: 620; letter-spacing: -0.015em; }
+.readout dd.sizes { font-size: 14px; letter-spacing: 0; }
+.readout div.hot { background: var(--open-tint); }
+.readout div.hot dd, .readout div.hot dt { color: var(--open); }
+.readout div.warm { background: var(--fail-tint); }
+.readout div.warm dd, .readout div.warm dt { color: var(--fail); }
+
+/* ---------- tables ---------- */
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left;
+  font-size: 11.5px; font-weight: 580; color: var(--ink-soft);
+  background: var(--sunken);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+td { padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+tbody tr:first-child td { border-top: 0; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td.pom { font-weight: 580; white-space: nowrap; }
+td.said { color: var(--ink-soft); }
+.dim { color: var(--ink-mute); }
+.nil { color: var(--ink-mute); opacity: .6; }
+
+/* State marks. "??" is the same mark the graded PDF prints for an unanswered
+   point of measure, so the two documents read alike. */
+.mark {
+  display: inline-block;
+  font-size: 11.5px; font-weight: 640;
+  padding: 1px 6px; border-radius: var(--r-chip);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.mark.open  { color: var(--open);  background: var(--open-tint);  border-color: var(--open); }
+.mark.fail  { color: var(--fail);  background: var(--fail-tint);  border-color: var(--fail); }
+.mark.heard { color: var(--heard); background: var(--heard-tint); border-color: var(--heard); }
+tr.row-open { background: color-mix(in oklch, var(--open-tint) 55%, var(--surface)); }
+tr.row-fail { background: color-mix(in oklch, var(--fail-tint) 55%, var(--surface)); }
+
+/* ---------- form fields ---------- */
+.kv { display: grid; grid-template-columns: minmax(140px, max-content) 1fr; gap: 6px 20px; font-size: 13px; margin: 0; }
+.kv dt { color: var(--ink-mute); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+details { margin-top: 13px; }
+summary { cursor: pointer; font-size: 12.5px; color: var(--ink-soft); padding: 6px 0; }
+summary:hover { color: var(--ink); }
+details[open] summary { margin-bottom: 9px; }
+.unstated { display: flex; flex-wrap: wrap; gap: 6px; }
+.unstated span {
+  font-size: 12px; color: var(--ink-mute);
+  background: var(--sunken); border: 1px solid var(--line);
+  padding: 2px 7px; border-radius: var(--r-chip);
+}
+
+/* ---------- downloads ----------
+   Last on the page, deliberately. The old layout offered the report before
+   the reviewer had seen a single open question. */
+.files { display: flex; flex-wrap: wrap; gap: 9px; }
+.files a {
+  font-size: 13px; font-weight: 540; text-decoration: none;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line-firm); border-radius: var(--r-ctl);
+  padding: 8px 14px;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.files a:hover { background: var(--sunken); border-color: var(--ink-mute); }
+.files a.lead { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.files a.lead:hover { background: color-mix(in oklch, var(--ink) 84%, var(--paper)); }
+.caution {
+  margin: 0 0 12px; font-size: 12.5px; line-height: 1.55; max-width: 72ch;
+  color: var(--open); border-left: 1px solid var(--open); padding-left: 11px;
+}
+
+/* ---------- progress ----------
+   A stage list, not a spinner in the middle of the content. Transcription
+   runs for minutes and the honest question is "which step, and is it stuck?" */
+.stages { list-style: none; margin: 0 0 20px; padding: 0; }
+.stages li {
+  display: flex; gap: 11px; align-items: baseline;
+  padding: 9px 0 9px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px; color: var(--ink-mute);
+}
+.stages li:last-child { border-bottom: 0; }
+.stages .tick { flex: 0 0 16px; text-align: center; font-weight: 640; }
+.stages li.at { color: var(--ink); font-weight: 560; }
+.stages li.at .tick { color: var(--work); }
+.stages li.past { color: var(--ink-soft); }
+.stages li.past .tick { color: var(--pass); }
+.live { font-size: 13px; color: var(--ink-soft); display: flex; gap: 9px; align-items: center; }
 .spin {
-  width: 12px; height: 12px; border-radius: 50%; flex: 0 0 12px;
-  border: 2px solid var(--warn); border-top-color: transparent; animation: sp .7s linear infinite;
+  width: 11px; height: 11px; border-radius: 50%; flex: 0 0 11px;
+  border: 2px solid var(--work); border-top-color: transparent;
+  animation: spin .7s linear infinite;
 }
-@keyframes sp { to { transform: rotate(360deg); } }
-.fail { background: var(--bad-soft); color: var(--bad); border-radius: 9px; padding: 12px 14px; font-size: 12.5px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* An unanswered point of measure. Deliberately the loudest thing on the page:
-   a missing verdict is not a pass, and a report shipped as though it were is
-   the expensive mistake this whole screen exists to prevent. */
-.open {
-  background: var(--open-soft); border: 1.5px solid var(--open);
-  border-radius: 9px; padding: 12px 14px; font-size: 12.5px;
+.skel { display: grid; gap: 9px; }
+.skel i {
+  display: block; height: 11px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--sunken), var(--line), var(--sunken));
+  background-size: 220% 100%;
+  animation: sweep 1.5s var(--ease) infinite;
 }
-.open b { color: var(--open); }
-.stat.open-stat { background: var(--open-soft); box-shadow: inset 0 0 0 1.5px var(--open); }
-.stat.open-stat b { color: var(--open); }
-.stat.bad-stat { background: var(--bad-soft); }
-.stat.bad-stat b { color: var(--bad); }
-.verdict { font-weight: 650; }
-.verdict.ok { color: var(--good); }
-.verdict.pending { color: var(--open); }
-.verdict.bad { color: var(--bad); }
-.warn-box {
-  background: var(--warn-soft); color: var(--warn); border-radius: 9px;
-  padding: 12px 14px; font-size: 12.5px;
+@keyframes sweep { to { background-position: -120% 0; } }
+
+.fail-box {
+  background: var(--fail-tint); border: 1px solid var(--fail);
+  border-radius: var(--r-panel); padding: 14px 16px;
+  font-size: 13px; line-height: 1.55;
+}
+.fail-box b { color: var(--fail); }
+.fail-box pre {
+  margin: 9px 0 0; padding: 10px 11px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-soft);
 }
 
-@media (max-width: 780px) {
+/* ============================================================
+   Responsive: structural, not fluid type. The sidebar becomes a top block on
+   a tablet in portrait, where recording is the whole job.
+   ============================================================ */
+@media (max-width: 880px) {
   .shell { grid-template-columns: 1fr; height: auto; }
-  aside { border-right: 0; border-bottom: 1px solid var(--line); }
-  .list { max-height: 210px; }
-  main { padding: 20px 16px 50px; }
+  aside { border-right: 0; border-bottom: 1px solid var(--line); order: 2; }
+  main { order: 1; }
+  .list { max-height: 40vh; }
+  .intake { position: static; padding: 13px 18px; }
+  .wrap { padding: 20px 18px 56px; }
+  .clock { font-size: 18px; }
+}
+/* Standing, on a tablet, possibly with gloves: bigger targets. */
+@media (pointer: coarse) {
+  button { padding: 12px 16px; font-size: 14px; }
+  select { padding: 11px 10px; font-size: 14px; }
+  .item { padding: 12px 11px; }
+  .files a { padding: 11px 16px; }
+  .wave { height: 58px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+  }
+  /* The pulsing dots carry state, so they need a still equivalent rather
+     than simply being switched off. The waveform is data and keeps drawing. */
+  .recdot, .dot.running { opacity: 1; box-shadow: 0 0 0 3px color-mix(in oklch, currentColor 22%, transparent); }
+  .spin { border-top-color: var(--work); opacity: .55; }
+  .skel i { background: var(--sunken); }
+}
+
+@media print {
+  aside, .intake, .files { display: none; }
+  .shell { display: block; }
 }
 </style>
 </head>
@@ -192,60 +554,422 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
       <h1>Size Set Inspection</h1>
       <p>Recording &rarr; transcript &rarr; filled report</p>
     </div>
-
-    <div class="upload">
-      <label class="drop" id="drop" for="file">
-        <b id="label">Drop a recording</b>
-        <span>mp3 &middot; m4a &middot; wav &middot; webm &middot; large files are re-encoded automatically</span>
-      </label>
-      <input type="file" id="file" accept=".mp3,.mp4,.m4a,.wav,.webm,.mpeg,.mpga">
-      <label class="pick" for="style">Style set</label>
-      <select id="style">
-        <option value="">as announced in the recording</option>
-      </select>
-      <button id="go" disabled>Upload and process</button>
-      <div class="bar" id="bar" hidden><i id="fill"></i></div>
-      <div class="err" id="err" hidden></div>
-    </div>
-
-    <div class="listhead">Jobs</div>
-    <div class="list" id="list"><p class="none">Nothing uploaded yet.</p></div>
+    <div class="listhead">Inspections <span id="count"></span></div>
+    <div class="list" id="list"></div>
   </aside>
 
-  <main><div id="detail"></div></main>
+  <main>
+    <!-- Outside #detail on purpose: the poll rewrites that element every two
+         seconds, which would tear down a recording in progress. -->
+    <div class="intake" id="intake">
+      <div class="inner">
+        <div id="stage"></div>
+        <div class="opts" id="opts" style="margin-top:11px">
+          <label for="style">Check against</label>
+          <select id="style">
+            <option value="">Style announced in the recording</option>
+          </select>
+        </div>
+        <div class="bar" id="bar" hidden><i id="fill"></i></div>
+        <div class="msg bad" id="err" hidden role="alert"></div>
+      </div>
+      <input type="file" id="file" accept=".mp3,.mp4,.m4a,.wav,.webm,.mpeg,.mpga">
+    </div>
+
+    <div id="detail"></div>
+  </main>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
+
 const TITLES = { report: "Report PDF", graded: "Graded sheet PDF", form: "Form CSV",
                  measurements: "Measurements CSV", graded_data: "Graded sheet CSV",
                  data: "JSON" };
+
+// The form's own vocabulary. Acronyms mirror report_template.ACRONYMS so a
+// label reads the way it is printed on the client's sheet.
+const ACRONYMS = new Set(["yy", "pcd", "ph", "upc", "fob", "hps", "pom", "bom", "ny"]);
+
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const dash = v => v ? esc(v) : '<span class="blank">&mdash;</span>';
+const dash = v => v ? esc(v) : '<span class="nil">&mdash;</span>';
 const secs = n => n < 60 ? `${n.toFixed(0)}s` : `${Math.floor(n / 60)}m ${Math.round(n % 60)}s`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const label = key => key.split("_")
+  .map(w => ACRONYMS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
+  .join(" ");
+
+// mm:ss, or h:mm:ss once an inspection runs past the hour.
+function hms(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const p = n => String(n).padStart(2, "0");
+  return t >= 3600 ? `${Math.floor(t / 3600)}:${p(Math.floor(t / 60) % 60)}:${p(t % 60)}`
+                   : `${Math.floor(t / 60)}:${p(t % 60)}`;
+}
 
 let chosen = null, selected = null, lastPayload = "";
 
-/* ---------- upload ---------- */
-function choose(file) {
-  chosen = file;
-  $("label").textContent = file ? file.name : "Drop a recording";
-  $("go").disabled = !file;
-  $("err").hidden = true;
+/* ============================================================
+   Recording
+
+   MediaRecorder for capture, AnalyserNode for the waveform, both native. The
+   containers MediaRecorder produces - webm/opus on Chrome, Edge and Firefox,
+   mp4/aac on Safari - are already accepted by POST /api/jobs, so a recording
+   made here rides the identical upload path as a dropped file.
+   ============================================================ */
+const REC_EXT = { "audio/webm": ".webm", "audio/mp4": ".mp4" };
+
+// Browser DSP is tuned for video calls: one near voice, everything else
+// suppressed. An inspection is two people at arm's length in a factory, and
+// the words that get eaten first are the short unstressed ones - "okay",
+// "minus one by eight" - which are the entire point of the recording. So the
+// noise gates come off and only gain control stays on, for the second speaker.
+// ponytail: tune here if a site's recordings come back clipped or noisy.
+const MIC = { channelCount: 1, echoCancellation: false, noiseSuppression: false,
+              autoGainControl: true };
+
+// Waveform geometry and the silence alarm.
+const BAR_W = 3, BAR_GAP = 1, FLOOR = 0.012, SILENT_MS = 4000;
+
+let recorder = null, stream = null, chunks = [], take = null;
+let audioCtx = null, analyser = null, frame = null, levels = [], lastSound = 0;
+let startedAt = 0, accumulated = 0, ticker = null, discarding = false, previewUrl = "";
+
+const recType = () =>
+  Object.keys(REC_EXT).find(t => window.MediaRecorder?.isTypeSupported?.(t)) || "";
+const canRecord = () => !!(navigator.mediaDevices?.getUserMedia && recType());
+const state = () => recorder?.state || "inactive";           // recording | paused | inactive
+const elapsed = () => accumulated + (state() === "recording" ? Date.now() - startedAt : 0);
+
+function fail(message) {
+  $("err").textContent = message;
+  $("err").hidden = false;
 }
-$("file").onchange = e => choose(e.target.files[0] || null);
 
-const drop = $("drop");
-["dragenter", "dragover"].forEach(t =>
-  drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(t =>
-  drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", e => choose(e.dataTransfer.files[0] || null));
+function stamp() {
+  const pad = n => String(n).padStart(2, "0");
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+       + `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
 
-$("go").onclick = () => {
+/* ---------- waveform ----------
+   Amplitude bars scrolling in from the right, like a chart recorder. Not
+   decoration: an inspection runs half an hour, and this is the only way to
+   see that the microphone is actually hearing the room before the whole
+   session turns out to be silence. */
+function paint() {
+  const canvas = $("wave");
+  if (!canvas) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const box = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(box.width * dpr));
+  const h = Math.max(1, Math.round(box.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+
+  const ctx = canvas.getContext("2d");
+  const css = getComputedStyle(document.documentElement);
+  ctx.clearRect(0, 0, w, h);
+
+  const step = (BAR_W + BAR_GAP) * dpr;
+  const slots = Math.floor(w / step);
+  if (levels.length > slots) levels = levels.slice(-slots);
+
+  // Centre line, so an empty or silent stretch still reads as a signal at rest.
+  ctx.fillStyle = css.getPropertyValue("--line").trim() || "#ddd";
+  ctx.fillRect(0, Math.round(h / 2), w, Math.max(1, Math.round(dpr)));
+
+  const live = css.getPropertyValue("--ink").trim() || "#222";
+  const quiet = css.getPropertyValue("--ink-mute").trim() || "#888";
+  const mid = h / 2;
+  levels.forEach((level, i) => {
+    // sqrt keeps quiet speech visible; RMS alone renders it as a flat line.
+    const height = Math.max(dpr, Math.pow(Math.min(1, level * 3.2), 0.65) * (h * 0.86));
+    ctx.fillStyle = level < FLOOR ? quiet : live;
+    ctx.fillRect(
+      Math.round(w - (levels.length - i) * step),
+      Math.round(mid - height / 2),
+      Math.max(1, Math.round(BAR_W * dpr)),
+      Math.round(height),
+    );
+  });
+}
+
+function meter() {
+  frame = requestAnimationFrame(meter);
+  if (!analyser) return;
+  if (state() === "recording") {
+    const buf = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (const v of buf) { const x = (v - 128) / 128; sum += x * x; }
+    const rms = Math.sqrt(sum / buf.length);
+    levels.push(rms);
+    if (rms >= FLOOR) lastSound = Date.now();
+  }
+  paint();
+}
+
+function openMeter(source) {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0.55;
+  audioCtx.createMediaStreamSource(source).connect(analyser);
+  levels = [];
+  lastSound = Date.now();
+  meter();
+}
+
+function closeMeter() {
+  if (frame) cancelAnimationFrame(frame);
+  frame = analyser = null;
+  audioCtx?.close().catch(() => {});
+  audioCtx = null;
+}
+
+/* ---------- transport ---------- */
+async function start() {
+  $("err").hidden = true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: MIC });
+  } catch (error) {
+    return fail(error.name === "NotAllowedError"
+      ? "Microphone blocked. Allow access in the browser's site settings, then try again."
+      : `No microphone available (${error.name}).`);
+  }
+
+  const type = recType();
+  chunks = [];
+  take = null;
+  discarding = false;
+  accumulated = 0;
+  recorder = new MediaRecorder(stream, { mimeType: type });
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onerror = e => fail(`Recording stopped: ${e.error?.name || "unknown error"}.`);
+  recorder.onstop = () => {
+    // Releases the microphone, which is also what turns off the browser's
+    // recording indicator. Without it the tab looks like it is still listening.
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    closeMeter();
+    finish(type);
+  };
+
+  recorder.start(1000);
+  startedAt = Date.now();
+  paintStage();
+  openMeter(stream);
+  ticker = setInterval(() => {
+    const clock = $("clock");
+    if (clock) clock.textContent = hms(elapsed());
+    // Not while the tab is hidden: requestAnimationFrame is suspended there, so
+    // lastSound goes stale and the alarm would cry wolf on a healthy recording.
+    const warn = $("silence");
+    if (warn) {
+      warn.hidden = !(state() === "recording" && !document.hidden
+                      && Date.now() - lastSound > SILENT_MS);
+    }
+  }, 250);
+}
+
+function hold() {
+  if (state() !== "recording") return;
+  recorder.pause();
+  accumulated += Date.now() - startedAt;
+  paintStage();
+}
+
+function resume() {
+  if (state() !== "paused") return;
+  recorder.resume();
+  startedAt = Date.now();
+  lastSound = Date.now();
+  paintStage();
+}
+
+function done() {
+  if (state() === "inactive") return;
+  if (state() === "recording") accumulated += Date.now() - startedAt;
+  clearInterval(ticker);
+  recorder.stop();                 // onstop finalises the take
+}
+
+function discard() {
+  if (state() === "inactive") return dropTake();
+  discarding = true;
+  clearInterval(ticker);
+  recorder.stop();
+}
+
+function finish(type) {
+  const blob = new Blob(chunks, { type });
+  const seconds = elapsed();
+  chunks = [];
+  recorder = null;
+
+  if (discarding) { discarding = false; take = null; paintStage(); return; }
+  if (!blob.size) {
+    take = null;
+    paintStage();
+    return fail("Nothing was recorded. Check the microphone and try again.");
+  }
+  // A File, not a Blob: the upload path reads .name for the report name, and
+  // the server names the transcript and every output after it.
+  take = {
+    file: new File([blob], `inspection-${stamp()}${REC_EXT[type]}`, { type }),
+    seconds,
+  };
+  chosen = take.file;
+  previewUrl = URL.createObjectURL(blob);
+  paintStage();
+}
+
+function dropTake() {
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = "";
+  take = null;
+  chosen = null;
+  $("err").hidden = true;
+  paintStage();
+}
+
+/* ---------- intake rendering ----------
+   Only #stage is repainted. The file input and the style select are static
+   markup, so a repaint cannot silently reset the operator's style choice. */
+function paintStage() {
+  const stage = $("stage");
+  const live = state() !== "inactive";
+  $("intake").classList.toggle("live", live);
+  $("opts").hidden = live;
+
+  if (live) {
+    const held = state() === "paused";
+    stage.innerHTML = `
+      <div class="row">
+        <span class="recdot ${held ? "held" : ""}" aria-hidden="true"></span>
+        <span class="clock" id="clock" role="timer" aria-live="off">${hms(elapsed())}</span>
+        <span class="state ${held ? "held" : "on"}">${held ? "Paused" : "Recording"}</span>
+        <span class="spacer"></span>
+        <div class="row tight">
+          <button class="ghost" data-act="${held ? "resume" : "hold"}">
+            ${held ? "Resume" : "Pause"}</button>
+          <button data-act="done">Done</button>
+          <button class="danger" data-act="discard">Discard</button>
+        </div>
+      </div>
+      <canvas class="wave" id="wave" role="img"
+        aria-label="Live microphone level for the recording in progress"></canvas>
+      <div class="silence" id="silence" hidden role="status">
+        <b>No sound detected.</b>
+        <span>Nothing has reached the microphone for a few seconds. Check that the right
+        input is selected and that it is not muted.</span>
+      </div>`;
+    paint();
+    return;
+  }
+
+  if (take) {
+    stage.innerHTML = `
+      <div class="row">
+        <div class="spacer">
+          <div class="hint" style="margin-bottom:6px">
+            <b>${esc(take.file.name)}</b> &middot; ${hms(take.seconds)} &middot; ${
+              (take.file.size / 1e6).toFixed(1)} MB
+          </div>
+          <audio controls src="${previewUrl}"></audio>
+        </div>
+        <div class="row tight">
+          <button data-act="process">Process this recording</button>
+          <button class="danger" data-act="drop">Discard</button>
+        </div>
+      </div>
+      <p class="hint" style="margin:9px 0 0">Play it back before processing &mdash;
+      transcription takes several minutes, and a recording nobody can hear costs all of it.</p>`;
+    return;
+  }
+
+  if (chosen) {
+    stage.innerHTML = `
+      <div class="row">
+        <div class="spacer hint"><b>${esc(chosen.name)}</b> &middot; ${
+          (chosen.size / 1e6).toFixed(1)} MB &middot; ready to process</div>
+        <div class="row tight">
+          <button data-act="process">Process this recording</button>
+          <button class="danger" data-act="drop">Clear</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // getUserMedia needs a secure context. 127.0.0.1 counts; a plain-http LAN
+  // address does not, which is exactly how a tablet on the factory floor
+  // reaches `serve --host 0.0.0.0`. Say so rather than failing on click.
+  const blocked = !canRecord();
+  const why = window.isSecureContext
+    ? "This browser cannot record audio - drop a file instead"
+    : "Recording needs https or localhost - open the app on 127.0.0.1, or drop a file";
+  stage.innerHTML = `
+    <div class="row">
+      <button data-act="start" ${blocked ? `disabled title="${esc(why)}"` : ""}>${
+        blocked ? "Recording unavailable here" : "Record inspection"}</button>
+      <span class="hint">${blocked
+        ? "Open the app on <b>127.0.0.1</b> to record, or drop a file."
+        : 'or <span class="pickfile" data-act="pick">choose a recording</span> &mdash; drop one anywhere here'}</span>
+    </div>`;
+}
+
+/* ---------- intake events ---------- */
+$("intake").addEventListener("click", e => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (!act) return;
+  ({ start, hold, resume, done, discard, pick: () => $("file").click(),
+     process: upload, drop: dropTake })[act]?.();
+});
+
+$("file").onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  dropTake();
+  chosen = file;
+  paintStage();
+};
+
+["dragenter", "dragover"].forEach(type =>
+  $("intake").addEventListener(type, e => {
+    e.preventDefault();
+    if (state() === "inactive") $("intake").classList.add("dragging");
+  }));
+["dragleave", "drop"].forEach(type =>
+  $("intake").addEventListener(type, e => {
+    e.preventDefault();
+    $("intake").classList.remove("dragging");
+  }));
+$("intake").addEventListener("drop", e => {
+  if (state() !== "inactive") return;      // never swap the take mid-recording
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  dropTake();
+  chosen = file;
+  paintStage();
+});
+
+// An inspection runs half an hour and lives only in this tab until it is
+// uploaded. Closing mid-recording, or with a finished take still unsent,
+// would throw all of it away silently.
+addEventListener("beforeunload", e => {
+  if (state() !== "inactive" || take) { e.preventDefault(); e.returnValue = ""; }
+});
+
+addEventListener("resize", () => { if (state() !== "inactive") paint(); });
+
+/* ---------- upload ---------- */
+function upload() {
   if (!chosen) return;
-  $("go").disabled = true;
+  const button = $("stage").querySelector('[data-act="process"]');
+  if (button) button.disabled = true;
   $("bar").hidden = false;
   $("err").hidden = true;
 
@@ -264,149 +988,263 @@ $("go").onclick = () => {
     if (xhr.status === 202) {
       try { selected = JSON.parse(xhr.responseText).id; } catch {}
       $("file").value = "";
-      choose(null);
+      dropTake();
       lastPayload = "";
       schedule(0);
     } else {
-      let detail = `upload failed (${xhr.status})`;
+      let detail = `Upload failed (${xhr.status}).`;
       try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
-      $("err").textContent = detail;
-      $("err").hidden = false;
-      $("go").disabled = false;
+      fail(detail);
+      if (button) button.disabled = false;
     }
   };
   xhr.onerror = () => {
     $("bar").hidden = true;
-    $("err").textContent = "network error";
-    $("err").hidden = false;
-    $("go").disabled = false;
+    fail("Network error. The recording was not uploaded and is still loaded here.");
+    if (button) button.disabled = false;
   };
   xhr.send(body);
-};
+}
 
-/* ---------- rendering ---------- */
+/* ---------- sidebar ---------- */
 function sidebar(jobs) {
-  $("list").innerHTML = jobs.length ? jobs.map(job => `
-    <button class="item ${job.id === selected ? "on" : ""}" data-id="${job.id}">
+  $("count").textContent = jobs.length ? jobs.length : "";
+  if (!jobs.length) {
+    $("list").innerHTML = `<p class="empty">No inspections yet. Record one above, or drop a
+      recording you already have.</p>`;
+    return;
+  }
+  $("list").innerHTML = jobs.map(job => {
+    const open = job.status === "done" && job.unconfirmed;
+    const line = job.status === "done"
+      ? (open ? `${plural(job.unconfirmed, "verdict")} missing` : `${plural(job.rows, "row")} extracted`)
+      : job.status === "failed" ? "Failed" : esc(job.message);
+    return `<button class="item" data-id="${job.id}" aria-current="${job.id === selected}">
       <div class="n"><span class="dot ${job.status}"></span><em>${esc(job.filename)}</em></div>
-      <div class="s">${job.status === "done"
-        ? `${job.rows} rows &middot; ${job.flagged} flagged`
-        : job.status === "failed" ? "failed" : esc(job.message)}</div>
-    </button>`).join("") : '<p class="none">Nothing uploaded yet.</p>';
+      <div class="s ${open ? "flag" : ""}">${line}</div>
+    </button>`;
+  }).join("");
 
   $("list").querySelectorAll(".item").forEach(el => {
     el.onclick = () => { selected = el.dataset.id; lastPayload = ""; refresh(); };
   });
 }
 
-function flaggedTable(rows) {
-  return `<table>
-    <tr><th class="num">#</th><th>Size</th><th>Point of measure</th>
-        <th class="num">Value</th><th class="num">Conf</th><th>Why it was flagged</th></tr>
-    ${rows.map(r => `<tr>
-      <td class="num">${r.no}</td>
+/* ---------- verdict ----------
+   One sentence answering "can this be sent?", ranked by what blocks sending:
+   a missing verdict outranks a failure, because a failure is a known finding
+   and a gap is an unanswered question. */
+function verdict(job) {
+  if (!job.graded) {
+    return `<div class="verdict is-none">
+      <span class="glyph" aria-hidden="true">&ndash;</span>
+      <div>
+        <h3>Not checked against a spec sheet</h3>
+        <p>The recording announced style <code>${job.announced_style_no ? esc(job.announced_style_no) : "none"}</code>,
+        which has no sheet in <code>data/StyleSets</code>. Measurements were extracted but nothing was
+        graded. Process it again and pick the style above to get a graded sheet.</p>
+      </div></div>`;
+  }
+  if (job.unconfirmed) {
+    return `<div class="verdict is-open">
+      <span class="glyph" aria-hidden="true">??</span>
+      <div>
+        <h3>Not final &mdash; ${plural(job.unconfirmed, "point")} of measure ${job.unconfirmed === 1 ? "has" : "have"} no verdict</h3>
+        <p>The recording never ruled on ${job.unconfirmed === 1 ? "it" : "them"}. These are
+        <b>not</b> passes: transcription drops short words, so each one has to be listened back to
+        and filled in before this report reaches a vendor.
+        ${job.out_of_tolerance ? `${plural(job.out_of_tolerance, "measurement")} also came back out of tolerance.` : ""}</p>
+      </div></div>`;
+  }
+  if (job.out_of_tolerance) {
+    return `<div class="verdict is-fail">
+      <span class="glyph" aria-hidden="true">&times;</span>
+      <div>
+        <h3>${plural(job.out_of_tolerance, "measurement")} out of tolerance</h3>
+        <p>Every point of measure was heard and ruled on. ${job.out_of_tolerance === 1 ? "One" : job.out_of_tolerance}
+        ${job.out_of_tolerance === 1 ? "sits" : "sit"} outside the tolerance band on style
+        <code>${esc(job.graded_style_no)}</code> &mdash; result
+        <code>${esc(job.measurement_result || "FAIL CONDITIONALLY")}</code>.</p>
+      </div></div>`;
+  }
+  return `<div class="verdict is-pass">
+    <span class="glyph" aria-hidden="true">&check;</span>
+    <div>
+      <h3>${esc(job.measurement_result || "Pass")}</h3>
+      <p>All ${plural(job.judged, "measurement")} were heard, matched to style
+      <code>${esc(job.graded_style_no)}</code>, and fall inside tolerance. Confirm the flagged
+      values below before sending.</p>
+    </div></div>`;
+}
+
+/* ---------- tables ---------- */
+const wrapTable = (head, body) =>
+  `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+
+function openTable(rows) {
+  return wrapTable(
+    `<th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
+     <th>Heard as</th><th>State</th>`,
+    rows.map(r => `<tr class="row-open">
+      <td class="pom">${dash(r.pom)}</td>
+      <td>${dash(r.size)}</td>
+      <td>${esc(r.description)}</td>
+      <td class="num">${dash(r.spec)}</td>
+      <td class="said">${dash(r.spoken)}</td>
+      <td><span class="mark open">?? no verdict</span></td>
+    </tr>`).join(""));
+}
+
+function failTable(rows) {
+  return wrapTable(
+    `<th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
+     <th class="num">Measured</th><th class="num">Deviation</th><th>State</th>`,
+    rows.map(r => `<tr class="row-fail">
+      <td class="pom">${dash(r.pom)}</td>
+      <td>${dash(r.size)}</td>
+      <td>${esc(r.description)}</td>
+      <td class="num">${dash(r.spec)}</td>
+      <td class="num">${dash(r.measured)}</td>
+      <td class="num">${dash(r.deviation)}</td>
+      <td><span class="mark fail">&times; out</span></td>
+    </tr>`).join(""));
+}
+
+function reviewTable(rows) {
+  return wrapTable(
+    `<th class="num">#</th><th>Size</th><th>Point of measure</th><th class="num">Value</th>
+     <th class="num">Heard</th><th>Why</th>`,
+    rows.map(r => `<tr>
+      <td class="num dim">${r.no}</td>
       <td>${dash(r.size)}</td>
       <td>${esc(r.field)}</td>
-      <td class="num">${dash(r.value)} ${esc(r.deviation || "")}</td>
-      <td class="num low">${r.confidence.toFixed(2)}</td>
-      <td class="note">${esc(r.note)}</td>
-    </tr>`).join("")}</table>`;
+      <td class="num">${dash(r.value)}${r.deviation ? " " + esc(r.deviation) : ""}</td>
+      <td class="num"><span class="mark heard">${(r.confidence * 100).toFixed(0)}%</span></td>
+      <td class="dim">${r.note ? esc(r.note) : "low confidence in the transcription"}</td>
+    </tr>`).join(""));
 }
 
-function openQuestions(job) {
-  if (!job.graded) return `<div class="panel"><h3>Checked against spec</h3>
-    <div class="warn-box"><b>No style set matched, so nothing was checked against spec.</b><br>
-    The recording announced style <b>${dash(job.announced_style_no)}</b>, which has no sheet in
-    data/StyleSets. Re-upload and pick the style from the dropdown to get a graded sheet.</div></div>`;
+/* ---------- progress ----------
+   ponytail: the stage is inferred from the pipeline's own announce() wording.
+   Coupled to those strings on purpose - it is the only stage signal the job
+   payload carries - and it degrades to just the message if they change. */
+const STAGES = [
+  ["Transcribe the recording", /transcrib|reusing transcript/i],
+  ["Cross-check with a second reading", /second/i],
+  ["Extract the inspection", /extract/i],
+  ["Check against the style set", /check/i],
+];
 
-  const v = job.measurement_result || "not determined";
-  const cls = job.out_of_tolerance ? "bad" : job.unconfirmed ? "pending" : "ok";
-  const gap = job.unconfirmed ? `
-    <div class="open">
-      <b>${job.unconfirmed} point(s) of measure have no captured verdict.</b><br>
-      These are <b>not</b> passes. The recording never ruled on them, so each has to be
-      listened back to before this report goes to a vendor.
-      ${job.unconfirmed_rows.length ? `<table style="margin-top:9px">
-        <tr><th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
-            <th>Heard as</th></tr>
-        ${job.unconfirmed_rows.map(r => `<tr>
-          <td>${esc(r.pom)}</td><td>${dash(r.size)}</td><td>${esc(r.description)}</td>
-          <td class="num">${dash(r.spec)}</td><td class="note">${esc(r.spoken)}</td>
-        </tr>`).join("")}</table>` : ""}
-    </div>` : "";
+function progress(job) {
+  const at = STAGES.findIndex(([, re]) => re.test(job.message || ""));
+  const list = STAGES.map(([text], i) => {
+    const step = at < 0 ? "" : i < at ? "past" : i === at ? "at" : "";
+    const tick = step === "past" ? "&check;" : step === "at" ? "&rarr;" : "&middot;";
+    return `<li class="${step}"><span class="tick" aria-hidden="true">${tick}</span>${text}</li>`;
+  }).join("");
 
-  const fails = job.failed_rows.length ? `<table style="margin-top:9px">
-    <tr><th>POM</th><th>Size</th><th>Point of measure</th><th class="num">Spec</th>
-        <th class="num">Measured</th><th class="num">Dev</th></tr>
-    ${job.failed_rows.map(r => `<tr>
-      <td>${esc(r.pom)}</td><td>${dash(r.size)}</td><td>${esc(r.description)}</td>
-      <td class="num">${dash(r.spec)}</td><td class="num">${dash(r.measured)}</td>
-      <td class="num low">${esc(r.deviation)}</td>
-    </tr>`).join("")}</table>` : "";
-
-  return `<div class="panel">
-    <h3>Checked against style ${esc(job.graded_style_no)}</h3>
-    <div class="stats" style="margin-bottom:12px">
-      <div class="stat"><b>${job.judged}</b><span>judged</span></div>
-      <div class="stat ${job.out_of_tolerance ? "bad-stat" : ""}">
-        <b>${job.out_of_tolerance}</b><span>out of tolerance</span></div>
-      <div class="stat ${job.unconfirmed ? "open-stat" : ""}">
-        <b>${job.unconfirmed}</b><span>no verdict</span></div>
+  return `<section>
+    <h3>In progress <span class="count">${secs(job.elapsed)} elapsed</span></h3>
+    <ol class="stages">${list}</ol>
+    <div class="live"><span class="spin" role="status" aria-live="polite"></span>${esc(job.message)}</div>
+    <p class="lede" style="margin-top:14px">Transcription runs for several minutes on a full
+    inspection, and it is done twice so a dropped verdict shows up as a question rather than a
+    false pass. You can close this tab; the work continues on the server.</p>
+    <div class="skel" style="margin-top:22px" aria-hidden="true">
+      <i style="width:62%"></i><i style="width:88%"></i><i style="width:74%"></i>
     </div>
-    <div class="sub">Measurement result:
-      <span class="verdict ${cls}">${esc(v)}</span></div>
-    ${gap}
-    ${fails ? `<h3 style="margin-top:14px">Out of tolerance</h3>${fails}` : ""}
-  </div>`;
+  </section>`;
 }
 
+/* ---------- detail ---------- */
 function detail(job) {
-  if (!job) return `<div class="blank-state"><div>
-    <b>No job selected</b>Upload a recording to get started.</div></div>`;
+  if (!job) {
+    return `<div class="blank"><div>
+      <b>No inspection selected</b>
+      <p>Press <b>Record inspection</b> above to capture one now, or drop a recording you already
+      have. Reports land in <code>data/output/</code> either way.</p>
+    </div></div>`;
+  }
 
-  const running = job.status === "running" || job.status === "queued";
-  const head = `<div class="wrap">
-    <div class="title">
-      <h2>${esc(job.filename)}</h2><span class="pill ${job.status}">${job.status}</span>
+  const head = `<div class="title">
+      <h2>${esc(job.filename)}</h2>
+      <span class="pill ${job.status}">${job.status}</span>
     </div>
-    <div class="sub">${secs(job.elapsed)}${job.name ? " &middot; " + esc(job.name) : ""}${
-      job.style_no ? " &middot; style " + esc(job.style_no) : ""}</div>`;
+    <div class="meta">${secs(job.elapsed)}${job.name ? ` &middot; <b>${esc(job.name)}</b>` : ""}${
+      job.graded_style_no ? ` &middot; style <b>${esc(job.graded_style_no)}</b>` : ""}</div>`;
 
   if (job.status === "failed") {
-    return `${head}<div class="panel"><h3>Error</h3>
-      <div class="fail">${esc(job.error)}</div></div></div>`;
+    return `<div class="wrap">${head}<section>
+      <h3>This inspection did not finish</h3>
+      <div class="fail-box">
+        <b>The pipeline stopped before writing a report.</b> Nothing was sent anywhere and the
+        recording is still in <code>data/recordings/</code>, so it can be processed again.
+        <pre>${esc(job.error)}</pre>
+      </div></section></div>`;
   }
-  if (running) {
-    return `${head}<div class="panel"><h3>Progress</h3>
-      <div class="running-note"><span class="spin"></span>${esc(job.message)}</div></div></div>`;
+  if (job.status === "running" || job.status === "queued") {
+    return `<div class="wrap">${head}${progress(job)}</div>`;
   }
 
-  const filled = Object.values(job.form).filter(Boolean).length;
-  return `${head}
-    <div class="panel"><h3>Extracted</h3><div class="stats">
-      <div class="stat"><b>${job.rows}</b><span>rows</span></div>
-      <div class="stat"><b>${job.sizes.length ? esc(job.sizes.join(" ")) : "&mdash;"}</b><span>sizes</span></div>
-      <div class="stat"><b>${job.accessories}</b><span>accessories</span></div>
-      <div class="stat"><b>${job.comments}</b><span>comments</span></div>
-      <div class="stat ${job.flagged ? "alert" : ""}"><b>${job.flagged}</b><span>need review</span></div>
-      <div class="stat ${job.unconfirmed ? "open-stat" : ""}"><b>${job.unconfirmed}</b><span>no verdict</span></div>
-    </div></div>
+  const filled = Object.entries(job.form).filter(([, v]) => v);
+  const unstated = Object.keys(job.form).filter(k => !job.form[k]);
 
-    ${openQuestions(job)}
+  return `<div class="wrap">
+    ${head}
+    ${verdict(job)}
 
-    <div class="panel"><h3>Downloads</h3><div class="links">
-      ${job.downloads.map(k =>
-        `<a href="/api/jobs/${job.id}/download/${k}">${TITLES[k] || k}</a>`).join("")}
-    </div></div>
+    ${job.unconfirmed_rows.length ? `<section>
+      <h3>Unanswered points of measure
+        <span class="count open">${job.unconfirmed} of ${job.judged + job.unconfirmed} listed below</span></h3>
+      <p class="lede">Listen back to each of these and record the deviation the inspector called,
+      or the pass. Until then the report is not final.</p>
+      ${openTable(job.unconfirmed_rows)}</section>` : ""}
 
-    ${job.flagged_rows.length ? `<div class="panel">
-      <h3>Needs review &mdash; ${job.flagged} of ${job.rows}</h3>
-      ${flaggedTable(job.flagged_rows)}</div>` : ""}
+    ${job.failed_rows.length ? `<section>
+      <h3>Out of tolerance <span class="count warn">${job.out_of_tolerance}</span></h3>
+      <p class="lede">Measured against the graded spec sheet. The deviation is what the inspector
+      called; the measurement is rebuilt from the sheet, not from the spoken absolute.</p>
+      ${failTable(job.failed_rows)}</section>` : ""}
 
-    <div class="panel"><h3>Form fields</h3><dl class="kv">
-      ${Object.entries(job.form).map(([k, v]) =>
-        `<dt>${esc(k.replace(/_/g, " "))}</dt><dd>${dash(v)}</dd>`).join("")}
-    </dl></div>
+    ${job.flagged_rows.length ? `<section>
+      <h3>Worth confirming <span class="count">${job.flagged} of ${job.rows} rows</span></h3>
+      <p class="lede">Heard with less than full confidence &mdash; mid-sentence corrections,
+      crosstalk, or a name the model could not place. The value may well be right.</p>
+      ${reviewTable(job.flagged_rows)}</section>` : ""}
+
+    <section>
+      <h3>Extracted</h3>
+      <dl class="readout">
+        <div><dt>Rows</dt><dd>${job.rows}</dd></div>
+        <div><dt>Sizes</dt><dd class="sizes">${job.sizes.length ? esc(job.sizes.join(" &middot; ")) : "&mdash;"}</dd></div>
+        <div><dt>Judged</dt><dd>${job.graded ? job.judged : "&mdash;"}</dd></div>
+        <div class="${job.out_of_tolerance ? "warm" : ""}"><dt>Out of tolerance</dt><dd>${job.graded ? job.out_of_tolerance : "&mdash;"}</dd></div>
+        <div class="${job.unconfirmed ? "hot" : ""}"><dt>No verdict</dt><dd>${job.graded ? job.unconfirmed : "&mdash;"}</dd></div>
+        <div><dt>Accessories</dt><dd>${job.accessories}</dd></div>
+        <div><dt>Comments</dt><dd>${job.comments}</dd></div>
+      </dl>
+    </section>
+
+    <section>
+      <h3>Report header <span class="count">${filled.length} of ${filled.length + unstated.length} fields stated</span></h3>
+      ${filled.length ? `<dl class="kv">${filled.map(([k, v]) =>
+        `<dt>${esc(label(k))}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`
+        : `<p class="lede">The recording stated none of the header fields.</p>`}
+      ${unstated.length ? `<details>
+        <summary>${plural(unstated.length, "field")} the recording did not state</summary>
+        <div class="unstated">${unstated.map(k => `<span>${esc(label(k))}</span>`).join("")}</div>
+      </details>` : ""}
+    </section>
+
+    <section>
+      <h3>Downloads</h3>
+      ${job.unconfirmed ? `<p class="caution">The report and graded sheet mark the
+        ${plural(job.unconfirmed, "unanswered point")} of measure in violet. Fill those in before
+        this goes to a vendor &mdash; a missing verdict is not a pass.</p>` : ""}
+      <div class="files">${job.downloads.map(k =>
+        `<a href="/api/jobs/${job.id}/download/${k}"${k === "report" ? ' class="lead"' : ""}
+          >${TITLES[k] || esc(k)}</a>`).join("")}</div>
+    </section>
   </div>`;
 }
 
@@ -443,14 +1281,14 @@ function schedule(delay) {
 
 async function loadStyleSets() {
   const select = $("style");
-  const note = (text) => select.insertAdjacentHTML("beforeend",
+  const note = text => select.insertAdjacentHTML("beforeend",
     `<option value="" disabled>${esc(text)}</option>`);
   try {
     const response = await fetch("/api/style-sets");
     if (!response.ok) throw new Error(`/api/style-sets returned ${response.status}`);
     const styles = await response.json();
     if (!styles.length) {
-      note("no style sets in data/StyleSets");
+      note("No sheets in data/StyleSets");
       return;
     }
     for (const style of styles) {
@@ -461,12 +1299,20 @@ async function loadStyleSets() {
     // An empty dropdown with no explanation reads as "no styles exist" when it
     // usually means a stale tab pointed at an older server.
     console.error("could not load style sets:", error);
-    note("could not load style sets - reload the page");
+    note("Could not load style sets - reload");
   }
 }
 
-document.addEventListener("visibilitychange", () => !document.hidden && schedule(0));
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  // The level meter was suspended with the tab; give it a fresh baseline so the
+  // silence alarm judges only what it has actually had a chance to hear.
+  if (state() === "recording") lastSound = Date.now();
+  schedule(0);
+});
+paintStage();
 loadStyleSets();
+render([]);
 refresh();
 </script>
 </body>

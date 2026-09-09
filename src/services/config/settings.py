@@ -13,6 +13,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_TRANSCRIBE_MODEL = "gpt-transcribe"
 DEFAULT_EXTRACT_MODEL = "gpt-5.6-sol"
+# Live monitoring while the inspector is still in the room. Distinct from
+# DEFAULT_TRANSCRIBE_MODEL: this one is tuned for latency, which is exactly the
+# trade that loses short unstressed words, so it never feeds the report.
+# Set SIZESET_REALTIME_MODEL="" to turn live transcription off entirely.
+DEFAULT_REALTIME_MODEL = "gpt-live-transcribe"
 DEFAULT_FORM_TEMPLATE = "size-set.xls"
 
 # How many independent transcriptions of each recording to take. Two, because a
@@ -55,6 +60,7 @@ class Settings:
     transcribe_model: str
     extract_model: str
     data_dir: Path
+    realtime_model: str = DEFAULT_REALTIME_MODEL
     form_template_name: str = DEFAULT_FORM_TEMPLATE
     transcribe_passes: int = DEFAULT_TRANSCRIBE_PASSES
 
@@ -106,6 +112,7 @@ class Settings:
             openai_api_key=api_key,
             transcribe_model=env.get("SIZESET_TRANSCRIBE_MODEL", DEFAULT_TRANSCRIBE_MODEL),
             extract_model=env.get("SIZESET_EXTRACT_MODEL", DEFAULT_EXTRACT_MODEL),
+            realtime_model=env.get("SIZESET_REALTIME_MODEL", DEFAULT_REALTIME_MODEL),
             data_dir=Path(env.get("SIZESET_DATA_DIR") or PROJECT_ROOT / "data"),
             form_template_name=env.get("SIZESET_FORM_TEMPLATE", DEFAULT_FORM_TEMPLATE),
             transcribe_passes=max(

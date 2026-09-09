@@ -261,6 +261,20 @@ reading "SECOND INDEPENDENT TRANSCRIPTION OF THE SAME RECORDING". When it does:
 """
 
 
+EXCERPT_CHARS = 220
+
+
+def _excerpt(transcript: str) -> str:
+    """The opening of a transcript, for an error a human has to act on.
+
+    Only the first pass: when two transcriptions are joined the second repeats
+    the same audio, so quoting both would just say everything twice.
+    """
+    first = transcript.split(PASS_SEPARATOR.strip())[0]
+    words = " ".join(first.split())
+    return f'"{words[:EXCERPT_CHARS]}..."' if len(words) > EXCERPT_CHARS else f'"{words}"'
+
+
 def build_instructions(accessory_items: list[str]) -> str:
     listed = "\n".join(f"  {item}" for item in accessory_items)
     return f"{BASE_INSTRUCTIONS}\nAccessory item names, use these exactly:\n{listed}\n"
@@ -309,7 +323,16 @@ def extract_inspection(
 
     sheet = InspectionSheet.from_payload(payload)
     if not sheet.rows and not sheet.comments:
-        raise ExtractionError("model returned nothing to fill the form with")
+        # Almost always the audio rather than the model: a test clip, the wrong
+        # file, or a conversation that never got to the measuring. Saying "the
+        # model returned nothing" sent people looking for a fault in the
+        # pipeline, so quote what was actually heard and let them recognise it.
+        raise ExtractionError(
+            "the recording was transcribed, but no inspection was found in it: not one "
+            "point of measure, size or deviation was stated. Nothing was invented to "
+            "fill the gap. Check this is the right recording — the transcript is kept "
+            f"under data/transcripts/. What was heard: {_excerpt(transcript)}"
+        )
 
     log.info(
         "extracted %d rows, %d accessories, %d comments (sizes %s, %d flagged)",

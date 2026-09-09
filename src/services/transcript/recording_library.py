@@ -24,6 +24,17 @@ def transcript_path_for(recording: Path, settings: Settings) -> Path:
     return settings.transcripts_dir / f"{recording.stem}.txt"
 
 
+def live_transcript_path_for(recording: Path, settings: Settings) -> Path:
+    """Where the live monitoring transcript for `recording` is kept.
+
+    Beside the batch transcript and its second pass, following the same
+    convention, so all three readings of one recording sit together for a
+    reviewer to compare. It is saved for audit only: nothing downstream reads
+    it, because a latency-tuned model is the wrong source for a verdict.
+    """
+    return settings.transcripts_dir / f"{recording.stem}.live.txt"
+
+
 def save_transcript(recording: Path, text: str, settings: Settings) -> Path:
     """Write `text` alongside the other transcripts and return the path."""
     destination = transcript_path_for(recording, settings)

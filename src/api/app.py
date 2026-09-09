@@ -9,18 +9,28 @@ from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from services.config import ConfigError, Settings
 from services.style_set import list_style_numbers
-from services.transcript import AUDIO_SUFFIXES
+from services.transcript import (
+    AUDIO_SUFFIXES,
+    DOMAIN_PROMPT,
+    LANGUAGES,
+    live_transcript_path_for,
+)
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
 
 from .jobs import DONE, DOWNLOADS, JobStore, process, process_transcript
 
 log = logging.getLogger(__name__)
 
-PAGE = Path(__file__).parent / "index.html"
+# The React app, built by `npm run build` in src/frontend. Gitignored, so a
+# checkout that has never run npm serves the legacy single-file page instead
+# and the app still works with a Python-only toolchain.
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+LEGACY_PAGE = Path(__file__).parent / "index.html"
 CHUNK = 1024 * 1024
 
 # The transcription API caps a single upload at MAX_UPLOAD_BYTES, but the
@@ -32,6 +42,12 @@ MAX_RECORDING_BYTES = 500 * 1024 * 1024
 
 app = FastAPI(title="Size Set Inspection Reports", docs_url="/api/docs")
 store = JobStore()
+
+# Vite emits hashed bundles under dist/assets and references them absolutely.
+# Mounted at import, so a build made while the server is running needs a
+# restart (or --reload) to be served.
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
 @lru_cache(maxsize=1)
@@ -54,13 +70,17 @@ SettingsDep = Annotated[Settings, Depends(settings_dependency)]
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    """The upload page, read from disk each time and never cached.
+    """The app shell, read from disk each time and never cached.
 
-    Without no-store the browser serves a stale page after an edit, which looks
-    exactly like the change not working.
+    Prefers the built React app; falls back to the legacy single-file page when
+    src/frontend has not been built. Without no-store the browser serves a
+    stale shell after a rebuild, which looks exactly like the change not
+    working — the hashed asset filenames handle caching for everything else.
     """
+    built = FRONTEND_DIST / "index.html"
+    page = built if built.is_file() else LEGACY_PAGE
     return HTMLResponse(
-        PAGE.read_text(encoding="utf-8"),
+        page.read_text(encoding="utf-8"),
         headers={"Cache-Control": "no-store, must-revalidate"},
     )
 
@@ -69,6 +89,70 @@ def index() -> HTMLResponse:
 def list_style_sets(settings: SettingsDep) -> list[str]:
     """Style numbers with a spec sheet on disk, for the upload dropdown."""
     return list_style_numbers(settings.style_sets_dir)
+
+
+# How long the browser has to open its session with the minted credential. It
+# only needs seconds; the session itself lives on past expiry, so a short window
+# costs nothing and keeps a leaked token worthless.
+REALTIME_TOKEN_TTL_SECONDS = 600
+
+# Line breaks are NOT configured here. `gpt-live-transcribe` refuses a
+# turn_detection block outright ("Turn detection is not supported for this
+# transcription model") and emits no ...transcription.completed events at all -
+# measured against a real inspection: 44 deltas, 0 completions. It is a
+# continuous captioner by design, so the browser segments the delta stream
+# itself against its own level meter. See useLiveTranscript.ts.
+
+
+@app.post("/api/realtime-token")
+def realtime_token(settings: SettingsDep) -> dict[str, object]:
+    """Mint a short-lived credential for live transcription in the browser.
+
+    The account key never leaves this process. The browser gets a scoped,
+    expiring secret and streams its microphone to the transcription API
+    directly, which keeps a half-hour of audio off this server entirely.
+
+    The session carries the same prompt and languages as the batch pass, so the
+    live monitor reads garment vocabulary rather than guessing at "one by
+    eight". What it produces is never fed to the report: this model trades
+    recall of exactly those short verdict words for latency.
+    """
+    if not settings.realtime_model:
+        raise HTTPException(
+            status_code=503,
+            detail="live transcription is off (SIZESET_REALTIME_MODEL is empty)",
+        )
+
+    from openai import OpenAI
+
+    try:
+        secret = OpenAI(api_key=settings.openai_api_key).realtime.client_secrets.create(
+            expires_after={"anchor": "created_at", "seconds": REALTIME_TOKEN_TTL_SECONDS},
+            session={
+                "type": "transcription",
+                "audio": {
+                    "input": {
+                        # Only model, prompt and languages survive here. The API
+                        # accepts `keywords` and `delay` without complaint and
+                        # then echoes both back as null - measured on the token
+                        # itself and again on session.updated - so they are not
+                        # sent: dead config that reads as a working vocabulary
+                        # boost is worse than none. The batch passes, which do
+                        # honour KEYWORDS, remain the report's source.
+                        "transcription": {
+                            "model": settings.realtime_model,
+                            "prompt": DOMAIN_PROMPT,
+                            "languages": list(LANGUAGES),
+                        },
+                    }
+                },
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - surface the upstream reason verbatim
+        log.warning("could not mint a realtime token: %s", exc)
+        raise HTTPException(status_code=502, detail=f"realtime session refused: {exc}") from exc
+
+    return {"value": secret.value, "model": settings.realtime_model}
 
 
 @app.get("/api/jobs")
@@ -90,11 +174,15 @@ async def create_job(
     recording: UploadFile,
     settings: SettingsDep,
     style_no: Annotated[str, Form()] = "",
+    live_transcript: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     """Accept a recording and queue it. Returns immediately with a job to poll.
 
     `style_no` is the style set to check against. Leave it empty to fall back to
     the style number announced at the start of the recording.
+
+    `live_transcript` is what the browser's monitor heard while recording. It is
+    saved beside the batch transcripts for audit and never read by the pipeline.
     """
     # The browser controls the filename, so keep only its last component and
     # check the suffix before anything touches the filesystem.
@@ -123,6 +211,14 @@ async def create_job(
     if chosen and chosen not in list_style_numbers(settings.style_sets_dir):
         destination.unlink(missing_ok=True)
         raise HTTPException(status_code=404, detail=f"no style set for style {chosen}")
+
+    # Written before the job is queued, not after: this is the only copy of what
+    # the monitor heard, and it should survive a pipeline that fails on stage 1.
+    if live_transcript.strip():
+        saved = live_transcript_path_for(destination, settings)
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        saved.write_text(live_transcript, encoding="utf-8")
+        log.info("saved live transcript %s (%d chars)", saved.name, len(live_transcript))
 
     job = store.create(destination.name, style_no=chosen)
     background.add_task(process, job, destination, settings, store)

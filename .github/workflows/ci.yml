@@ -17,3 +17,21 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+        working-directory: src/frontend
+      - run: npm run lint
+        working-directory: src/frontend
+      - run: npm test
+        working-directory: src/frontend
+      - run: npm run build
+        working-directory: src/frontend

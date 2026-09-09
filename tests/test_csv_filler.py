@@ -304,10 +304,53 @@ def test_extract_rejects_unparseable_output(settings, template):
 
 
 def test_extract_rejects_an_empty_result(settings, template):
+    """A recording with no inspection in it must not produce a blank report.
+
+    The commonest cause is the audio, not the model: a test clip, the wrong
+    file, or a conversation that never reached the measuring. So the message
+    has to say that, and quote what was heard, or the operator goes looking for
+    a fault in the pipeline. Verbatim from a real Hindi test recording that hit
+    this: two people discussing the app, no point of measure anywhere.
+    """
+    chatter = "हेलो. हेलो. देख रहा भाई तू? ये लाइव ट्रांसक्रिप्ट करना था. बोला ही नहीं कुछ तो अभी."
     client = FakeExtractionClient(payload={**SHEET_PAYLOAD, "rows": [], "comments": []})
 
-    with pytest.raises(ExtractionError, match="nothing to fill"):
-        extract_inspection("text", settings, template, client=client)
+    with pytest.raises(ExtractionError) as failure:
+        extract_inspection(chatter, settings, template, client=client)
+
+    message = str(failure.value)
+    assert "no inspection was found" in message
+    assert "Nothing was invented" in message
+    # Quoting the audio is what makes the cause obvious at a glance.
+    assert "हेलो" in message
+    # And it must not read as a fault in the software.
+    assert "model returned nothing" not in message
+
+
+def test_the_excerpt_quotes_one_pass_not_both(settings, template):
+    """Two transcriptions of one recording would otherwise repeat themselves."""
+    from services.csv_filler.inspection_extractor import combine_passes
+
+    client = FakeExtractionClient(payload={**SHEET_PAYLOAD, "rows": [], "comments": []})
+
+    with pytest.raises(ExtractionError) as failure:
+        extract_inspection(
+            combine_passes("first reading", "second reading"), settings, template, client=client
+        )
+
+    assert "first reading" in str(failure.value)
+    assert "second reading" not in str(failure.value)
+
+
+def test_a_long_excerpt_is_trimmed(settings, template):
+    """An error a human reads should not be a wall of half an hour of speech."""
+    client = FakeExtractionClient(payload={**SHEET_PAYLOAD, "rows": [], "comments": []})
+
+    with pytest.raises(ExtractionError) as failure:
+        extract_inspection("word " * 4000, settings, template, client=client)
+
+    assert len(str(failure.value)) < 700
+    assert str(failure.value).endswith('..."')
 
 
 # --- the record shape -------------------------------------------------------

@@ -1,5 +1,7 @@
 """The web app, exercised with the pipeline stubbed out."""
 
+from dataclasses import replace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -246,6 +248,20 @@ def test_report_download_is_a_pdf(client, template, stub_pipeline):
     assert response.content.startswith(b"%PDF")
 
 
+@pytest.mark.parametrize("name", ["inspection-2026-09-09-143012.webm", "inspection.mp4"])
+def test_a_browser_recording_is_accepted(client, template, stub_pipeline, name):
+    """What the in-browser recorder produces must upload like any other file.
+
+    MediaRecorder gives webm/opus on Chrome, Edge and Firefox and mp4/aac on
+    Safari, and nothing else. Dropping either from AUDIO_SUFFIXES would break
+    the record button while every other test still passed.
+    """
+    response = upload(client, name=name, content=b"recorded bytes")
+
+    assert response.status_code == 202
+    assert response.json()["filename"] == name
+
+
 def test_upload_rejects_a_non_audio_file(client, template):
     response = upload(client, name="notes.pdf", content=b"%PDF")
 
@@ -362,3 +378,126 @@ def test_progress_messages_reach_the_job(settings, recording, template, stub_pip
 
     assert job.status == DONE
     assert "need review" in job.message
+
+
+def test_a_live_transcript_is_saved_beside_the_recording(client, template, settings, stub_pipeline):
+    """The monitor's text is the only record of what was heard as it happened."""
+    from services.transcript import live_transcript_path_for
+
+    heard = "size large, front length twenty two one eight, minus one by eight"
+    client.post(
+        "/api/jobs",
+        files={"recording": ("rec.m4a", b"audio bytes", "audio/mp4")},
+        data={"style_no": "", "live_transcript": heard},
+    )
+
+    saved = live_transcript_path_for(settings.recordings_dir / "rec.m4a", settings)
+    assert saved.read_text(encoding="utf-8") == heard
+
+
+def test_a_live_transcript_never_reaches_the_pipeline(client, template, settings, stub_pipeline):
+    """It is a latency-tuned monitor, so it must not become the report's source.
+
+    The batch transcript is what the extractor reads. If the live text ever fed
+    it, a verdict the monitor dropped would come back as an unspoken pass — the
+    exact failure the two-pass design exists to prevent.
+    """
+    client.post(
+        "/api/jobs",
+        files={"recording": ("rec.m4a", b"audio bytes", "audio/mp4")},
+        data={"live_transcript": "monitor text only"},
+    )
+
+    batch = settings.transcripts_dir / "rec.txt"
+    assert batch.read_text(encoding="utf-8") == "text"  # from the stubbed transcriber
+
+
+def test_no_live_transcript_writes_no_file(client, template, settings, stub_pipeline):
+    from services.transcript import live_transcript_path_for
+
+    upload(client, name="rec.m4a")
+
+    assert not live_transcript_path_for(settings.recordings_dir / "rec.m4a", settings).exists()
+
+
+def test_the_realtime_token_carries_the_garment_vocabulary(client, monkeypatch):
+    """The live session carries the settings the API actually honours.
+
+    Only model, prompt and languages survive: `keywords` and `delay` are
+    accepted without complaint and echoed back as null, measured both on the
+    minted token and on session.updated. Sending them anyway would read like a
+    working vocabulary boost that is not there, so they must stay out.
+    """
+    from services.transcript import DOMAIN_PROMPT
+
+    sent = {}
+
+    class FakeSecrets:
+        def create(self, **kwargs):
+            sent.update(kwargs)
+            return type("Secret", (), {"value": "ek_test"})()
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.realtime = type("R", (), {"client_secrets": FakeSecrets()})()
+
+    monkeypatch.setattr("openai.OpenAI", FakeClient)
+    body = client.post("/api/realtime-token").json()
+
+    assert body["value"] == "ek_test"
+    assert body["model"] == "gpt-live-transcribe"
+    transcription = sent["session"]["audio"]["input"]["transcription"]
+    assert transcription["prompt"] == DOMAIN_PROMPT
+    assert transcription["languages"] == ["hi", "en"]
+    assert "keywords" not in transcription
+    assert "delay" not in transcription
+    # Turn detection is refused outright for this model; asking for it 400s the
+    # whole request, so the live session must never include it.
+    assert "turn_detection" not in sent["session"]["audio"]["input"]
+    assert sent["expires_after"]["seconds"] > 0
+
+
+def test_the_realtime_token_never_returns_the_account_key(client, monkeypatch, settings):
+    """A leaked ephemeral secret expires; a leaked account key does not."""
+
+    class FakeSecrets:
+        def create(self, **kwargs):
+            return type("Secret", (), {"value": "ek_ephemeral"})()
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.realtime = type("R", (), {"client_secrets": FakeSecrets()})()
+
+    monkeypatch.setattr("openai.OpenAI", FakeClient)
+    text = client.post("/api/realtime-token").text
+
+    assert settings.openai_api_key not in text
+
+
+def test_live_transcription_can_be_turned_off(client, settings, monkeypatch):
+    """An operator with no realtime access should get a plain answer, not a 500."""
+    monkeypatch.setattr(api.app, "dependency_overrides", api.app.dependency_overrides)
+    api.app.dependency_overrides[api.settings_dependency] = lambda: replace(
+        settings, realtime_model=""
+    )
+
+    response = client.post("/api/realtime-token")
+
+    assert response.status_code == 503
+    assert "live transcription is off" in response.json()["detail"]
+
+
+def test_a_refused_realtime_session_is_reported_not_swallowed(client, monkeypatch):
+    class FakeSecrets:
+        def create(self, **kwargs):
+            raise RuntimeError("model not available for this account")
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.realtime = type("R", (), {"client_secrets": FakeSecrets()})()
+
+    monkeypatch.setattr("openai.OpenAI", FakeClient)
+    response = client.post("/api/realtime-token")
+
+    assert response.status_code == 502
+    assert "model not available" in response.json()["detail"]

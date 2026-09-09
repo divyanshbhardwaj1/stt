@@ -1,0 +1,9 @@
+frontend:
+	cd src/frontend && npm run build
+
+backend:
+	uvicorn api.app:app --app-dir src --port 8100 --reload
+
+res:
+	make frontend
+	make backend
