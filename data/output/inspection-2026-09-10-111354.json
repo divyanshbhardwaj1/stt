@@ -1,0 +1,234 @@
+{
+  "form": {
+    "style_no": "",
+    "division": "",
+    "date": "",
+    "description": "",
+    "colour": "",
+    "grain_line": "",
+    "notches": "",
+    "graded_nest": "",
+    "corrections_implemented": "",
+    "yy_mini_marker": "",
+    "planned_submission_date": "",
+    "actual_submission_date": "",
+    "pcd": "",
+    "cut_quantity": "",
+    "size_set_inspection_result": "",
+    "shrinkage": "",
+    "lining_shrinkage": "",
+    "shrinkage_note": "",
+    "measurement_result": "",
+    "measurement_graded_nest": "",
+    "corrections_to_be_done": "",
+    "bring_back_to_specs": "",
+    "cutting_check": "",
+    "seam_allowance": "",
+    "checks_corrections_implemented": "",
+    "overall": ""
+  },
+  "accessories": [],
+  "comments": [],
+  "rows": [
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband height",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband elastic height",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist relaxed at top edge",
+      "value": "28 3/4",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist extended at top edge minimum",
+      "value": "41",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Low hip placement from top waist",
+      "value": "5 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Three point low hip",
+      "value": "42 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front rise straight to top waist",
+      "value": "10 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 0.95,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back rise straight to top waist",
+      "value": "15 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Short leg opening",
+      "value": "28 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Inseam short",
+      "value": "2 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Outseam from top waist",
+      "value": "11",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Fly J-stitch length below waist seam",
+      "value": "4 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Fly J-stitch width",
+      "value": "1 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "M height",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front leg depth three inch from center front top edge relaxed",
+      "value": "11 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back leg depth three inch from center back top edge relaxed",
+      "value": "12 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Saddle width two inch up from crotch",
+      "value": "8 1/4",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button space on fly front",
+      "value": "2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button position from waist stitch",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "On seam pocket hem height",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    }
+  ]
+}

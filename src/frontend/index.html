@@ -3,6 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Inline, so the browser never issues a request for /favicon.ico. A
+         missing favicon is only a 404 in the console, but a red line in
+         DevTools during a client demo is worth one line of markup to avoid.
+         Ruler ticks in the brand teal. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23006d7a'/%3E%3Cg stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M7 22V10'/%3E%3Cpath d='M13 22v-7'/%3E%3Cpath d='M19 22V10'/%3E%3Cpath d='M25 22v-7'/%3E%3C/g%3E%3C/svg%3E"
+    />
     <title>Size Set Inspection Reports</title>
   </head>
   <body>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStyleSets, uploadRecording } from "../api";
+import type { Job } from "../types";
 import { hms, megabytes } from "../format";
 import {
   transcriptText,
@@ -11,8 +12,12 @@ import { LiveTranscript } from "./LiveTranscript";
 import { Waveform } from "./Waveform";
 
 interface Props {
-  /** Called with the new job id once an upload is accepted. */
-  onQueued: (jobId: string) => void;
+  /**
+   * The job the server just accepted. The whole job, not its id: the parent
+   * renders it straight away, so pressing Process does not leave the previous
+   * inspection on screen until the next poll lands.
+   */
+  onQueued: (job: Job) => void;
   /**
    * What fills the work pane when no transcript is showing - the selected
    * report, or the empty state. Passed in rather than rendered by the parent
@@ -136,7 +141,7 @@ export function Intake({ onQueued, children }: Props) {
       const job = await uploadRecording(pending, styleNo, transcriptText(heard), setProgress);
       setProgress(-1);
       clear();
-      onQueued(job.id);
+      onQueued(job);
     } catch (cause) {
       setProgress(-1);
       setUploadError(cause instanceof Error ? cause.message : "Upload failed.");
@@ -223,7 +228,7 @@ export function Intake({ onQueued, children }: Props) {
                   <b>{take.file.name}</b> &middot; {hms(take.ms)} &middot;{" "}
                   {megabytes(take.file.size)}
                 </div>
-                <audio controls src={previewUrl} />
+                <audio controls preload="none" src={previewUrl} />
               </div>
               <div className="row tight">
                 <button onClick={() => void process()} disabled={progress >= 0}>
