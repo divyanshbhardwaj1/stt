@@ -1,0 +1,104 @@
+{
+  "form": {
+    "style_no": "",
+    "division": "",
+    "date": "",
+    "description": "",
+    "colour": "",
+    "grain_line": "",
+    "notches": "",
+    "graded_nest": "",
+    "corrections_implemented": "",
+    "yy_mini_marker": "",
+    "planned_submission_date": "",
+    "actual_submission_date": "",
+    "pcd": "",
+    "cut_quantity": "",
+    "size_set_inspection_result": "",
+    "shrinkage": "",
+    "lining_shrinkage": "",
+    "shrinkage_note": "",
+    "measurement_result": "",
+    "measurement_graded_nest": "",
+    "corrections_to_be_done": "",
+    "bring_back_to_specs": "",
+    "cutting_check": "",
+    "seam_allowance": "",
+    "checks_corrections_implemented": "",
+    "overall": ""
+  },
+  "accessories": [],
+  "comments": [],
+  "rows": [
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband height",
+      "value": "1 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waistband elastic height",
+      "value": "1 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist relaxed at top edge",
+      "value": "28 3/4",
+      "deviation": "-1/2",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Waist extended at top edge minimum",
+      "value": "41",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Low hip placement from top waist",
+      "value": "5 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Three point low hip",
+      "value": "42 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front rise straight to top waist",
+      "value": "10 1/4",
+      "deviation": "-1/4",
+      "note": "Value spoken as “ten quarter”; deviation corrected with “sorry, minus quarter.”",
+      "confidence": 0.65,
+      "verdict": "deviation"
+    }
+  ]
+}

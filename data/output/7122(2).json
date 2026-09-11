@@ -1,0 +1,1382 @@
+{
+  "form": {
+    "style_no": "7122",
+    "division": "American Eagle",
+    "date": "10th of September",
+    "description": "smocked button through",
+    "colour": "beige and burgundy",
+    "grain_line": "OK",
+    "notches": "Not OK – armhole notches missing; add and show again",
+    "graded_nest": "OK",
+    "corrections_implemented": "OK – no correction required as GT is approved for bulk",
+    "yy_mini_marker": "",
+    "planned_submission_date": "10th of September",
+    "actual_submission_date": "10th of September",
+    "pcd": "11th of September",
+    "cut_quantity": "4 pieces – S, M, L and XL; 1 piece per size",
+    "size_set_inspection_result": "Pass with comment",
+    "shrinkage": "L = 0%  W = 0%",
+    "lining_shrinkage": "",
+    "shrinkage_note": "OK; complete block will CPL after smocking. Number of samples not stated.",
+    "measurement_result": "PASS",
+    "measurement_graded_nest": "OK",
+    "corrections_to_be_done": "Add 1/8 inch in length pattern; add missing armhole notches; follow marking for last button position",
+    "bring_back_to_specs": "Length; last button position",
+    "cutting_check": "OK",
+    "seam_allowance": "OK",
+    "checks_corrections_implemented": "OK",
+    "overall": "Size set is passed to proceed. We'll add 1/8 inch just in the length. Rest everything is okay. We can proceed with the bulk."
+  },
+  "accessories": [
+    {
+      "item": "MAIN LABEL",
+      "status": "ACT",
+      "note": "actual, okay"
+    },
+    {
+      "item": "INTERLINING",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "SNAP",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "HANG TAG",
+      "status": "",
+      "note": "for bulk; not required in size set"
+    },
+    {
+      "item": "HANGER",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "WASHCARE",
+      "status": "ALT",
+      "note": "alternate"
+    },
+    {
+      "item": "POLYBAG",
+      "status": "",
+      "note": "for bulk; not required in size set"
+    },
+    {
+      "item": "POLY BAG STICKER",
+      "status": "",
+      "note": "not required in size set"
+    },
+    {
+      "item": "LOT STICKER",
+      "status": "",
+      "note": "not required in size set"
+    },
+    {
+      "item": "PRE PACK STICKER",
+      "status": "",
+      "note": "not required in size set"
+    },
+    {
+      "item": "CARTON MARKINGS",
+      "status": "",
+      "note": "not required in size set"
+    },
+    {
+      "item": "PLACEMENT UPC/P.PACK",
+      "status": "",
+      "note": "not required in size set"
+    },
+    {
+      "item": "FOLDING",
+      "status": "",
+      "note": "will review in pilot"
+    },
+    {
+      "item": "SPARE BUTTON POSITION",
+      "status": "",
+      "note": "not required in this style"
+    },
+    {
+      "item": "BUTTON",
+      "status": "ACT",
+      "note": "okay as per approval"
+    },
+    {
+      "item": "HOOK EYE/BAR",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "LACE",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "BUCKLE",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "THREAD",
+      "status": "ACT",
+      "note": "original in size set as per bulk approval"
+    },
+    {
+      "item": "LINING",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "ZIPPER",
+      "status": "",
+      "note": "not required"
+    },
+    {
+      "item": "PRINT",
+      "status": "",
+      "note": "not required; plaid fabric"
+    },
+    {
+      "item": "LAYOUT",
+      "status": "ACT",
+      "note": "okay"
+    },
+    {
+      "item": "EMB  THREAD COLOR",
+      "status": "",
+      "note": "no embroidery in this style"
+    },
+    {
+      "item": "PLACEMENT",
+      "status": "ACT",
+      "note": "okay"
+    },
+    {
+      "item": "BEADS/SEQUINS",
+      "status": "",
+      "note": "not required in this style"
+    },
+    {
+      "item": "BEADS/SEQUINS LAYOUT",
+      "status": "",
+      "note": "not required in this style"
+    },
+    {
+      "item": "AFTER TREATMENT",
+      "status": "ACT",
+      "note": "okay as per wash recipe"
+    }
+  ],
+  "comments": [
+    {
+      "comment": "Armhole notches missing.",
+      "vendor_action": "Add notches and show again."
+    },
+    {
+      "comment": "Joint stitch not acceptable; allowances slightly more.",
+      "vendor_action": "Follow guide and maintain correct allowances."
+    },
+    {
+      "comment": "Last button position is on minus side in all sizes.",
+      "vendor_action": "Follow marking while attaching buttons and achieve required spec."
+    },
+    {
+      "comment": "Length is on minus side.",
+      "vendor_action": "Add 1/8 inch in the pattern."
+    },
+    {
+      "comment": "Smocking rows are slightly tilted and spacing is uneven.",
+      "vendor_action": "Keep rows straight, horizontal, evenly spaced and aligned."
+    },
+    {
+      "comment": "Neck and sleeve ruffle width is slightly uneven.",
+      "vendor_action": "Take even allowances and maintain exposed ruffle to required spec."
+    },
+    {
+      "comment": "Uncut thread and fraying at sleeve inseam.",
+      "vendor_action": "Trim all uncut threads and maintain correct allowances."
+    },
+    {
+      "comment": "Plaid horizontal lines at both sides of center-front placket are unbalanced.",
+      "vendor_action": "Balance and align lines on both sides; do not allow waviness."
+    },
+    {
+      "comment": "Shearing along sleeve head is uneven.",
+      "vendor_action": "Follow notches to distribute shearing evenly."
+    },
+    {
+      "comment": "Stitch may crack while stretching.",
+      "vendor_action": "Maintain correct tension."
+    },
+    {
+      "comment": "Garment shape must be maintained during steaming.",
+      "vendor_action": "Follow jump-size marking on each pressing table."
+    },
+    {
+      "comment": "Smocking defects or broken stitches are not to be locally altered.",
+      "vendor_action": "Check panels inside out; open the complete smocking row and redo it."
+    },
+    {
+      "comment": "Neckline shape may become distorted or unbalanced.",
+      "vendor_action": "Use pattern cardboard and balance left and right from center front."
+    },
+    {
+      "comment": "Center-front placket and main label must be aligned.",
+      "vendor_action": "Add extra checkpoints to prevent misalignment."
+    }
+  ],
+  "rows": [
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front length from HPS to center front",
+      "value": "21 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Shoulder slope from HPS",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across shoulder seam to seam relaxed",
+      "value": "13",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across front seam to seam relaxed, position 5 inches from HPS",
+      "value": "11 5/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Across back seam to seam relaxed, position 5 inches",
+      "value": "12",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Chest 1 inch below armhole relaxed",
+      "value": "32",
+      "deviation": "+3/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Chest 1 inch below armhole extended minimum",
+      "value": "54",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom opening relaxed at last smocking row",
+      "value": "33",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom opening extended at last smocking row",
+      "value": "56",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Bottom opening ruffle height at center front, side seam and center back",
+      "value": "2 3/4",
+      "deviation": "-1/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Front neck drop from HPS to seam",
+      "value": "8 3/8",
+      "deviation": "-1/8",
+      "note": "First transcription reads 'H three by eight'; second transcription drops the measured value.",
+      "confidence": 0.62,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Back neck drop from HPS to seam",
+      "value": "1/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Neck width seam to seam",
+      "value": "8 1/2",
+      "deviation": "+3/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Neckline ruffle height exposed",
+      "value": "1/2",
+      "deviation": "-1/32",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve length from center back to longest point",
+      "value": "26",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Armhole straight",
+      "value": "8 3/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Muscle 1 inch from underarm",
+      "value": "15 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve opening relaxed",
+      "value": "9",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve opening extended",
+      "value": "16 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Sleeve exposed ruffle height",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button position from below neck seam",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "M",
+      "field": "Button position from bottom",
+      "value": "2 7/8",
+      "deviation": "",
+      "note": "First transcription says 'two seven'; value confirmed as 2 7/8 in the second transcription.",
+      "confidence": 0.95,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front length from HPS to center front",
+      "value": "22 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Shoulder slope from HPS",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across shoulder seam to seam relaxed",
+      "value": "13 3/4",
+      "deviation": "-1/8",
+      "note": "Initially called as 16 3/4, then corrected and confirmed as 13 3/4.",
+      "confidence": 0.9,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across front seam to seam relaxed, position 5 inches from HPS",
+      "value": "12 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Across back seam to seam relaxed, position 5 inches",
+      "value": "12 3/4",
+      "deviation": "",
+      "note": "Other transcription reads 12 3/8; 12 3/4 was repeated in the first transcription and fits the graded sequence.",
+      "confidence": 0.62,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Chest 1 inch below armhole relaxed",
+      "value": "35",
+      "deviation": "+3/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Chest 1 inch below armhole extended minimum",
+      "value": "59 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom opening relaxed at last smocking row",
+      "value": "36",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom opening extended at last smocking row",
+      "value": "61 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Bottom opening ruffle height at center front, side seam and center back",
+      "value": "2 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Front neck drop from HPS to seam",
+      "value": "8 1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 0.9,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Back neck drop from HPS to seam",
+      "value": "1/4",
+      "deviation": "-1/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Neck width seam to seam",
+      "value": "8 3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Neckline ruffle height exposed",
+      "value": "1/2",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve length from center back to longest point",
+      "value": "26 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Armhole straight",
+      "value": "9 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Muscle 1 inch from underarm",
+      "value": "16 3/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve opening relaxed",
+      "value": "9 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve opening extended",
+      "value": "17 3/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Sleeve exposed ruffle height",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Button position from below neck seam",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "L",
+      "field": "Button position from bottom",
+      "value": "2 7/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Front length from HPS to center front",
+      "value": "22 7/8",
+      "deviation": "-3/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Shoulder slope from HPS",
+      "value": "3/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across shoulder seam to seam relaxed",
+      "value": "14 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across front seam to seam relaxed, position 5 inches from HPS",
+      "value": "13 1/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Across back seam to seam relaxed, position 5 inches",
+      "value": "13 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Chest 1 inch below armhole relaxed",
+      "value": "38",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Chest 1 inch below armhole extended minimum",
+      "value": "65",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bottom opening relaxed at last smocking row",
+      "value": "39",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bottom opening extended at last smocking row",
+      "value": "67",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Bottom opening ruffle height at center front, side seam and center back",
+      "value": "2 3/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Front neck drop from HPS to seam",
+      "value": "8 5/8",
+      "deviation": "+1/8",
+      "note": "Spoken as 'five by eight' after the deviation cue; whole number reconstructed from the graded sequence.",
+      "confidence": 0.65,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Back neck drop from HPS to seam",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Neck width seam to seam",
+      "value": "9",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Neckline ruffle height exposed",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve length from center back to longest point",
+      "value": "27 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Armhole straight",
+      "value": "10",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Muscle 1 inch from underarm",
+      "value": "18",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve opening relaxed",
+      "value": "10",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve opening extended",
+      "value": "18 1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Sleeve exposed ruffle height",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Button position from below neck seam",
+      "value": "1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "XL",
+      "field": "Button position from bottom edge",
+      "value": "2 7/8",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front length from HPS to center front",
+      "value": "20 7/8",
+      "deviation": "-1/4",
+      "note": "Both transcriptions render the value as '27 by 8'; reconstructed as 20 7/8 from the graded sequence.",
+      "confidence": 0.58,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Shoulder slope from HPS",
+      "value": "3/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across shoulder seam to seam relaxed",
+      "value": "12 1/2",
+      "deviation": "-1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across front seam to seam relaxed, position 5 inches down",
+      "value": "11 1/8",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 0.95,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Across back seam to seam relaxed, position 5 inches down",
+      "value": "11 1/2",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Chest 1 inch below armhole relaxed",
+      "value": "30",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Chest 1 inch below armhole extended minimum",
+      "value": "50 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bottom opening relaxed at last smocking row",
+      "value": "31",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bottom opening extended at last smocking row",
+      "value": "52 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Bottom opening ruffle height at center front, side seam and center back",
+      "value": "2 3/4",
+      "deviation": "-1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Front neck drop from HPS to seam",
+      "value": "8 1/4",
+      "deviation": "+1/8",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Back neck drop from HPS to seam",
+      "value": "1/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Neck width seam to seam",
+      "value": "8 1/4",
+      "deviation": "+1/4",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Neckline ruffle height exposed",
+      "value": "1/2",
+      "deviation": "-1/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve length from center back to longest point",
+      "value": "25 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Armhole straight",
+      "value": "8 3/8",
+      "deviation": "",
+      "note": "Value was repeated and confirmed.",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Muscle 1 inch from underarm",
+      "value": "14 3/4",
+      "deviation": "+1/8",
+      "note": "Inspector said 'almost plus one by eight.'",
+      "confidence": 0.95,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve opening relaxed",
+      "value": "8 1/2",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve opening extended",
+      "value": "15 5/8",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Sleeve exposed ruffle height",
+      "value": "1",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Center front placket width",
+      "value": "3/4",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button position from below neck seam",
+      "value": "1/2",
+      "deviation": "+1/16",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "deviation"
+    },
+    {
+      "section": "measurement",
+      "size": "S",
+      "field": "Button position from bottom",
+      "value": "2 7/8",
+      "deviation": "-1/8",
+      "note": "Second transcription reads 'two by eight'; first transcription and graded context support 2 7/8.",
+      "confidence": 0.62,
+      "verdict": "deviation"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Construction matching between size set and GT",
+      "value": "",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Placket",
+      "value": "",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Smocking tension",
+      "value": "",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "SPI",
+      "value": "",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Placket width",
+      "value": "",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Faggoting SPI",
+      "value": "",
+      "deviation": "",
+      "note": "Second transcription variably rendered this as pocketing/placketing.",
+      "confidence": 0.72,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Neck stitch breakage",
+      "value": "",
+      "deviation": "",
+      "note": "No breakage in the neck.",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Joint stitch",
+      "value": "",
+      "deviation": "",
+      "note": "Found joint stitch; not acceptable.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "construction",
+      "size": "",
+      "field": "Allowances",
+      "value": "",
+      "deviation": "",
+      "note": "Slightly more; follow guide.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "bom",
+      "size": "",
+      "field": "BOM and trims",
+      "value": "",
+      "deviation": "",
+      "note": "BOM approved; all trim actual in bulk.",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell shrinkage length",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "shrinkage",
+      "size": "",
+      "field": "Shell shrinkage width",
+      "value": "0%",
+      "deviation": "",
+      "note": "",
+      "confidence": 1.0,
+      "verdict": "okay"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Armhole notches",
+      "value": "",
+      "deviation": "",
+      "note": "Missing; add and show again.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Length pattern correction",
+      "value": "1/8",
+      "deviation": "",
+      "note": "Add 1/8 inch in the pattern.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Last button position",
+      "value": "",
+      "deviation": "",
+      "note": "Minus side in all sizes; follow marking while attaching buttons.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Smocking row alignment",
+      "value": "",
+      "deviation": "",
+      "note": "Keep straight, horizontal, evenly spaced and aligned.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Neck and sleeve ruffle",
+      "value": "1/2",
+      "deviation": "",
+      "note": "Maintain even allowances and exposed width to required spec.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Sleeve inseam finishing",
+      "value": "",
+      "deviation": "",
+      "note": "Trim uncut threads and prevent fraying.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Center-front plaid line balance",
+      "value": "",
+      "deviation": "",
+      "note": "Balance and align horizontal lines on both sides of placket.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Sleeve-head shearing",
+      "value": "",
+      "deviation": "",
+      "note": "Follow notches and distribute evenly.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Smocking repair",
+      "value": "",
+      "deviation": "",
+      "note": "No local alteration; open complete row and redo if broken.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Neckline shape",
+      "value": "",
+      "deviation": "",
+      "note": "Use pattern cardboard; keep left and right balanced and smooth.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    },
+    {
+      "section": "comment",
+      "size": "",
+      "field": "Main label and center-front placket alignment",
+      "value": "",
+      "deviation": "",
+      "note": "Must be aligned; add extra checkpoints.",
+      "confidence": 1.0,
+      "verdict": "not stated"
+    }
+  ]
+}
