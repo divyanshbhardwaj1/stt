@@ -38,7 +38,7 @@ export function Progress({ job }: { job: Job }) {
           );
         })}
       </ol>
-      <div className="live">
+      <div className="doing">
         <span className="spin" role="status" aria-live="polite" />
         {job.message}
       </div>

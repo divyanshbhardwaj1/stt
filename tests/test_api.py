@@ -428,6 +428,7 @@ def test_the_realtime_token_carries_the_garment_vocabulary(client, monkeypatch):
     minted token and on session.updated. Sending them anyway would read like a
     working vocabulary boost that is not there, so they must stay out.
     """
+    from api.app import LIVE_PROMPT
     from services.transcript import DOMAIN_PROMPT
 
     sent = {}
@@ -447,7 +448,9 @@ def test_the_realtime_token_carries_the_garment_vocabulary(client, monkeypatch):
     assert body["value"] == "ek_test"
     assert body["model"] == "gpt-live-transcribe"
     transcription = sent["session"]["audio"]["input"]["transcription"]
-    assert transcription["prompt"] == DOMAIN_PROMPT
+    # The shared prompt, plus the one nudge the live monitor needs on top of it.
+    assert transcription["prompt"] == LIVE_PROMPT
+    assert LIVE_PROMPT.startswith(DOMAIN_PROMPT)
     assert transcription["languages"] == ["hi", "en"]
     assert "keywords" not in transcription
     assert "delay" not in transcription
@@ -455,6 +458,24 @@ def test_the_realtime_token_carries_the_garment_vocabulary(client, monkeypatch):
     # whole request, so the live session must never include it.
     assert "turn_detection" not in sent["session"]["audio"]["input"]
     assert sent["expires_after"]["seconds"] > 0
+
+
+def test_the_live_nudge_names_no_script_and_stays_off_the_batch_passes():
+    """Two things this prompt must not do, both measured the hard way.
+
+    Naming Devanagari makes the mis-scripting worse rather than better - 7 of 8
+    runs against 4 of 8 - because the model reads the prompt as a hint about
+    which script to WRITE in. And the batch passes, which are what the report
+    is built from, must keep the shared prompt untouched.
+    """
+    from api.app import LIVE_PROMPT
+    from services.transcript import DOMAIN_PROMPT
+
+    added = LIVE_PROMPT[len(DOMAIN_PROMPT) :]
+    assert added.strip(), "the live monitor adds something to the shared prompt"
+    for script in ("Devanagari", "Latin", "Cyrillic", "Katakana"):
+        assert script not in added, f"naming {script} made it measurably worse"
+    assert DOMAIN_PROMPT != LIVE_PROMPT
 
 
 def test_the_realtime_token_never_returns_the_account_key(client, monkeypatch, settings):

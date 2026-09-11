@@ -96,6 +96,38 @@ def list_style_sets(settings: SettingsDep) -> list[str]:
 # costs nothing and keeps a leaked token worthless.
 REALTIME_TOKEN_TTL_SECONDS = 600
 
+# The live monitor's prompt: the shared one, plus a nudge toward English
+# spelling that deliberately names no script.
+#
+# gpt-live-transcribe mis-scripts its opening utterance - "small size" comes
+# back as "स्मॉल साइज", and "size" has come back as the Japanese "サイズ". It is
+# always the first second or two, before the model has heard enough to be sure
+# what it is listening to; the body of a recording is clean. Four prompts, 8-16
+# runs each, replaying one real inspection through the browser:
+#
+#                                        impossible script   English in Devanagari
+#   shared prompt alone            n=16        1/16                 6/16
+#   + "Hindi in Devanagari"        n=8         2/8                  2/8
+#   no Hindi framing at all        n=8         3/8                  1/8
+#   + "English spelling" (this)    n=16        2/16                 3/16
+#
+# Two things to read off that. Naming Devanagari made it worse, and dropping
+# the Hindi framing let language ID wander into Cyrillic and Chinese - scripts
+# nobody in the room is speaking - so the Hindi anchor earns its place and the
+# fix had to avoid naming a script at all. And the win here is real but small:
+# 5/16 bad runs against 7/16, p=0.72. Directional, not demonstrated. It is kept
+# because the prompt is provably a live lever - the Devanagari wording moved
+# the rate to 7/8 - and one sentence costs nothing.
+#
+# `languages` is not the lever: it is accepted and echoed back intact and still
+# does not constrain the output, which is how Japanese got out in the first
+# place. turn_detection is refused outright. Forcing singular `language` would
+# cost the Hindi the floor actually speaks.
+#
+# DOMAIN_PROMPT itself is untouched. The batch passes build the report, never
+# show this failure, and are verified as they stand.
+LIVE_PROMPT = DOMAIN_PROMPT + " Write English words in English spelling."
+
 # Line breaks are NOT configured here. `gpt-live-transcribe` refuses a
 # turn_detection block outright ("Turn detection is not supported for this
 # transcription model") and emits no ...transcription.completed events at all -
@@ -112,10 +144,11 @@ def realtime_token(settings: SettingsDep) -> dict[str, object]:
     expiring secret and streams its microphone to the transcription API
     directly, which keeps a half-hour of audio off this server entirely.
 
-    The session carries the same prompt and languages as the batch pass, so the
-    live monitor reads garment vocabulary rather than guessing at "one by
-    eight". What it produces is never fed to the report: this model trades
-    recall of exactly those short verdict words for latency.
+    The session carries the batch prompt and languages, so the live monitor
+    reads garment vocabulary rather than guessing at "one by eight". What it
+    produces is never fed to the report: this model trades recall of exactly
+    those short verdict words for latency, and mis-scripts its opening
+    utterance often enough that LIVE_PROMPT exists to lean against it.
     """
     if not settings.realtime_model:
         raise HTTPException(
@@ -141,7 +174,7 @@ def realtime_token(settings: SettingsDep) -> dict[str, object]:
                         # honour KEYWORDS, remain the report's source.
                         "transcription": {
                             "model": settings.realtime_model,
-                            "prompt": DOMAIN_PROMPT,
+                            "prompt": LIVE_PROMPT,
                             "languages": list(LANGUAGES),
                         },
                     }

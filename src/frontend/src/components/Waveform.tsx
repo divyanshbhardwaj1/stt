@@ -40,7 +40,10 @@ export function Waveform({ levels, sample }: Props) {
 
       const ctx = element.getContext("2d");
       if (!ctx) return;
-      const css = getComputedStyle(document.documentElement);
+      // The canvas, not the root: the recorder runs on the dark chrome
+      // palette, which is scoped to .intake.live. Reading the root here drew
+      // the light theme's colours onto a near-black ground.
+      const css = getComputedStyle(element);
       ctx.clearRect(0, 0, width, height);
 
       const step = (BAR_W + BAR_GAP) * dpr;
