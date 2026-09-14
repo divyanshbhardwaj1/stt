@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from services.audit import SettleError, regrade_size, settle, verify_placement
 from services.config import Settings
 from services.csv_filler import (
     FormTemplate,
@@ -375,6 +376,84 @@ def run_from_transcript(
     return PipelineResult(
         output_name, transcript, sheet, *written, alignment=alignment, style=style
     )
+
+
+def settle_inspection(
+    name: str,
+    edits: list[dict],
+    settings: Settings,
+    style_no: str = "",
+) -> tuple[PipelineResult, list[tuple[int, str]]]:
+    """Apply an operator's corrections to a saved extraction and rebuild from it.
+
+    The extraction is the source of truth for everything downstream, so settling
+    a cell is a matter of editing it and rendering again - no transcription, no
+    model call, no cost. The alignment is recomputed on the way through, which is
+    what makes the verdict move when the last unanswered point of measure is
+    filled in.
+
+    Returns the rebuilt result and any cells that did NOT come back on the point
+    of measure they were entered against. That second value must not be ignored:
+    the aligner is fuzzy by necessity, and a hand-entered reading landing on the
+    wrong row would corrupt the sheet silently, which is the one thing this
+    product exists to prevent.
+    """
+    saved = settings.output_dir / f"{name}.json"
+    if not saved.is_file():
+        raise FileNotFoundError(saved)
+
+    sheet = load_json(saved)
+    validated = validate_stage(sheet, settings, style_no)
+    if validated is None:
+        raise SettleError(
+            f"{name} was never checked against a spec sheet, so there is no graded "
+            "sheet to settle. Process it again with a style selected."
+        )
+    alignment, style = validated
+
+    corrected = settle(sheet, alignment, style, edits)
+    save_json(corrected, saved)
+
+    result = rerender(name, settings, style_no=style_no)
+    wanted = [(int(edit["sheet_index"]), str(edit["size"])) for edit in edits]
+    misplaced = (
+        verify_placement(result.alignment, wanted) if result.alignment is not None else wanted
+    )
+    if misplaced:
+        log.warning("settled cells that did not align back: %s", misplaced)
+    return result, misplaced
+
+
+def resize_inspection(
+    name: str, from_size: str, to_size: str, settings: Settings, style_no: str = ""
+) -> PipelineResult:
+    """Re-file a size's readings against a different column and rebuild.
+
+    The recording rarely announces a size, so `align` falls back to the sheet's
+    base size. When that is wrong the whole inspection is judged against the
+    wrong grade - every row at once, each one individually plausible. This is
+    the correction, and like every other edit it is an extraction rewrite plus a
+    re-render: no transcription, no model call.
+    """
+    saved = settings.output_dir / f"{name}.json"
+    if not saved.is_file():
+        raise FileNotFoundError(saved)
+
+    sheet = load_json(saved)
+    validated = validate_stage(sheet, settings, style_no)
+    if validated is None:
+        raise SettleError(
+            f"{name} was never checked against a spec sheet, so there is no size to regrade."
+        )
+    _, style = validated
+    if to_size not in style.sizes:
+        raise SettleError(
+            f"style {style.style_no} has no {to_size} column; it grades "
+            f"{', '.join(style.sizes)}."
+        )
+
+    save_json(regrade_size(sheet, from_size, to_size, base_size=style.base_size), saved)
+    return rerender(name, settings, style_no=style_no)
 
 
 def rerender(

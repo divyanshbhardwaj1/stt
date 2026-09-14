@@ -522,3 +522,80 @@ def test_a_refused_realtime_session_is_reported_not_swallowed(client, monkeypatc
 
     assert response.status_code == 502
     assert "model not available" in response.json()["detail"]
+
+
+def _graded_job(client):
+    """A finished, graded job whose extraction is on disk to be settled."""
+    job = _finish(client, style_no="7270")
+    assert job["graded"], "the audit view needs a job that was checked against a sheet"
+    return job
+
+
+def test_the_graded_sheet_is_served_as_a_grid(client, template, style_sets, stub_pipeline):
+    """The audit view renders the client's document, so it has to be served whole."""
+    job = _graded_job(client)
+    grid = client.get(f"/api/jobs/{job['id']}/sheet").json()
+
+    assert grid["style_no"] == "7270"
+    assert grid["sizes"]
+    assert {row["kind"] for row in grid["rows"]} <= {"pom", "note"}
+    measured = [row for row in grid["rows"] if row["kind"] == "pom"]
+    assert measured, "a graded sheet with no points of measure is not a graded sheet"
+    assert all(set(row["cells"]) == set(grid["sizes"]) for row in measured)
+
+
+def test_an_ungraded_job_says_why_there_is_nothing_to_audit(client, template, stub_pipeline):
+    """No spec sheet means no graded sheet. Say so rather than serving an empty grid."""
+    job = _finish(client, style_no="")
+    response = client.get(f"/api/jobs/{job['id']}/sheet")
+
+    assert response.status_code == 409
+    assert "spec sheet" in response.json()["detail"]
+
+
+def test_settling_a_cell_rebuilds_the_report(client, template, style_sets, stub_pipeline):
+    """The extraction is the source of truth, so an edit and a re-render is the
+    whole loop — no transcription, no model call, and the verdict moves with it."""
+    job = _graded_job(client)
+    grid = client.get(f"/api/jobs/{job['id']}/sheet").json()
+    target = next(row for row in grid["rows"] if row["kind"] == "pom" and row["measured_here"])
+    size = next(
+        (s for s, cell in target["cells"].items() if cell["state"] != "empty"),
+        grid["sizes"][0],
+    )
+
+    response = client.post(
+        f"/api/jobs/{job['id']}/sheet",
+        json={"edits": [{"sheet_index": target["sheet_index"], "size": size,
+                         "deviation": "+1/8", "verdict": "deviation"}]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["misplaced"] == [], "a settled cell must come back on the row it was entered on"
+    assert body["job"]["status"] == DONE
+    settled = next(
+        row["cells"][size]
+        for row in body["sheet"]["rows"]
+        if row.get("sheet_index") == target["sheet_index"]
+    )
+    assert settled["edited"] is True
+    assert settled["deviation"] == "+1/8"
+    assert len(body["sheet"]["corrections"]) == 1
+    # And the downloads were rewritten from it, not left describing the old run.
+    assert body["job"]["downloads"]
+
+
+def test_an_empty_edit_is_refused(client, template, style_sets, stub_pipeline):
+    """A save that changes nothing must not rewrite a vendor-facing report."""
+    job = _graded_job(client)
+    assert client.post(f"/api/jobs/{job['id']}/sheet", json={"edits": []}).status_code == 400
+    assert client.post(f"/api/jobs/{job['id']}/sheet", json={}).status_code == 400
+    bad = client.post(f"/api/jobs/{job['id']}/sheet", json={"edits": [{"size": "M"}]})
+    assert bad.status_code == 400
+    assert "sheet_index" in bad.json()["detail"]
+
+
+def test_the_audit_endpoints_refuse_a_job_that_does_not_exist(client):
+    assert client.get("/api/jobs/nope/sheet").status_code == 404
+    assert client.post("/api/jobs/nope/sheet", json={"edits": [1]}).status_code == 404

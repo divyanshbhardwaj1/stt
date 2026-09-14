@@ -1,0 +1,57 @@
+﻿no,section,size,field,value,deviation,verdict,note,confidence,needs_review
+1,marker,,YY shell,1.45 m,,not stated,,1.00,
+2,marker,,Locker loop consumption,0.003 m,,not stated,,0.96,
+3,marker,,Pocket trim consumption,0.01 m,,not stated,,1.00,
+4,shrinkage,,Pattern shrinkage length,1.5%,,not stated,all four colors,1.00,
+5,shrinkage,,Pattern shrinkage width,+3%,,not stated,all four colors,1.00,
+6,construction,,Approved PP sample overlock,6th grade,,not stated,Side seam and armhole to follow updated tech pack 5th grade overlock; wording partly unclear,0.58,yes
+7,comment,,Pocket shape,,,not stated,found poor,1.00,
+8,comment,,Cord at pocket,,,not stated,found tight,1.00,
+9,comment,,Collar point shape,,,not stated,poor shape,1.00,
+10,comment,,Tie space shape,,,not stated,poor shape and overlapping,0.86,
+11,comment,,Locker loop measurement,,,not stated,found minus,1.00,
+12,comment,,Space stitch,,,not stated,"visible at cuff, placket slit and collar",1.00,
+13,comment,,Body stripe,,,not stated,found wavy while pocket attached,1.00,
+14,comment,,Topstitch and placket,,,not stated,topstitch uneven; placket bumping and wavy,1.00,
+15,comment,,Hand feel,,,not stated,slightly harsh,1.00,
+16,comment,,Plaid matching,,,not stated,"uneven at right back yoke, placket and collar",0.78,yes
+17,measurement,,Front length from HPS,26,+1/8,deviation,,1.00,
+18,measurement,,Back length from HPS,26 1/4,+1/8,deviation,,1.00,
+19,measurement,,Shoulder slope from HPS,1 7/8,+1/8,deviation,,1.00,
+20,measurement,,Shoulder seam forward at neck,1/2,,okay,,1.00,
+21,measurement,,Shoulder seam forward at armhole,3/4,,okay,,1.00,
+22,measurement,,Across shoulder seam to seam,17 3/4,+1/4,deviation,,1.00,
+23,measurement,,Across front position from HPS,5,,not stated,,0.98,
+24,measurement,,Across front seam to seam,16 1/4,+1/4,deviation,,1.00,
+25,measurement,,Across back at yoke seam,17,+1/4,deviation,,1.00,
+26,measurement,,"Chest 1 inch below armhole, pleat extended",45,+1/2,deviation,,1.00,
+27,measurement,,Bottom opening straight above side seam,45,+/-1/8,deviation,Direction was spoken as plus-minus and is ambiguous,0.57,yes
+28,measurement,,Front side seam height,4 3/4,+1/8,deviation,,1.00,
+29,measurement,,Back side seam height,4,+1/8,deviation,,1.00,
+30,measurement,,"Bottom hem height, self turn",1/4,,okay,,1.00,
+31,measurement,,Sleeve length from center back long,32 1/2,-1/4,deviation,,1.00,
+32,measurement,,Sleeve cap height,5 3/4,+1/4,deviation,,1.00,
+33,measurement,,Armhole straight,8 7/8,,okay,,1.00,
+34,measurement,,Muscles 1 inch from underarm,15 1/4,,okay,,1.00,
+35,measurement,,Elbow position from cuff,13 1/4,,okay,The word ten was also spoken before elbow,0.89,
+36,measurement,,Sleeve opening L oblique S at H,8 1/2,,okay,Field wording is unclear in both transcriptions,0.67,yes
+37,measurement,,Sleeve cuff height,2 1/2,,okay,,1.00,
+38,measurement,,Sleeve placket opening length,4 1/2,-1/8,deviation,,1.00,
+39,measurement,,Placket width,3/4,,okay,,1.00,
+40,measurement,,Front neck drop from HPS,3,+1,deviation,"Unusually large deviation, but both transcriptions say plus one",0.88,
+41,measurement,,Back neck drop from HPS to C,3/4,1/8,deviation,Later reading superseded an earlier okay; deviation sign was not stated,0.53,yes
+42,measurement,,Back neck width seam to seam,5 3/4,1/8,deviation,Earlier reading said -1/8; later reading said 1/8 without a sign,0.48,yes
+43,measurement,,Neck band height at center,1 1/8,,okay,,0.94,
+44,measurement,,Collar point,2 1/4,-1/8,deviation,,0.90,
+45,measurement,,Collar length at outer edge,15 3/4,-1/4,deviation,,1.00,
+46,measurement,,Locker loop width,3/8,-1/8,deviation,,1.00,
+47,measurement,,Locker loop grade,2,,okay,,0.96,
+48,measurement,,Collar height at center back,2,,okay,Value appears only in the first transcription,0.75,yes
+49,measurement,,Center front placket,1,,okay,,0.95,
+50,measurement,,Button position from neck to first button,3,-1/8,deviation,,1.00,
+51,measurement,,Button position from bottom edge,1/4,,okay,,1.00,
+52,measurement,,Center back yoke box pleat width,1 1/2,,not stated,A deviation was introduced but no amount was audible,0.84,yes
+53,measurement,,Chest pocket length at center,5 1/4,,not stated,,0.95,
+54,measurement,,Chest pocket position at top,1,,not stated,Spoken as four by four; interpretation is uncertain,0.51,yes
+55,measurement,,Pocket position from HPS,8 3/4,,okay,Clearer in the first transcription; second transcription was garbled,0.64,yes
+56,measurement,,Pocket position from front,1 1/8,,not stated,Field wording was incomplete,0.62,yes

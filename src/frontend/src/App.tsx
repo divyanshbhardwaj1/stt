@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AuditSheet } from "./components/AuditSheet";
 import { Intake } from "./components/Intake";
 import { EmptyState, JobDetail } from "./components/JobDetail";
 import { Sidebar } from "./components/Sidebar";
@@ -16,15 +17,31 @@ export default function App() {
    * recording produced the old report.
    */
   const [queued, setQueued] = useState<Job | null>(null);
+  /**
+   * The job whose graded sheet is open for audit.
+   *
+   * Held by id rather than as a flag, so selecting a different inspection in
+   * the sidebar closes the sheet instead of showing one job's readings under
+   * another job's heading.
+   */
+  const [auditing, setAuditing] = useState<string | null>(null);
+  /**
+   * A job the audit view has rebuilt, shown until the next poll catches up.
+   * Settling a cell rewrites every output, so the counts and the verdict on
+   * screen have to move at the moment of saving, not two seconds later.
+   */
+  const [settled, setSettled] = useState<Job | null>(null);
 
   // Derived, not synchronised: the selection is whatever the operator last
   // clicked, then the job we just queued, then the newest. That also covers a
   // job dropping off the server - the store is in memory and empties on
   // restart - without an effect writing state back on every poll.
-  const job =
+  const polled =
     jobs.find((candidate) => candidate.id === picked) ??
     (queued && queued.id === picked ? queued : undefined) ??
     jobs[0];
+  // A just-settled job wins over the poll only until the poll returns it.
+  const job = settled && settled.id === polled?.id && settled.rows !== polled.rows ? settled : polled;
 
   return (
     <div className="shell">
@@ -36,10 +53,24 @@ export default function App() {
           onQueued={(accepted) => {
             setQueued(accepted);
             setPicked(accepted.id);
+            setAuditing(null);
             refreshNow();
           }}
         >
-          {job ? <JobDetail job={job} /> : <EmptyState />}
+          {job && auditing === job.id ? (
+            <AuditSheet
+              job={job}
+              onClose={() => setAuditing(null)}
+              onSettled={(rebuilt) => {
+                setSettled(rebuilt);
+                refreshNow();
+              }}
+            />
+          ) : job ? (
+            <JobDetail job={job} onAudit={() => setAuditing(job.id)} />
+          ) : (
+            <EmptyState />
+          )}
         </Intake>
       </main>
     </div>

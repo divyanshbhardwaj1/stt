@@ -47,6 +47,22 @@ def parse(text: object) -> Fraction | None:
     return -value if sign == "-" else value
 
 
+def is_garment_fraction(value: Fraction | None) -> bool:
+    """Whether a number could be a reading off a garment spec sheet.
+
+    Every measurement and tolerance on these sheets is a binary fraction of an
+    inch - halves, quarters, eighths, sixteenths - because that is how tapes are
+    marked and how the sheets are graded. A denominator that is not a power of
+    two cannot have been read off one, so it is a mis-transcription: "minus one
+    by sixteen" coming back as "1/6" turns a 1 3/8 spec into a reported 1 5/24,
+    which is not a measurement anybody can act on.
+    """
+    if value is None:
+        return True
+    denominator = value.denominator
+    return denominator & (denominator - 1) == 0
+
+
 def format_measurement(value: Fraction | int, signed: bool = False) -> str:
     """Fraction(177, 8) -> '22 1/8'. signed=True keeps a leading + on deviations."""
     value = Fraction(value)

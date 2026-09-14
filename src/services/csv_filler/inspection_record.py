@@ -84,6 +84,14 @@ class InspectionRow:
     # still load — they are treated as unconfirmed, because for those we
     # genuinely cannot tell an unspoken verdict from a lost one.
     verdict: str = ""
+    # The exact point of measure this reading belongs to, as a position in the
+    # sheet's spoken rows. -1 means "work it out", which is every row the model
+    # extracts: the aligner matches dictation to the sheet by wording, because
+    # nobody reads POM codes aloud. A human settling a cell in the audit view is
+    # the one case where the row is known rather than inferred, and inferring it
+    # there would be worse than useless - a reading entered against one point of
+    # measure and filed under another is a silent corruption of the sheet.
+    pom_index: int = -1
 
     @property
     def confirmed_okay(self) -> bool:
@@ -124,6 +132,40 @@ class CommentAction:
 
 
 @dataclass(frozen=True)
+class Correction:
+    """One change a human made to a row after the recording was processed.
+
+    Kept apart from the row itself on purpose. `ROW_COLUMNS` is the schema the
+    extraction model must answer with, and an audit trail is not something the
+    model has any business emitting. Keeping corrections in their own list also
+    keeps the whole history rather than only the most recent original.
+
+    The report renders the corrected value plainly - the vendor is sent a
+    finished sheet, not a marked-up one - so this list is the only record that
+    a human, rather than the recording, settled the row.
+    """
+
+    # Position of the point of measure on the spec sheet. This, with `size`, is
+    # what identifies the cell: report numbers shift whenever a row is inserted
+    # ahead of them, so they are a historical note here, never a key.
+    sheet_index: int
+    size: str
+    at: str  # ISO-8601, UTC
+    pom: str  # the point of measure settled, for reading the trail on its own
+    row: int  # report number as it stood when the change was made
+    was_value: str
+    was_deviation: str
+    was_verdict: str
+    now_value: str
+    now_deviation: str
+    now_verdict: str
+    # The recording never covered this point of measure at all: the row did not
+    # exist until an operator listened back and entered it.
+    created: bool = False
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class InspectionSheet:
     """Everything pulled out of one recording, shaped like the client's form."""
 
@@ -131,6 +173,7 @@ class InspectionSheet:
     accessories: tuple[AccessoryCheck, ...] = ()
     comments: tuple[CommentAction, ...] = ()
     rows: tuple[InspectionRow, ...] = ()
+    corrections: tuple[Correction, ...] = ()
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> InspectionSheet:
@@ -140,6 +183,8 @@ class InspectionSheet:
             accessories=tuple(AccessoryCheck(**a) for a in payload.get("accessories", [])),
             comments=tuple(CommentAction(**c) for c in payload.get("comments", [])),
             rows=tuple(InspectionRow(**row) for row in payload.get("rows", [])),
+            # Absent from every extraction saved before the audit view existed.
+            corrections=tuple(Correction(**c) for c in payload.get("corrections", [])),
         )
 
     def to_payload(self) -> dict[str, Any]:
@@ -148,6 +193,7 @@ class InspectionSheet:
             "accessories": [asdict(a) for a in self.accessories],
             "comments": [asdict(c) for c in self.comments],
             "rows": [asdict(row) for row in self.rows],
+            "corrections": [asdict(c) for c in self.corrections],
         }
 
     def field(self, name: str) -> str:
@@ -194,6 +240,11 @@ class InspectionSheet:
             for number, row in self.numbered()
             if row.section == section and (size is None or row.size == size)
         ]
+
+    def correction_for(self, sheet_index: int, size: str) -> Correction | None:
+        """The most recent change a human made to one cell, if any."""
+        found = [c for c in self.corrections if c.sheet_index == sheet_index and c.size == size]
+        return found[-1] if found else None
 
     def flagged(self) -> list[tuple[int, InspectionRow]]:
         """Numbered rows a human must confirm before this report leaves the building."""

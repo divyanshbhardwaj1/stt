@@ -1,4 +1,4 @@
-import type { DownloadKind, Job } from "./types";
+import type { CellEdit, DownloadKind, GradedSheet, Job } from "./types";
 
 /** Style numbers with a spec sheet on disk, for the intake dropdown. */
 export async function fetchStyleSets(): Promise<string[]> {
@@ -73,4 +73,57 @@ export function uploadRecording(
       reject(new Error("Network error. The recording was not uploaded and is still loaded here."));
     xhr.send(body);
   });
+}
+
+/** The whole graded sheet as a grid, for the audit view. */
+export async function fetchSheet(jobId: string): Promise<GradedSheet> {
+  const response = await fetch(`/api/jobs/${jobId}/sheet`);
+  if (!response.ok) throw new Error(await detail(response, "Could not load the graded sheet."));
+  return response.json();
+}
+
+/**
+ * Apply an operator's corrections and rebuild every output from them.
+ *
+ * `misplaced` names any cell that did not align back onto the point of measure
+ * it was entered against. It is returned rather than thrown because the rest of
+ * the save did happen — and a reading filed against the wrong row has to be
+ * shown, not smoothed over.
+ */
+export async function settleCells(
+  jobId: string,
+  edits: CellEdit[],
+): Promise<{ job: Job; sheet: GradedSheet; misplaced: { sheet_index: number; size: string }[] }> {
+  const response = await fetch(`/api/jobs/${jobId}/sheet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ edits }),
+  });
+  if (!response.ok) throw new Error(await detail(response, "The corrections were not saved."));
+  return response.json();
+}
+
+/** The server's own explanation where there is one, rather than a status code. */
+async function detail(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.json();
+    return typeof body.detail === "string" ? body.detail : fallback;
+  } catch {
+    return `${fallback} (${response.status})`;
+  }
+}
+
+/** Re-file a size's readings against a different column of the spec sheet. */
+export async function regradeSize(
+  jobId: string,
+  from: string,
+  to: string,
+): Promise<{ job: Job; sheet: GradedSheet }> {
+  const response = await fetch(`/api/jobs/${jobId}/size`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to }),
+  });
+  if (!response.ok) throw new Error(await detail(response, "The size was not changed."));
+  return response.json();
 }

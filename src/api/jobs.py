@@ -185,6 +185,17 @@ def _run_and_record(job: Job, invoke) -> None:
         job.finished_at = time.time()
         return
 
+    apply_result(job, result)
+
+
+def apply_result(job: Job, result) -> None:
+    """Copy a finished pipeline result onto the job.
+
+    Split out of `_run_and_record` because settling a cell in the audit view
+    rebuilds the very same result from the edited extraction, and the status
+    payload the browser polls has to move with it - counts, verdict, downloads
+    and all - or the report on screen disagrees with the files behind it.
+    """
     sheet = result.sheet
     job.name = result.name
     job.rows = len(sheet.rows)

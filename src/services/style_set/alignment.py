@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from fractions import Fraction
 
-from services.measurements import check_tolerance, parse
+from services.measurements import check_tolerance, is_garment_fraction, parse
 
 from .spec_sheet import PomRow, StyleSet
 
@@ -92,6 +92,30 @@ class AlignedRow:
         return self.in_tolerance is False
 
     @property
+    def disputed(self) -> bool:
+        """The recording contradicts itself about this point of measure.
+
+        Every reading is dictated twice over: an absolute, then a deviation. The
+        absolute is not used to build the report - it is the part speech
+        recognition mangles - but it is still a second statement about the same
+        garment, and it should agree with one of two things: the spec, when the
+        inspector is reading the sheet aloud, or the measurement itself, when
+        they are calling what the tape says.
+
+        Agreeing with neither means the two spoken numbers cannot both be right.
+        Measured across the extractions on disk this is 7.6% of rows, and it is
+        how "3, minus one" against a spec of 4 came to be reported as 5: the
+        deviation was heard as "+1", and nothing compared it with the 3.
+
+        Not a verdict of its own. The report is still built on spec + deviation,
+        which remains the better of the two; this only says the operator should
+        listen to this one before it goes out.
+        """
+        if self.heard is None or self.spec is None or self.measured is None:
+            return False
+        return self.heard != self.spec and self.heard != self.measured
+
+    @property
     def needs_attention(self) -> bool:
         """A human must look: out of tolerance, unmatched, unjudged or unconfirmed."""
         return self.is_fail or not self.matched or self.in_tolerance is None
@@ -126,6 +150,11 @@ class Alignment:
     @property
     def unmatched(self) -> list[AlignedRow]:
         return [row for row in self.rows if not row.matched]
+
+    @property
+    def disputed(self) -> list[AlignedRow]:
+        """Readings whose two spoken numbers do not reconcile."""
+        return [row for row in self.rows if row.disputed]
 
     @property
     def judged(self) -> list[AlignedRow]:
@@ -226,6 +255,21 @@ def _judge(
         # okay — a value nobody ruled on must not borrow a pass.
         return spec, None, None, False, True
 
+    if not is_garment_fraction(stated):
+        # A deviation in sixths or twenty-fifths was never read off a tape.
+        # "minus one by sixteen" heard as "1/6" would otherwise turn a 1 3/8
+        # spec into a reported 1 5/24. Treated as an unanswered question, the
+        # same as any other verdict that did not come through, rather than
+        # computed with and printed as though it were a measurement.
+        log.warning(
+            "%s %s: deviation %s is not a sixteenth of an inch; reporting it "
+            "unconfirmed rather than measuring with it",
+            row.pom,
+            size,
+            stated,
+        )
+        return spec, None, None, False, True
+
     if not spoken and not confirmed_okay:
         # No deviation and no spoken pass. Transcription drops these short words,
         # so silence is an open question, not a clean sheet. Legacy extractions
@@ -252,17 +296,24 @@ def _judge(
 
 
 def align_size(
-    spoken_rows: list[tuple[int, str, str, str, float, str, bool]],
+    spoken_rows: list[tuple[int, str, str, str, float, str, bool] | tuple[int, str, str, str, float, str, bool, int]],
     sheet_rows: list[PomRow],
     size: str,
 ) -> list[AlignedRow]:
     """Walk one size's dictation against the sheet, in order.
 
     `spoken_rows` are (number, field, value, deviation, confidence, note,
-    confirmed_okay) in the order they were said. `confirmed_okay` is True only
-    when the inspector was heard to pass the row aloud — never inferred from a
-    blank deviation, which is equally consistent with the transcription having
-    dropped the word.
+    confirmed_okay) in the order they were said, optionally followed by a
+    `pom_index` pin. `confirmed_okay` is True only when the inspector was heard
+    to pass the row aloud — never inferred from a blank deviation, which is
+    equally consistent with the transcription having dropped the word.
+
+    A pinned row skips matching entirely. The pin is only ever set by a human
+    settling that exact cell in the audit view, and there is nothing for a
+    fuzzy match to improve on when the point of measure is already known. It
+    also fixes the case wording alone cannot reach: the first reading on a size
+    nobody dictated has no earlier row to advance the pointer, so a POM further
+    down the sheet sits outside the forward window and would never be found.
     """
     aligned: list[AlignedRow] = []
     pointer = 0
@@ -270,10 +321,17 @@ def align_size(
     # same row, which the forward-only pointer used to guarantee on its own.
     claimed: set[int] = set()
 
-    for number, field, value, deviation, confidence, note, confirmed_okay in spoken_rows:
+    for spoken in spoken_rows:
+        number, field, value, deviation, confidence, note, confirmed_okay = spoken[:7]
+        pinned = spoken[7] if len(spoken) > 7 else -1
         measured = parse(value)
+
+        # A pinned row is not a guess to improve on: a human settled this exact
+        # cell, so it goes straight to the matched path below.
+        best_index = pinned if 0 <= pinned < len(sheet_rows) and pinned not in claimed else None
         candidates = []
-        for index in range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD):
+        search = range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD) if best_index is None else ()
+        for index in search:
             if index >= len(sheet_rows):
                 break
             if index in claimed:
@@ -287,8 +345,7 @@ def align_size(
                 )
             )
 
-        best_index = None
-        if candidates:
+        if best_index is None and candidates:
             best_wording = max(wording for wording, _, _ in candidates)
             if best_wording >= MATCH_THRESHOLD:
                 # Among names that match about equally well, take the one whose
@@ -345,6 +402,82 @@ def align_size(
     return aligned
 
 
+@dataclass(frozen=True)
+class SizeEvidence:
+    """What the recording's own numbers say about which size was measured."""
+
+    assigned: str
+    best: str
+    votes: dict[str, int]
+
+    @property
+    def informative(self) -> int:
+        """Rows that could tell one size from another at all."""
+        return max(self.votes.values()) if self.votes else 0
+
+    @property
+    def disagrees(self) -> bool:
+        return self.best != self.assigned and self.votes.get(self.best, 0) > self.votes.get(
+            self.assigned, 0
+        )
+
+
+def check_size_attribution(alignment: Alignment, style: StyleSet) -> list[SizeEvidence]:
+    """Which size column the spoken absolutes actually fit.
+
+    The single most expensive thing this pipeline can get wrong is the size. A
+    sheet graded against the wrong column is wrong in every row at once, and it
+    looks entirely plausible: the numbers are real, the arithmetic is right, and
+    only a reviewer with the spec sheet open would catch it.
+
+    It is also the least defended. Nothing announces the size reliably - one
+    inspection on disk never says it at all, so `align` fell back to the sheet's
+    base size, as it is documented to. The garment was two sizes off that, and
+    all forty readings were judged against the wrong grade with nothing to say
+    so.
+
+    The recording checks itself, though. Every point of measure is dictated as an
+    absolute before its deviation, and those absolutes are read off one column.
+    Counting which column they land in settles it. Only rows whose spec varies
+    between sizes carry information, so constant rows are skipped rather than
+    voting for every size at once.
+    """
+    spoken_rows = style.spoken_rows()
+    by_size: dict[str, list[AlignedRow]] = {}
+    for row in alignment.rows:
+        by_size.setdefault(row.size, []).append(row)
+
+    findings: list[SizeEvidence] = []
+    for assigned, readings in by_size.items():
+        votes = {size: 0 for size in style.sizes}
+        for reading in readings:
+            if not reading.matched or reading.heard is None:
+                continue
+            pom = spoken_rows[reading.sheet_index]
+            if len({pom.specs.get(size) for size in style.sizes}) <= 1:
+                continue  # the same value in every column decides nothing
+            for size in style.sizes:
+                if pom.specs.get(size) == reading.heard:
+                    votes[size] += 1
+
+        if not any(votes.values()):
+            continue
+        best = max(votes, key=lambda size: (votes[size], size == assigned))
+        finding = SizeEvidence(assigned=assigned, best=best, votes=votes)
+        findings.append(finding)
+        if finding.disagrees:
+            log.warning(
+                "size attribution: readings filed as %s match the %s column "
+                "(%d vs %d informative rows) on style %s",
+                assigned,
+                best,
+                votes[best],
+                votes.get(assigned, 0),
+                style.style_no,
+            )
+    return findings
+
+
 def align(sheet, style: StyleSet) -> Alignment:
     """Align a whole extracted inspection against its style set."""
     sheet_rows = style.spoken_rows()
@@ -378,6 +511,9 @@ def align(sheet, style: StyleSet) -> Alignment:
                 row.confidence,
                 row.note,
                 row.confirmed_okay,
+                # getattr, not row.pom_index: `align` takes anything shaped like
+                # an extraction, and the pin is only ever set by the audit view.
+                getattr(row, "pom_index", -1),
             )
             for number, row in measured
         ]

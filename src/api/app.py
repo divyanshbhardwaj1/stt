@@ -13,7 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from services.config import ConfigError, Settings
-from services.style_set import list_style_numbers
+from services.audit import SettleError, audit_grid
+from services.csv_filler import load_json
+from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
 from services.transcript import (
     AUDIO_SUFFIXES,
     DOMAIN_PROMPT,
@@ -22,7 +24,9 @@ from services.transcript import (
 )
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
 
-from .jobs import DONE, DOWNLOADS, JobStore, process, process_transcript
+from pipeline import resize_inspection, settle_inspection
+
+from .jobs import DONE, DOWNLOADS, JobStore, apply_result, process, process_transcript
 
 log = logging.getLogger(__name__)
 
@@ -317,6 +321,115 @@ def _safe_name(name: str) -> str:
     stem = Path(name or "").name
     cleaned = "".join(c if (c.isalnum() or c in " -_()") else "-" for c in stem).strip()
     return (cleaned or "inspection")[:80]
+
+
+def _graded_sheet(job, settings: Settings):
+    """The saved extraction and the style set it was judged against."""
+    if job.status != DONE:
+        raise HTTPException(status_code=409, detail=f"job is {job.status}, not ready")
+    if not job.graded:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "this inspection was never checked against a spec sheet, so there is no "
+                "graded sheet to audit. Process it again with a style selected."
+            ),
+        )
+    saved = settings.output_dir / f"{job.name}.json"
+    if not saved.is_file():
+        raise HTTPException(status_code=410, detail=f"{saved.name} is no longer on disk")
+    sheet = load_json(saved)
+    try:
+        style = find_style_set(job.graded_style_no, settings.style_sets_dir)
+    except StyleSetNotFound as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
+    return sheet, style
+
+
+@app.get("/api/jobs/{job_id}/sheet")
+def graded_sheet(job_id: str, settings: SettingsDep) -> dict[str, object]:
+    """The whole graded sheet as a grid, for the audit view.
+
+    Every point of measure the client's sheet prints, one cell per size - the
+    same shape as the graded PDF, so screen and paper cannot drift apart.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    sheet, style = _graded_sheet(job, settings)
+    return audit_grid(align(sheet, style), style, sheet)
+
+
+@app.post("/api/jobs/{job_id}/sheet")
+def settle_sheet(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]:
+    """Apply an operator's corrections and rebuild every output from them.
+
+    No transcription and no model call: the extraction is the source of truth
+    for everything downstream, so settling a cell is an edit and a re-render.
+    That is also what recomputes the verdict, which is the point - filling in
+    the last unanswered point of measure is what releases the report.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    _graded_sheet(job, settings)  # same guards, before anything is written
+
+    edits = body.get("edits") or []
+    if not isinstance(edits, list) or not edits:
+        raise HTTPException(status_code=400, detail="no edits were sent")
+    for edit in edits:
+        if not isinstance(edit, dict) or "sheet_index" not in edit or "size" not in edit:
+            raise HTTPException(
+                status_code=400, detail="every edit needs a sheet_index and a size"
+            )
+
+    try:
+        result, misplaced = settle_inspection(
+            job.name, edits, settings, style_no=job.graded_style_no
+        )
+    except (SettleError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    apply_result(job, result)
+    sheet, style = _graded_sheet(job, settings)
+    return {
+        "job": job.as_dict(),
+        "sheet": audit_grid(align(sheet, style), style, sheet),
+        # Cells that did not align back onto the point of measure they were
+        # entered against. Reported, never swallowed: a reading filed against
+        # the wrong row is exactly the silent corruption this tool exists to
+        # prevent, and the operator has to be told rather than reassured.
+        "misplaced": [{"sheet_index": index, "size": size} for index, size in misplaced],
+    }
+
+
+@app.post("/api/jobs/{job_id}/size")
+def regrade(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]:
+    """Re-file this inspection's readings against a different size column.
+
+    The one correction that changes every row at once. Offered because the
+    recording usually does not say the size, so the grading falls back to the
+    sheet's base size and is wrong for any other garment on the table.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    _graded_sheet(job, settings)
+
+    from_size, to_size = str(body.get("from", "")), str(body.get("to", ""))
+    if not from_size or not to_size:
+        raise HTTPException(status_code=400, detail="both a from and a to size are needed")
+
+    try:
+        result = resize_inspection(
+            job.name, from_size, to_size, settings, style_no=job.graded_style_no
+        )
+    except (SettleError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    apply_result(job, result)
+    sheet, style = _graded_sheet(job, settings)
+    return {"job": job.as_dict(), "sheet": audit_grid(align(sheet, style), style, sheet)}
 
 
 @app.get("/api/jobs/{job_id}/download/{kind}")

@@ -85,7 +85,7 @@ export function EmptyState() {
  * things worth confirming, then the summary, then the downloads. The report is
  * offered last, after the reviewer has seen what is wrong with it.
  */
-export function JobDetail({ job }: { job: Job }) {
+export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
   if (job.status === "failed") {
     return (
       <div className="wrap">
@@ -122,6 +122,17 @@ export function JobDetail({ job }: { job: Job }) {
     <div className="wrap">
       <Header job={job} />
       <Verdict job={job} />
+
+      {job.graded && (
+        <div className="audit-open">
+          <button onClick={onAudit}>Open the graded sheet</button>
+          <span className="hint">
+            Every point of measure on style <b>{job.graded_style_no}</b>, one column per size.
+            Correct anything that was misheard, or fill in what the recording never covered &mdash;
+            the report and the graded sheet are rebuilt from your changes.
+          </span>
+        </div>
+      )}
 
       {job.unconfirmed_rows.length > 0 && (
         <section className="grave">
