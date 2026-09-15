@@ -135,6 +135,31 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
     [job.id, playback],
   );
 
+  /**
+   * Silence the player.
+   *
+   * `stopAt` is cleared too, or the end-of-cue handler fires against a stale
+   * boundary the next time something plays.
+   */
+  const silence = useCallback(() => {
+    stopAt.current = 0;
+    audio.current?.pause();
+  }, []);
+
+  /**
+   * Leaving a cell stops its audio.
+   *
+   * Keyed on the open cell rather than hung off the Cancel button, because
+   * Cancel is only one of the ways out - Escape closes the dialog, so does
+   * staging a change, and so does opening a different cell. A reading left
+   * playing after its cell is gone talks over whatever the reviewer opens next,
+   * which on this screen means hearing one point of measure while reading
+   * another.
+   */
+  useEffect(() => {
+    silence();
+  }, [open, silence]);
+
   // Stop at the end of the reading rather than running on into the next one.
   useEffect(() => {
     const player = audio.current;

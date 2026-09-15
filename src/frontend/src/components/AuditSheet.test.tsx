@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AuditSheet } from "./AuditSheet";
 import type { GradedSheet, Job } from "../types";
@@ -58,11 +58,37 @@ const SHEET: GradedSheet = {
 
 const JOB = { id: "j1", graded_style_no: "2463", unconfirmed: 0, out_of_tolerance: 0 } as Job;
 
+const CUES = { duration: 600, cues: { "12": { start: 120, end: 134, exact: true } } };
+
+let play: ReturnType<typeof vi.fn>;
+let pause: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(SHEET) })),
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(url.includes("/cues") ? CUES : SHEET),
+      }),
+    ),
   );
+  // jsdom implements no media pipeline, so the transport is stubbed and the
+  // element is told it knows its own timeline - which is what lets a seek land.
+  play = vi.fn(() => Promise.resolve());
+  pause = vi.fn();
+  const media = window.HTMLMediaElement.prototype;
+  vi.spyOn(media, "play").mockImplementation(play as never);
+  vi.spyOn(media, "pause").mockImplementation(pause as never);
+  let at = 0;
+  Object.defineProperty(media, "readyState", { configurable: true, get: () => 1 });
+  Object.defineProperty(media, "currentTime", {
+    configurable: true,
+    get: () => at,
+    set: (value: number) => {
+      at = value;
+    },
+  });
 });
 
 const cell = async () => {
@@ -85,4 +111,33 @@ test("a cell never shows the computed measurement beside the spec", async () => 
 test("the deviation the inspector called is shown against it", async () => {
   const found = await cell();
   expect(found.getByText("-1/2")).toBeDefined();
+});
+
+
+const playFirstReading = async () => {
+  render(<AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />);
+  await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
+  fireEvent.click(screen.getByRole("button", { name: /4\.04A S/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /Play this reading/ }));
+  await waitFor(() => expect(play).toHaveBeenCalled());
+};
+
+test("cancelling the editor stops the audio", async () => {
+  await playFirstReading();
+
+  pause.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  expect(pause).toHaveBeenCalled();
+});
+
+test("staging a change stops the audio too", async () => {
+  // Cancel is only one way out of the editor. A cue still running afterwards
+  // talks over whatever cell the reviewer opens next.
+  await playFirstReading();
+
+  pause.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "Stage this change" }));
+
+  expect(pause).toHaveBeenCalled();
 });
