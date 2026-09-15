@@ -23,8 +23,12 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from fractions import Fraction
+from pathlib import Path
 
+from services.config import Settings
 from services.style_set import Alignment
+from services.transcript import AudioPrepError, compress_for_upload
 
 from .timing import WordIndex
 
@@ -47,6 +51,86 @@ TAIL_SECONDS = 25.0
 # cuts off the number the operator opened this to hear.
 MIN_WINDOW_SECONDS = 14.0
 MAX_WINDOW_SECONDS = 45.0
+
+# How far past the previous reading a match may sit before it is disbelieved.
+#
+# Every point of measure is read again for every size, so the same phrase occurs
+# once per size block. When a reading's own utterance is mis-transcribed - the
+# index has "we spend height" where the inspector said "waistband height" - the
+# search walks on and finds a perfect match in the NEXT size's block instead.
+# The pointer only moves forward, so that one theft drags every later reading a
+# whole block along with it.
+#
+# Readings land a median 5s apart, so 45s is nine points of measure: far enough
+# to step over a genuine skip, nowhere near the minutes between size blocks.
+# Beyond it an interpolated guess between known neighbours is worth more than a
+# confident landing in the wrong size.
+#
+# Measured on one inspection (style 2463): readings actually located went from
+# 29 of 71 to 60, and the median gap between consecutive cues from 0.0s to 4.9s
+# - which is the difference between every cell playing the same fourteen
+# seconds and each one playing its own reading. Anything from 15s to 30s scores
+# identically there, so this sits at the top of a wide flat plateau rather than
+# on a peak.
+#
+# ponytail: one recording is one data point. Re-measure on a floor that dictates
+# at a very different pace before trusting the number.
+MAX_JUMP_SECONDS = 30.0
+
+# How much of a reading's identity is the number it carries, against the name of
+# the point of measure. The name alone is weak evidence: the sheet repeats every
+# name once per size, and the one that matters most is often the one speech
+# recognition mangled - the index holds "we spend height" where the inspector
+# said "waistband height". The value does not repeat that way. "twenty six three
+# quarter" occurs once in the whole recording.
+#
+# Weighted rather than used as a tiebreak, because it has to be able to overturn
+# a name match: the misheard reading above scores 1/2 on its own words at the
+# right moment and 1/1 at the wrong one, and only the number can tell them apart.
+# How much of the number has to turn up before it counts as corroboration.
+# Half: "twenty six three quarter" losing a word to crosstalk is ordinary, and
+# the name still has to clear MATCH_FLOOR on its own before this is consulted.
+VALUE_FLOOR = 0.5
+
+# Spoken forms of a measurement. "26 3/4" is said "twenty six three quarter",
+# "1 3/8" as "one three by eight", "5 1/4" as "five and a quarter".
+ONES = (
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen",
+)  # fmt: skip
+TENS = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+# Said by name rather than as a ratio. Everything else is "<n> by <d>".
+NAMED_FRACTIONS = {(1, 2): ("half",), (1, 4): ("quarter",), (3, 4): ("three", "quarter")}
+
+
+def _spoken_number(whole: int) -> list[str]:
+    if whole < len(ONES):
+        return [ONES[whole]]
+    if whole < 100:
+        tens, unit = divmod(whole, 10)
+        return [TENS[tens]] + ([ONES[unit]] if unit else [])
+    return []
+
+
+def _value_tokens(value: Fraction | None) -> list[str]:
+    """The words a measurement is read aloud as, for matching against the index.
+
+    "by" is deliberately absent: every fraction on the sheet is spoken with it,
+    so it appears in nearly every window and would inflate every score equally.
+    """
+    if value is None or value < 0:
+        return []
+    whole, part = divmod(abs(value), 1)
+    tokens = _spoken_number(int(whole)) if whole or not part else []
+    if part:
+        named = NAMED_FRACTIONS.get((part.numerator, part.denominator))
+        tokens += list(named) if named else [
+            *_spoken_number(part.numerator),
+            *_spoken_number(part.denominator),
+        ]
+    # Deduplicated, keeping order: "5 5/8" would otherwise score "five" twice.
+    return list(dict.fromkeys(tokens))
 
 
 @dataclass(frozen=True)
@@ -75,10 +159,28 @@ def cues(alignment: Alignment, index: WordIndex) -> dict[int, Cue]:
     flat = [word.text.lower().strip(" .,!?") for word in index.words]
     placed: list[tuple[int, float | None]] = []
     pointer = 0
+    # Where the last reading was actually found, so a wild jump can be caught,
+    # which size it belonged to, and how many readings have gone unplaced since.
+    anchored: float | None = None
+    anchored_size = ""
+    skipped = 0
 
     for reading in readings:
         want = _tokens(reading.spoken)
-        best, best_at = 0.0, None
+        wanted = set(want)
+        # What the inspector read off the tape, in words. Far more selective
+        # than the name: the name comes round once per size, the number does not.
+        figures = _value_tokens(reading.heard)
+        # Two ways to settle a reading, tried in that order.
+        #
+        # `agreed` is the first window where the NAME and the NUMBER both land.
+        # That is the strong claim, and taking the first one rather than the
+        # best one matters: the best is often a later size block, where the same
+        # point of measure is read again with a different value.
+        #
+        # `best_span` is the fallback - the best the words manage on their own -
+        # for the readings whose number the index mangled.
+        agreed, best_named, best_span = None, 0.0, None
         if want:
             edge = pointer
             for start in range(pointer, len(flat)):
@@ -87,16 +189,50 @@ def cues(alignment: Alignment, index: WordIndex) -> dict[int, Cue]:
                 while edge + 1 < len(flat) and index.words[edge + 1].start - opened <= PHRASE_SECONDS:
                     edge += 1
                 window = set(flat[start : edge + 1])
-                hit = sum(1 for token in want if token in window) / len(want)
-                if hit > best:
-                    best, best_at = hit, start
-                if best == 1.0:
+                named = sum(1 for token in want if token in window) / len(want)
+                if named > best_named:
+                    best_named, best_span = named, (start, edge)
+                if named >= MATCH_FLOOR and figures:
+                    spoken = sum(1 for token in figures if token in window) / len(figures)
+                    if spoken >= VALUE_FLOOR:
+                        agreed = (start, edge)
+                        break
+                if not figures and named == 1.0:
                     break
-        if best_at is None or best < MATCH_FLOOR:
+
+        best_span = agreed or best_span
+        if best_span is None or (agreed is None and best_named < MATCH_FLOOR):
             placed.append((reading.number, None))
+            skipped += 1
             continue
-        placed.append((reading.number, index.words[best_at].start))
-        pointer = best_at + 1
+
+        spoken_at = [i for i in range(best_span[0], best_span[1] + 1) if flat[i] in wanted]
+        when = index.words[spoken_at[0]].start
+        # The allowance covers every reading since the last anchor, because a
+        # reading the index missed leaves a legitimately wider gap behind it.
+        # A change of size is exempt outright: the inspector works one size at a
+        # time, so the first reading of a new block is minutes after the last of
+        # the old one, and that is the sheet being read as intended.
+        allowed = MAX_JUMP_SECONDS * (skipped + 1)
+        same_block = anchored is not None and reading.size == anchored_size
+        if same_block and when - anchored > allowed:
+            # Too far ahead to be this reading; almost certainly the same point
+            # of measure being read again for the next size. A guess between
+            # known neighbours beats a confident landing in the wrong block.
+            placed.append((reading.number, None))
+            skipped += 1
+            continue
+        # Open on the first word actually asked for, not on the window's first
+        # word. The window is six seconds wide and the phrase can sit anywhere
+        # inside it, so anchoring on its opening started playback mid-way
+        # through the PREVIOUS reading.
+        placed.append((reading.number, when))
+        anchored, anchored_size, skipped = when, reading.size, 0
+        # Then step past the whole phrase. Advancing a single word let the next
+        # reading re-match the utterance just consumed: three consecutive points
+        # of measure anchored at 534.5s, 536.7s and 537.6s and, each padded out
+        # to the minimum window, played the same fourteen seconds of audio.
+        pointer = spoken_at[-1] + 1
 
     guessed = _interpolate(placed)
     return _windows(placed, guessed, index.duration)
@@ -142,3 +278,43 @@ def _windows(
             end = min(end, duration)
         out[number] = Cue(row=number, start=max(0.0, at), end=end, exact=number not in guessed)
     return out
+
+
+# Where a seekable copy of a recording is kept, beside its word index.
+PLAYABLE_SUFFIX = ".play.mp3"
+
+
+def playable_path_for(recording: Path, settings: Settings) -> Path:
+    return settings.transcripts_dir / f"{recording.stem}{PLAYABLE_SUFFIX}"
+
+
+def playable_copy(recording: Path, settings: Settings) -> Path:
+    """A copy of `recording` the browser can seek accurately, built once and cached.
+
+    Cues are useless if the player cannot act on them, and inspections arrive as
+    whatever the phone or the browser produced. Two of those cannot be seeked:
+
+    - **VBR MP3 with no Xing header.** The browser reads the first frame's
+      bitrate and assumes it holds throughout. On the reference recording that
+      frame says 32 kbps against a true average of 96, so the timeline it builds
+      is three times too long and every cue lands at a third of its real
+      position - which is every cell playing the same early stretch of audio.
+    - **WebM from MediaRecorder**, which carries neither a Cues element nor a
+      duration, so `<audio>` cannot seek it at all.
+
+    Constant bitrate gives an exact byte-to-second mapping, and re-encoding
+    leaves the timeline alone, so the word index built from the original stays
+    valid against this copy.
+
+    Falls back to the original on any ffmpeg failure: approximate seeking is
+    worth more than a dead player.
+    """
+    cached = playable_path_for(recording, settings)
+    if cached.is_file() and cached.stat().st_mtime >= recording.stat().st_mtime:
+        return cached
+    try:
+        log.info("building a seekable copy of %s", recording.name)
+        return compress_for_upload(recording, cached)
+    except AudioPrepError as exc:
+        log.warning("could not re-encode %s for playback: %s", recording.name, exc)
+        return recording

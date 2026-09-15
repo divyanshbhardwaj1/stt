@@ -1,0 +1,57 @@
+﻿no,section,size,field,value,deviation,verdict,note,confidence,needs_review
+1,marker,,YY shell consumption,1.45,,not stated,meter,1.00,
+2,marker,,Locker loop consumption,0.003,,not stated,meter; first transcription heard “blocker loop”,0.85,
+3,marker,,Pocket trim consumption,0.01,,not stated,meter,1.00,
+4,shrinkage,,Pattern shrinkage length,1 1/2%,,not stated,all four colors,1.00,
+5,shrinkage,,Pattern shrinkage width,+3%,,not stated,all four colors,1.00,
+6,construction,,Side seam and armhole overlock,,,not stated,Upgrade to 5-thread overlock as updated tech pack,0.82,yes
+7,comment,,Pocket shape found poor,,,not stated,Correct pocket shape,1.00,
+8,comment,,Cord found tight at pocket,,,not stated,Loosen cord at pocket,1.00,
+9,comment,,Poor collar point shape,,,not stated,Correct collar point shape,1.00,
+10,comment,,Poor shape at overlapping hem,,,not stated,Correct overlapping hem shape,0.73,yes
+11,comment,,Locker loop measurement found minus,,,not stated,Bring locker loop back to spec,1.00,
+12,comment,,"Skipped stitches at cuff, placket slit and collar",,,not stated,Remove skipped stitches,0.96,
+13,comment,,Body stripe wavy while attaching pocket,,,not stated,Keep body stripe straight at pocket,1.00,
+14,comment,,Uneven topstitch and wavy placket,,,not stated,Correct topstitch and placket,1.00,
+15,comment,,Hand feel slightly harsh,,,not stated,Improve hand feel,1.00,
+16,comment,,"Plaid uneven at back yoke, placket and collar",,,not stated,Correct plaid alignment,0.72,yes
+17,measurement,,Front length from HPS,26,+1/8,deviation,,1.00,
+18,measurement,,Back length from HPS,26 1/4,+1/8,deviation,,1.00,
+19,measurement,,Shoulder slope from HPS,1 7/8,+1/8,deviation,,1.00,
+20,measurement,,Shoulder seam forward at neck,1/2,,okay,,1.00,
+21,measurement,,Shoulder seam forward at armhole,3/4,,okay,,1.00,
+22,measurement,,Across shoulder seam to seam,17 3/4,+1/4,deviation,,1.00,
+23,measurement,,Across front position from HPS,5,,not stated,,1.00,
+24,measurement,,Across front seam to seam,16 1/4,+1/4,deviation,,1.00,
+25,measurement,,Across back at yoke seam,17,+1/4,deviation,,1.00,
+26,measurement,,"Chest one inch below armhole, pleat extended",45,+1/2,deviation,,1.00,
+27,measurement,,Bottom opening straight above side seam,45,±1/8,deviation,Deviation direction was called as plus/minus,0.58,yes
+28,measurement,,Front side seam height,4 3/4,+1/8,deviation,,1.00,
+29,measurement,,Back side seam height,4,+1/8,deviation,,1.00,
+30,measurement,,"Bottom hem height, self turn",1/4,,okay,,1.00,
+31,measurement,,Sleeve length from center back long,32 1/2,-1/4,deviation,,1.00,
+32,measurement,,Sleeve cap height,5 3/4,+1/4,deviation,,1.00,
+33,measurement,,Armhole straight,8 7/8,,okay,,1.00,
+34,measurement,,Muscle one inch from underarm,15 1/4,,okay,,1.00,
+35,measurement,,Elbow position from cuff,13 1/4,,okay,,1.00,
+36,measurement,,Sleeve opening L/S at H,8 1/2,,okay,,0.88,
+37,measurement,,Sleeve cuff height,2 1/2,,okay,,1.00,
+38,measurement,,Sleeve placket opening length,4 1/2,-1/8,deviation,,1.00,
+39,measurement,,Placket width,3/4,,okay,,1.00,
+40,measurement,,Front neck drop from HPS,3,+1,deviation,,1.00,
+41,measurement,,Back neck drop from HPS to center,3/4,+1/8,deviation,"Initially called okay, then repeated with +1/8 deviation",0.59,yes
+42,measurement,,Back neck width seam to seam,5 3/4,-1/8,deviation,Later repeated as one eighth without a clear sign,0.62,yes
+43,measurement,,Neck band height at center,1 1/8,,okay,,1.00,
+44,measurement,,Collar point,2 1/4,-1/8,deviation,,0.89,
+45,measurement,,Collar length at outer edge,15 3/4,-1/4,deviation,,1.00,
+46,measurement,,Locker loop width,3/8,-1/8,deviation,,1.00,
+47,measurement,,Locker loop braid,2,,okay,Second transcription heard “grade”,0.79,yes
+48,measurement,,Collar height at center back,2,,okay,Value present only in the first transcription,0.76,yes
+49,measurement,,Center front placket width,1,,okay,,1.00,
+50,measurement,,First button position from neck,3,-1/8,deviation,,1.00,
+51,measurement,,Button position from bottom edge,1/4,,okay,,1.00,
+52,measurement,,Center back yoke box pleat width,1 1/2,,not stated,,0.91,
+53,measurement,,Chest pocket length at center,5 1/4,,not stated,,1.00,
+54,measurement,,Chest pocket position at top,4 1/4,,not stated,Transcribed as “four by four”; likely four and one quarter,0.55,yes
+55,measurement,,Pocket position from HPS,8 3/4,,okay,Clearer in the first transcription,0.78,yes
+56,measurement,,Pocket position from front,1 1/8,,not stated,Tail of recording was garbled,0.64,yes

@@ -7,12 +7,16 @@ floor's speech is Hindi, so the index has to come from somewhere else.
 """
 
 import json
+import subprocess
+from fractions import Fraction
+from pathlib import Path
 
 import pytest
 
-from services.playback import MATCH_FLOOR, cues
+from services.playback import MATCH_FLOOR, _value_tokens, cues, playable_copy, playable_path_for
 from services.style_set.alignment import AlignedRow, Alignment
 from services.timing import TimingError, WordIndex, index_path_for, word_index
+from services.transcript import ffmpeg_executable
 
 
 def _index(pairs, duration=120.0):
@@ -21,10 +25,11 @@ def _index(pairs, duration=120.0):
     )
 
 
-def _reading(number, spoken, size="M"):
+def _reading(number, spoken, size="M", heard=None):
     return AlignedRow(
         number=number, size=size, spoken=spoken, pom="1.01A", description=spoken,
         spec=None, measured=None, deviation=None, in_tolerance=None, confidence=1.0, note="",
+        heard=heard,
     )
 
 
@@ -141,3 +146,172 @@ def test_a_cached_index_is_never_rebuilt(settings, tmp_path):
     index = word_index(recording, settings)
     assert index.duration == 12.0
     assert index.words[0].text == "hi"
+
+
+def test_the_same_name_in_the_next_size_is_not_mistaken_for_this_one():
+    """The commonest way a cue lands on the wrong audio.
+
+    Every point of measure is read again for every size. When a reading's own
+    utterance is mis-transcribed - the index holds "we spend height" where the
+    inspector said "waistband height" - the search walks on and finds a perfect
+    match in the NEXT size's block. The pointer only moves forward, so that one
+    theft drags every later reading a whole block along with it.
+    """
+    index = _index([
+        ("waistband", 10.0), ("height", 10.5),        # reading 1, correctly
+        ("we", 20.0), ("spend", 20.4), ("height", 20.8),  # reading 2, misheard
+        ("waistband", 300.0), ("height", 300.5),      # the NEXT size's repeat
+    ], duration=600.0)
+
+    found = cues(
+        _alignment(_reading(1, "Waistband height"), _reading(2, "Waistband height")),
+        index,
+    )
+    assert found[1].start == pytest.approx(10.0)
+    # Five minutes ahead is the next size being read, not this reading. With no
+    # later reading to interpolate towards, it is offered no cue at all - which
+    # is the honest answer: the cell says so rather than playing the wrong size.
+    assert not any(cue.start == pytest.approx(300.0) for cue in found.values())
+
+
+def test_a_cue_opens_on_the_phrase_not_on_the_window():
+    """The match window is six seconds wide and the phrase can sit anywhere in it.
+
+    Anchoring on the window's first word started playback mid-way through the
+    previous reading, which is most of what made neighbouring cells sound alike.
+    """
+    index = _index([
+        ("okay", 40.0), ("that", 40.3), ("is", 40.6), ("fine", 40.9),
+        ("sleeve", 44.0), ("opening", 44.4),
+    ], duration=200.0)
+
+    found = cues(_alignment(_reading(1, "Sleeve opening")), index)
+    assert found[1].start == pytest.approx(44.0), "must open on 'sleeve', not on 'okay'"
+
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Fraction(5, 4), ["one", "quarter"]),              # "one and a quarter"
+        (Fraction(11, 8), ["one", "three", "eight"]),      # "one three by eight"
+        (Fraction(107, 4), ["twenty", "six", "three", "quarter"]),  # "twenty six three quarter"
+        (Fraction(39), ["thirty", "nine"]),                # "thirty nine"
+        (Fraction(81, 2), ["forty", "half"]),              # "forty and a half"
+        (None, []),
+    ],
+)
+def test_a_measurement_knows_how_it_is_said_aloud(value, expected):
+    """Matching against the index means matching words, not numbers."""
+    assert _value_tokens(value) == expected
+
+
+def test_the_number_rescues_a_reading_whose_name_was_misheard():
+    """The case that made every cell play the same audio.
+
+    The index holds "we spend height" where the inspector said "waistband
+    height", so on its own words this reading scores better on the NEXT point of
+    measure - which shares two of them - than on its own. The value is what
+    separates them: 1 1/4 is spoken here, 1 3/8 is spoken there.
+    """
+    index = _index([
+        ("we", 10.0), ("spend", 10.3), ("height", 10.6),
+        ("one", 11.0), ("and", 11.2), ("a", 11.4), ("quarter", 11.6), ("okay", 11.9),
+        ("waistband", 20.0), ("elastic", 20.3), ("height", 20.6),
+        ("one", 21.0), ("three", 21.3), ("by", 21.5), ("eight", 21.8),
+    ], duration=200.0)
+
+    found = cues(
+        _alignment(
+            _reading(1, "Waistband height", heard=Fraction(5, 4)),
+            _reading(2, "Waistband elastic height", heard=Fraction(11, 8)),
+        ),
+        index,
+    )
+    assert found[1].start < 20.0, "must stay on its own reading, not steal the next one"
+    assert found[1].exact and found[2].exact
+    assert found[2].start == pytest.approx(20.0)
+
+
+def test_the_name_alone_still_settles_a_reading_with_no_usable_number():
+    """A mangled value must cost corroboration, never the cue itself."""
+    index = _index([("sleeve", 30.0), ("opening", 30.4), ("mumble", 31.0)], duration=200.0)
+
+    found = cues(_alignment(_reading(1, "Sleeve opening", heard=None)), index)
+    assert found[1].start == pytest.approx(30.0)
+    assert found[1].exact
+
+# ---------------------------------------------------------------- seekability
+
+
+def _frames(path: Path):
+    """Every MPEG audio frame's bitrate, so constant-rate can be asserted."""
+    data = path.read_bytes()
+    mpeg1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+    mpeg2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+    rates = {3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000]}
+    found, index = [], 0
+    while index < len(data) - 4:
+        if data[index] == 0xFF and (data[index + 1] & 0xE0) == 0xE0:
+            version = (data[index + 1] >> 3) & 3
+            bitrate_index = data[index + 2] >> 4
+            rate_index = (data[index + 2] >> 2) & 3
+            padding = (data[index + 2] >> 1) & 1
+            if version in rates and rate_index < 3 and 0 < bitrate_index < 15:
+                rate = rates[version][rate_index]
+                bitrate = (mpeg1 if version == 3 else mpeg2)[bitrate_index]
+                if bitrate and rate:
+                    found.append(bitrate)
+                    index += int((144 if version == 3 else 72) * bitrate * 1000 / rate) + padding
+                    continue
+        index += 1
+    return found
+
+
+def test_the_served_copy_is_constant_bitrate(settings, tmp_path):
+    """The cue is only as good as the browser's ability to act on it.
+
+    A variable-bitrate MP3 with no seek header - what phones hand us - makes the
+    browser read the first frame's rate and assume it holds throughout. On the
+    reference recording that frame says 32 kbps against a true 96, so its
+    timeline ran three times long and every reading played from the same early
+    stretch of audio. Constant bitrate is what makes a second map to a byte.
+    """
+    source = tmp_path / "spoken.mp3"
+    subprocess.run(
+        [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-y",
+         "-f", "lavfi", "-i", "sine=frequency=300:duration=8", str(source)],
+        check=True, capture_output=True,
+    )  # fmt: skip
+
+    played = playable_copy(source, settings)
+    bitrates = set(_frames(played))
+    assert len(bitrates) == 1, f"a seekable copy must be constant bitrate, got {sorted(bitrates)}"
+
+    # The whole point: size and bitrate alone must recover the real duration,
+    # because that is all the browser has to go on when it maps a cue to a byte.
+    kbps = bitrates.pop()
+    assert abs(played.stat().st_size * 8 / (kbps * 1000) - 8.0) < 1.0
+
+
+def test_the_seekable_copy_is_built_once(settings, tmp_path):
+    """Re-encoding every listen would pay for the same file over and over."""
+    source = tmp_path / "spoken.mp3"
+    subprocess.run(
+        [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-y",
+         "-f", "lavfi", "-i", "sine=frequency=300:duration=3", str(source)],
+        check=True, capture_output=True,
+    )  # fmt: skip
+
+    first = playable_copy(source, settings)
+    stamp = first.stat().st_mtime_ns
+    assert playable_copy(source, settings).stat().st_mtime_ns == stamp
+
+
+def test_something_ffmpeg_cannot_read_still_plays(settings, tmp_path):
+    """A failed re-encode must cost accurate seeking, never the player itself."""
+    source = tmp_path / "broken.mp3"
+    source.write_bytes(b"not audio")
+
+    assert playable_copy(source, settings) == source
+    assert not playable_path_for(source, settings).is_file()

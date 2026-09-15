@@ -1,0 +1,22 @@
+# Runtime dependencies. Mirrors [project].dependencies in pyproject.toml, which
+# stays the authority — `pip install -e .` is still the supported install.
+# This file exists for environments that want a plain pip target.
+
+# --- pipeline -----------------------------------------------------------
+openai>=1.40            # transcription (gpt-transcribe) and extraction
+imageio-ffmpeg>=0.5     # bundled ffmpeg wheel; re-encodes oversized recordings
+httpx>=0.27             # services/timing.py posts to Deepgram for the word index
+
+# --- the client's documents ---------------------------------------------
+xlrd>=2.0               # reads the blank Size Set Inspection Report .xls
+pypdf>=4.2              # reads style-set PDFs, binds the graded sheet into the report
+reportlab>=4.1          # writes the report and graded-sheet PDFs
+pillow>=10.0            # style_set/artwork.py: lifts the sketch and eagle out of
+                        # a style set. Optional — without it the report still
+                        # builds, minus the client's own artwork.
+
+# --- web app ------------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9  # no import: FastAPI needs it for UploadFile/Form
+pydantic>=2.0            # imported directly in api/app.py, not just via fastapi

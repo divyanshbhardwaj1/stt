@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from services.config import ConfigError, Settings
 from services.audit import SettleError, audit_grid
-from services.playback import cues
+from services.playback import cues, playable_copy
 from services.timing import TimingError, word_index
 from services.csv_filler import load_json
 from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
@@ -450,7 +450,18 @@ def recording_audio(job_id: str, settings: SettingsDep) -> FileResponse:
         raise HTTPException(
             status_code=410, detail=f"{job.filename} is no longer in the recordings folder"
         )
-    return FileResponse(path, filename=path.name)
+    # A seekable re-encode, not the upload itself. Phone MP3s are variable
+    # bitrate with no seek header and browser WebM carries no duration, and in
+    # both cases the browser maps a cue's second onto the wrong byte - which
+    # lands every reading in the same stretch of audio. See playable_copy.
+    served = playable_copy(path, settings)
+    return FileResponse(
+        served,
+        media_type="audio/mpeg" if served.suffix == ".mp3" else None,
+        filename=path.name,
+        # inline, or the browser treats a media subresource as a download.
+        content_disposition_type="inline",
+    )
 
 
 @app.get("/api/jobs/{job_id}/cues")
