@@ -122,8 +122,15 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
         return;
       }
       stopAt.current = cue.end;
-      player.currentTime = cue.start;
-      void player.play();
+      // Seek only once the browser knows the timeline. Setting currentTime on a
+      // element that has loaded nothing is silently dropped, which plays the
+      // recording from the top and looks exactly like a wrong cue.
+      const go = () => {
+        player.currentTime = cue.start;
+        void player.play();
+      };
+      if (player.readyState >= 1) go();
+      else player.addEventListener("loadedmetadata", go, { once: true });
     },
     [job.id, playback],
   );
@@ -351,9 +358,12 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
         )}
       </div>
 
-      {/* One player for the sheet, seeked per reading. preload="none" so
-          opening the graded sheet never fetches a half-hour of audio. */}
-      <audio ref={audio} src={audioUrl(job.id)} preload="none" hidden />
+      {/* One player for the sheet, seeked per reading. "metadata" rather than
+          "none": the duration has to be known before a seek can land, and it
+          also starts the server building its seekable copy while the reviewer
+          is still reading the grid. The audio itself still arrives by range
+          request, a cue at a time. */}
+      <audio ref={audio} src={audioUrl(job.id)} preload="metadata" hidden />
 
       <div className="audit-scroll">
         <table className="grid">
@@ -495,13 +505,15 @@ function Cell({
           <span className="spec-only">{cell?.spec}</span>
         ) : (
           <>
+            {/* The style set's own specified measurement, then the deviation
+                called against it — the same two facts, in the same order, that
+                graded_report.py prints into the PDF. The measurement itself is
+                spec + deviation and is deliberately NOT here: showing it beside
+                the spec put two numbers in a cell that are identical on every
+                row the inspector passed, which reads as two rival readings. It
+                is one click away, computed, in the cell editor. */}
             <span className="read">
-              {cell?.measured || "—"}
-              {/* Where the number came from, then how well it was heard. The
-                  measurement is the sheet's own spec plus the deviation the
-                  inspector called — never the absolute they read aloud — and an
-                  auditor should be able to see both without opening the cell. */}
-              <em className="from">{cell?.spec}</em>
+              {cell?.spec || cell?.measured || "—"}
               {typeof cell?.confidence === "number" ? (
                 <em className="conf">{Math.round(cell.confidence * 100)}%</em>
               ) : null}

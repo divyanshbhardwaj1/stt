@@ -937,12 +937,8 @@ td.cell.disputed > button { box-shadow: inset 0 -2px 0 var(--heard); }
 
 /* Provenance, inline. The measurement is the sheet's spec plus the deviation,
    so the spec is shown under it — an auditor should be able to see where the
-   number came from without opening the cell. */
+   number is the spec off the style set, exactly as the PDF prints it. */
 td.cell .read { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
-td.cell .from {
-  font-style: normal; font-size: 10.5px; font-weight: 400;
-  color: var(--ink-mute); opacity: .75;
-}
 /* Low confidence: the same blue the printed report uses for it, so screen and
    paper say the same thing. Shares the family with a disputed reading — both
    mean "listen to this", neither is a verdict. */
