@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchSheet, regradeSize, settleCells } from "../api";
-import type { CellEdit, GradedSheet, Job, SheetCell, SheetRow } from "../types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { audioUrl, fetchCues, fetchSheet, regradeSize, settleCells } from "../api";
+import type { CellEdit, GradedSheet, Job, PlaybackCues, SheetCell, SheetRow } from "../types";
 
 interface Props {
   job: Job;
@@ -88,6 +88,56 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
   const [saving, setSaving] = useState(false);
   const [misplaced, setMisplaced] = useState<{ sheet_index: number; size: string }[]>([]);
   const [resizing, setResizing] = useState(false);
+  /**
+   * Where each reading is in the recording. Fetched the first time somebody
+   * asks to listen, because building it costs money and most inspections are
+   * never listened back to.
+   */
+  const [playback, setPlayback] = useState<PlaybackCues | null>(null);
+  const [cueError, setCueError] = useState("");
+  const [loadingCues, setLoadingCues] = useState(false);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const stopAt = useRef<number>(0);
+
+  const listen = useCallback(
+    async (row: number) => {
+      let where = playback;
+      if (!where) {
+        setLoadingCues(true);
+        setCueError("");
+        try {
+          where = await fetchCues(job.id);
+          setPlayback(where);
+        } catch (cause) {
+          setCueError(cause instanceof Error ? cause.message : "Could not locate the readings.");
+          return;
+        } finally {
+          setLoadingCues(false);
+        }
+      }
+      const cue = where.cues[String(row)];
+      const player = audio.current;
+      if (!cue || !player) {
+        setCueError("This reading could not be found in the recording.");
+        return;
+      }
+      stopAt.current = cue.end;
+      player.currentTime = cue.start;
+      void player.play();
+    },
+    [job.id, playback],
+  );
+
+  // Stop at the end of the reading rather than running on into the next one.
+  useEffect(() => {
+    const player = audio.current;
+    if (!player) return;
+    const tick = () => {
+      if (stopAt.current && player.currentTime >= stopAt.current) player.pause();
+    };
+    player.addEventListener("timeupdate", tick);
+    return () => player.removeEventListener("timeupdate", tick);
+  }, [playback]);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,6 +351,10 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
         )}
       </div>
 
+      {/* One player for the sheet, seeked per reading. preload="none" so
+          opening the graded sheet never fetches a half-hour of audio. */}
+      <audio ref={audio} src={audioUrl(job.id)} preload="none" hidden />
+
       <div className="audit-scroll">
         <table className="grid">
           <thead>
@@ -398,6 +452,14 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
           setDraft={setDraft}
           onCancel={() => setOpen(null)}
           onStage={stage}
+          onListen={listen}
+          locating={loadingCues}
+          cueError={cueError}
+          approximate={
+            playback && open.row.cells?.[open.size]?.row != null
+              ? playback.cues[String(open.row.cells[open.size].row)]?.exact === false
+              : false
+          }
         />
       )}
     </div>
@@ -469,11 +531,21 @@ function CellEditor({
   setDraft,
   onCancel,
   onStage,
+  onListen,
+  locating,
+  cueError,
+  approximate,
 }: {
   row: SheetRow;
   size: string;
   draft: Draft;
   setDraft: (next: Draft) => void;
+  /** Play the seconds of the recording this reading was dictated in. */
+  onListen: (reportRow: number) => void;
+  locating: boolean;
+  cueError: string;
+  /** The cue was inferred from its neighbours rather than found outright. */
+  approximate: boolean;
   onCancel: () => void;
   onStage: () => void;
 }) {
@@ -579,6 +651,32 @@ function CellEditor({
           The style sheet is the only source for the measurement: the spec of{" "}
           <b>{cell?.spec || "—"}</b> plus the deviation above. Change the deviation to move it.
         </p>
+        <div className="fld listen-row">
+          <span>
+            Recording
+            <em>hear what was said</em>
+          </span>
+          <div>
+            <button
+              className="ghost"
+              disabled={locating || cell?.row == null}
+              onClick={() => cell?.row != null && onListen(cell.row)}
+            >
+              {locating ? "Locating…" : "▶ Play this reading"}
+            </button>
+            {approximate && (
+              <span className="hint">
+                Placed between its neighbours, so this is approximate.
+              </span>
+            )}
+            {cueError && (
+              <span className="msg bad" role="alert">
+                {cueError}
+              </span>
+            )}
+          </div>
+        </div>
+
         <label className="fld">
           <span>Note</span>
           <input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />

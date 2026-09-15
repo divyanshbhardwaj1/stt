@@ -178,3 +178,9 @@ export interface CellEdit {
   verdict?: string;
   note?: string;
 }
+
+/** Where each reading sits in the recording, keyed by report number. */
+export interface PlaybackCues {
+  duration: number;
+  cues: Record<string, { start: number; end: number; exact: boolean }>;
+}

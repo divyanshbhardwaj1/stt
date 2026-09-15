@@ -1,4 +1,4 @@
-import type { CellEdit, DownloadKind, GradedSheet, Job } from "./types";
+import type { CellEdit, DownloadKind, GradedSheet, Job, PlaybackCues } from "./types";
 
 /** Style numbers with a spec sheet on disk, for the intake dropdown. */
 export async function fetchStyleSets(): Promise<string[]> {
@@ -125,5 +125,14 @@ export async function regradeSize(
     body: JSON.stringify({ from, to }),
   });
   if (!response.ok) throw new Error(await detail(response, "The size was not changed."));
+  return response.json();
+}
+
+export const audioUrl = (jobId: string) => `/api/jobs/${jobId}/audio`;
+
+/** Where each reading sits in the recording. Built on first ask, then cached. */
+export async function fetchCues(jobId: string): Promise<PlaybackCues> {
+  const response = await fetch(`/api/jobs/${jobId}/cues`);
+  if (!response.ok) throw new Error(await detail(response, "Could not locate the readings."));
   return response.json();
 }

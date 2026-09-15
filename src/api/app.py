@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from services.config import ConfigError, Settings
 from services.audit import SettleError, audit_grid
+from services.playback import cues
+from services.timing import TimingError, word_index
 from services.csv_filler import load_json
 from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
 from services.transcript import (
@@ -430,6 +432,55 @@ def regrade(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]
     apply_result(job, result)
     sheet, style = _graded_sheet(job, settings)
     return {"job": job.as_dict(), "sheet": audit_grid(align(sheet, style), style, sheet)}
+
+
+@app.get("/api/jobs/{job_id}/audio")
+def recording_audio(job_id: str, settings: SettingsDep) -> FileResponse:
+    """The inspection recording itself, so a reading can be listened back to.
+
+    Served whole rather than sliced: Starlette answers Range requests, so the
+    browser fetches only the seconds it plays. Cutting clips server-side would
+    mean writing and cleaning up a file per cell for no gain.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    path = settings.recordings_dir / job.filename
+    if not path.is_file():
+        raise HTTPException(
+            status_code=410, detail=f"{job.filename} is no longer in the recordings folder"
+        )
+    return FileResponse(path, filename=path.name)
+
+
+@app.get("/api/jobs/{job_id}/cues")
+def playback_cues(job_id: str, settings: SettingsDep) -> dict[str, object]:
+    """Where each reading sits in the recording.
+
+    Built on first ask and cached beside the transcripts, because most
+    inspections are never listened back to and indexing every one of them would
+    be paying for a feature nobody used.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    sheet, style = _graded_sheet(job, settings)
+    recording = settings.recordings_dir / job.filename
+    try:
+        index = word_index(recording, settings)
+    except TimingError as exc:
+        # 409, not 500: nothing is broken. Either no key is configured or this
+        # recording cannot be indexed, and both are for a person to settle.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    found = cues(align(sheet, style), index)
+    return {
+        "duration": index.duration,
+        "cues": {
+            str(number): {"start": round(cue.start, 2), "end": round(cue.end, 2), "exact": cue.exact}
+            for number, cue in found.items()
+        },
+    }
 
 
 @app.get("/api/jobs/{job_id}/download/{kind}")

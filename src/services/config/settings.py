@@ -61,6 +61,10 @@ class Settings:
     extract_model: str
     data_dir: Path
     realtime_model: str = DEFAULT_REALTIME_MODEL
+    # Deepgram is used for ONE thing: a word-level time index so a reading can be
+    # played back. It never transcribes for the report. Absent key means playback
+    # is not offered, which is the whole of its failure mode.
+    deepgram_api_key: str = ""
     form_template_name: str = DEFAULT_FORM_TEMPLATE
     transcribe_passes: int = DEFAULT_TRANSCRIBE_PASSES
 
@@ -113,6 +117,7 @@ class Settings:
             transcribe_model=env.get("SIZESET_TRANSCRIBE_MODEL", DEFAULT_TRANSCRIBE_MODEL),
             extract_model=env.get("SIZESET_EXTRACT_MODEL", DEFAULT_EXTRACT_MODEL),
             realtime_model=env.get("SIZESET_REALTIME_MODEL", DEFAULT_REALTIME_MODEL),
+            deepgram_api_key=env.get("DEEPGRAM_API_KEY", "").strip(),
             data_dir=Path(env.get("SIZESET_DATA_DIR") or PROJECT_ROOT / "data"),
             form_template_name=env.get("SIZESET_FORM_TEMPLATE", DEFAULT_FORM_TEMPLATE),
             transcribe_passes=max(
