@@ -12,10 +12,24 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
+    # Runtime, not tooling. `services/timing.py` imports httpx at module level to
+    # reach Deepgram, and `api/app.py` imports that module - so without this a
+    # clean `pip install -e .` builds an app that cannot be imported at all. It
+    # does not arrive transitively: the OpenAI SDK depends on httpx2, a separate
+    # distribution, and FastAPI only pulls httpx under its `standard` extra.
+    "httpx>=0.27",
+    # `style_set/artwork.py` lifts the client's sketch and eagle out of the style
+    # set. Its absence is caught broadly, so the failure is silent and every
+    # report ships without the artwork rather than saying why.
+    "pillow>=10.0",
+    # `api/app.py` imports BaseModel directly. FastAPI does hard-require pydantic,
+    # so this has never been at risk of going missing - but a direct import is a
+    # dependency whether or not something else happens to satisfy it.
+    "pydantic>=2.9",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6", "httpx>=0.27", "xlwt>=1.3"]
+dev = ["pytest>=8", "ruff>=0.6", "xlwt>=1.3"]
 
 [build-system]
 requires = ["hatchling"]

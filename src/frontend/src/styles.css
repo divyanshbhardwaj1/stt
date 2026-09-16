@@ -938,7 +938,17 @@ td.cell.disputed > button { box-shadow: inset 0 -2px 0 var(--heard); }
 /* Provenance, inline. The measurement is the sheet's spec plus the deviation,
    so the spec is shown under it — an auditor should be able to see where the
    number is the spec off the style set, exactly as the PDF prints it. */
-td.cell .read { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+/* One line, not two. Stacking the confidence under the spec left it hanging
+   below the cell's own line with nothing between columns, so it read as though
+   it belonged to the cell below - the numbers appeared to sit one row off. */
+td.cell .read {
+  display: inline-flex; align-items: baseline; justify-content: flex-end;
+  gap: 5px; flex: 1 1 auto; line-height: 1.25;
+}
+/* A cell is a box of related numbers; without an edge the eye groups them by
+   proximity instead, and proximity crosses the column boundary. */
+table.grid td.cell + td.cell, table.grid th.size + th.size { border-left: 1px solid var(--line); }
+table.grid td.cell { border-left: 1px solid var(--line); }
 /* Low confidence: the same blue the printed report uses for it, so screen and
    paper say the same thing. Shares the family with a disputed reading — both
    mean "listen to this", neither is a verdict. */

@@ -13,7 +13,15 @@ from pathlib import Path
 
 import pytest
 
-from services.playback import MATCH_FLOOR, _value_tokens, cues, playable_copy, playable_path_for
+from services.playback import (
+    MATCH_FLOOR,
+    MIN_PLAUSIBLE_SECONDS,
+    MIN_WINDOW_SECONDS,
+    _value_tokens,
+    cues,
+    playable_copy,
+    playable_path_for,
+)
 from services.style_set.alignment import AlignedRow, Alignment
 from services.timing import TimingError, WordIndex, index_path_for, word_index
 from services.transcript import ffmpeg_executable
@@ -315,3 +323,93 @@ def test_something_ffmpeg_cannot_read_still_plays(settings, tmp_path):
 
     assert playable_copy(source, settings) == source
     assert not playable_path_for(source, settings).is_file()
+
+
+def test_a_cue_never_runs_into_the_reading_after_it():
+    """The symptom that started this: cells played the measurements below them.
+
+    The minimum window was applied even when the next reading's anchor was
+    already known, so it overrode a real boundary with a guess. On one real
+    inspection 91 of 99 cues ran into the next reading and 37 ran through the
+    one after that - readings there are a median 7.7s apart against a 14s floor.
+    """
+    # Four readings, each ~4s apart: far closer together than MIN_WINDOW_SECONDS.
+    index = _index([
+        ("front", 10.0), ("length", 10.4),
+        ("back", 14.0), ("length", 14.4),
+        ("sleeve", 18.0), ("opening", 18.4),
+        ("hem", 22.0), ("height", 22.4),
+    ], duration=300.0)
+    found = cues(
+        _alignment(
+            _reading(1, "Front length"), _reading(2, "Back length"),
+            _reading(3, "Sleeve opening"), _reading(4, "Hem height"),
+        ),
+        index,
+    )
+
+    assert len(found) == 4
+    ordered = sorted(found.values(), key=lambda cue: cue.start)
+    for cue, following in zip(ordered, ordered[1:]):
+        assert cue.end <= following.start + 1e-6, (
+            f"a cue ending at {cue.end} runs into the next reading at {following.start}"
+        )
+
+
+def test_the_last_reading_still_gets_a_tail():
+    """It has nothing after it to run into, so the floor is safe there - and
+    without it the final reading would be cut off mid-phrase."""
+    index = _index([("front", 10.0), ("length", 10.4), ("back", 14.0), ("length", 14.4)],
+                   duration=300.0)
+    found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Back length")), index)
+
+    last = max(found.values(), key=lambda cue: cue.start)
+    assert last.end - last.start >= MIN_WINDOW_SECONDS
+
+
+def test_two_readings_that_collide_are_not_offered_as_certain():
+    """The costly failure: playing the wrong reading and looking right.
+
+    Style 7122 runs five near-identical names together - ACROSS SHOULDER / FRONT
+    POSITION / FRONT SEAM / BACK POSITION / BACK SEAM - and "across back seam to
+    seam relaxed" scores 80% against "across front seam to seam relaxed", well
+    over the floor. One anchored inside the other's utterance and the readings
+    between were crushed into under two seconds each.
+
+    Which of the two is misplaced cannot be known from the index. That it IS
+    misplaced can: nobody says a name, a value and a verdict in four seconds.
+    """
+    # Two readings anchored two seconds apart: on style 7122 this is exactly
+    # what 1.23A and 1.25A did, leaving 1.24A between them with no room at all.
+    index = _index([
+        ("front", 10.0), ("length", 10.4),
+        ("back", 12.0), ("width", 12.4),
+        ("hem", 40.0), ("height", 40.4),
+    ], duration=300.0)
+
+    found = cues(
+        _alignment(
+            _reading(1, "Front length"),
+            _reading(2, "Back width"),
+            _reading(3, "Hem height"),
+        ),
+        index,
+    )
+
+    crushed = [cue for cue in found.values() if cue.end - cue.start < MIN_PLAUSIBLE_SECONDS]
+    assert crushed, "this fixture is meant to collide two readings"
+    assert all(not cue.exact for cue in crushed), (
+        "a cue too short to hold a reading must never be offered as certain"
+    )
+
+
+def test_a_full_length_reading_is_still_trusted():
+    """The guard must not demote every cue; then it would say nothing."""
+    index = _index([
+        ("front", 10.0), ("length", 10.4),
+        ("sleeve", 25.0), ("opening", 25.4),
+    ], duration=300.0)
+    found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Sleeve opening")), index)
+
+    assert all(cue.exact for cue in found.values())
+    assert min(cue.end - cue.start for cue in found.values()) >= MIN_PLAUSIBLE_SECONDS

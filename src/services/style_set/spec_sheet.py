@@ -146,6 +146,13 @@ class StyleSet:
     pom_descr: str = ""
     modified_by: str = ""
     artwork: Artwork = field(default_factory=Artwork)
+    # Read from an image rather than a text layer. Carried so a report can
+    # say so: every measurement is rebuilt as spec + deviation, and a misread
+    # spec is wrong in every row at once without ever looking wrong.
+    from_scan: bool = False
+    # Rows whose graded run does not behave like a graded sheet. Only ever
+    # populated for a scan, and reported rather than corrected.
+    scan_warnings: tuple[str, ...] = ()
 
     def measured_rows(self) -> list[PomRow]:
         """Rows carrying a tolerance, so a pass/fail verdict is possible."""
@@ -419,8 +426,63 @@ def _artwork_for(path: Path) -> Artwork:
     return art
 
 
-def read_style_set(path: Path) -> StyleSet:
-    """Parse a Triburg style set PDF."""
+def _read_scan(path: Path, settings) -> StyleSet:
+    """Build a style set from a scanned sheet, and say what looks wrong with it."""
+    from .scanned import ScanError, parsed_rows, read_pages, suspect_rows
+
+    try:
+        read = read_pages(path, settings)
+    except ScanError as exc:
+        raise SpecSheetError(
+            f"{path.name} has no text layer and could not be read as an image "
+            f"either: {exc} Ask Triburg for the generated PDF."
+        ) from exc
+
+    sizes = tuple(read.get("sizes") or ())
+    if not sizes:
+        raise SpecSheetError(f"{path.name}: no size columns could be read from the scan.")
+
+    rows = tuple(parsed_rows(read, sizes))
+    digits = re.search("[0-9]+", path.stem)
+    style_no = str(read.get("style_no") or "").strip() or (digits.group() if digits else "")
+    warnings = tuple(suspect_rows(rows, sizes))
+    if warnings:
+        log.warning(
+            "%s was read from an image and %d row(s) do not grade cleanly: %s",
+            path.name, len(warnings), "; ".join(warnings[:3]),
+        )
+
+    def field(name: str) -> str:
+        return str(read.get(name) or "").strip()
+
+    return StyleSet(
+        style_no=style_no,
+        description=field("description"),
+        season=field("season"),
+        division=field("division"),
+        company=field("company"),
+        status=field("status"),
+        base_size=field("base_size"),
+        tolerance_model=field("tolerance_model"),
+        pom_descr=field("pom_descr"),
+        modified_by=field("modified_by"),
+        sizes=sizes,
+        rows=rows,
+        source=path,
+        artwork=_artwork_for(path),
+        from_scan=True,
+        scan_warnings=warnings,
+    )
+
+
+
+def read_style_set(path: Path, settings=None) -> StyleSet:
+    """Parse a Triburg style set PDF.
+
+    `settings` is only needed for a sheet that arrived as a scan: without a
+    text layer the numbers have to be read out of the image, which takes a
+    model. A sheet that carries text never touches it.
+    """
     if not path.is_file():
         raise SpecSheetError(f"style set not found: {path}")
     try:
@@ -431,6 +493,11 @@ def read_style_set(path: Path) -> StyleSet:
 
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
+        # Last resort, and only ever that. A generated PDF is exact; an
+        # image is read and can be misread, so this runs when there is
+        # nothing else, and marks everything it produces.
+        if settings is not None:
+            return _read_scan(path, settings)
         raise SpecSheetError(
             f"{path.name} has no text layer, so it is a scan rather than an export. "
             "Ask Triburg for the generated PDF; the values cannot be read from an image."

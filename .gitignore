@@ -15,5 +15,13 @@ build/
 dist/
 *.egg-info/
 .python-version
-# Client audio, transcripts and reference documents stay local.
+# Client audio, transcripts and outputs stay local. The style sets are the one
+# exception: the app cannot grade anything without them and the tests read them,
+# so they are tracked deliberately.
+#
+# `data/*` rather than `data/`: git will not re-include a path whose parent
+# directory is excluded, so excluding the directory itself would make the
+# negation below silently do nothing.
+data/*
+!data/StyleSets/
 

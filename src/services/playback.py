@@ -46,11 +46,26 @@ MATCH_FLOOR = 0.5
 PHRASE_SECONDS = 6.0
 # How long a reading's playback runs when nothing follows it to bound it.
 TAIL_SECONDS = 25.0
-# The anchor lands on the point of measure's name; the value follows a few
-# seconds later. Measured median 6.4s, worst 13.2s, so a window that stops early
-# cuts off the number the operator opened this to hear.
+# Only for the LAST reading, which has nothing after it to bound the window.
+# The anchor lands on the point of measure's name and the value follows a median
+# 6.4s later, so a tail this long reaches it. It must never be applied where a
+# following reading is known: that is how a cue came to swallow its neighbours.
 MIN_WINDOW_SECONDS = 14.0
 MAX_WINDOW_SECONDS = 45.0
+# A reading is a name, a value and a verdict - "across front seam to seam
+# relaxed, required measurement eleven five by eight, minus one by eight, okay".
+# Nobody says that in under four seconds. A window shorter than this is not a
+# short reading, it is two readings that collided: one anchored inside the
+# other's utterance, which happens when consecutive points of measure share
+# their wording. Style 7122 has five in a row - ACROSS SHOULDER / FRONT POSITION
+# / FRONT SEAM / BACK POSITION / BACK SEAM - and "across back seam to seam
+# relaxed" scores 80% against "across front seam to seam relaxed".
+#
+# It cannot be repaired here, because which of the two is in the wrong place is
+# not knowable from the index. It CAN be refused, and that is the whole point:
+# an operator played the wrong reading confirms a deviation against the wrong
+# point of measure, and never finds out.
+MIN_PLAUSIBLE_SECONDS = 4.0
 
 # How far past the previous reading a match may sit before it is disbelieved.
 #
@@ -186,7 +201,10 @@ def cues(alignment: Alignment, index: WordIndex) -> dict[int, Cue]:
             for start in range(pointer, len(flat)):
                 opened = index.words[start].start
                 edge = max(edge, start)
-                while edge + 1 < len(flat) and index.words[edge + 1].start - opened <= PHRASE_SECONDS:
+                while (
+                    edge + 1 < len(flat)
+                    and index.words[edge + 1].start - opened <= PHRASE_SECONDS
+                ):
                     edge += 1
                 window = set(flat[start : edge + 1])
                 named = sum(1 for token in want if token in window) / len(want)
@@ -272,11 +290,25 @@ def _windows(
     out: dict[int, Cue] = {}
     for position, (number, at) in enumerate(known):
         following = known[position + 1][1] if position + 1 < len(known) else None
-        end = following if following is not None else at + TAIL_SECONDS
-        end = max(at + MIN_WINDOW_SECONDS, min(end, at + MAX_WINDOW_SECONDS))
+        if following is None:
+            # Nothing after it to run into, so the floor is safe here: it only
+            # decides how much of the tail to offer.
+            end = max(at + MIN_WINDOW_SECONDS, min(at + TAIL_SECONDS, at + MAX_WINDOW_SECONDS))
+        else:
+            # The next reading's own anchor is EVIDENCE about where this one
+            # ends; the minimum window is a guess. Evidence wins. Padding past
+            # it is what made a cell play the readings below it - on one real
+            # inspection 91 of 99 cues ran into the next reading and 37 ran
+            # through the one after that.
+            end = min(following, at + MAX_WINDOW_SECONDS)
         if duration:
             end = min(end, duration)
-        out[number] = Cue(row=number, start=max(0.0, at), end=end, exact=number not in guessed)
+        # Too short to hold a reading: two of them landed on one utterance, so
+        # this cue is not trustworthy even though it was "found". Demoted rather
+        # than dropped - the operator still gets somewhere to listen, and is
+        # told not to take it at face value.
+        trustworthy = number not in guessed and (end - at) >= MIN_PLAUSIBLE_SECONDS
+        out[number] = Cue(row=number, start=max(0.0, at), end=end, exact=trustworthy)
     return out
 
 

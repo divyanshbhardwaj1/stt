@@ -1,0 +1,428 @@
+{
+ "sizes": [
+  "XXS",
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL"
+ ],
+ "rows": [
+  {
+   "pom": "*",
+   "description": "DISCLAIMER (WW): Measure Gmts in Circumference",
+   "tol_minus": "0",
+   "tol_plus": "0",
+   "values": [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0"
+   ]
+  },
+  {
+   "pom": "0.00B",
+   "description": "REF ONLY- FRONT LENGTH FROM HPS TO HEM ON BODY",
+   "tol_minus": "0",
+   "tol_plus": "0",
+   "values": [
+    "0",
+    "0",
+    "21 5/8",
+    "22 1/4",
+    "0",
+    "0",
+    "0"
+   ]
+  },
+  {
+   "pom": "1.01A",
+   "description": "FRONT LENGTH FROM HPS TO CF",
+   "tol_minus": "-3/8",
+   "tol_plus": "3/8",
+   "values": [
+    "19 5/8",
+    "20 1/4",
+    "20 7/8",
+    "21 1/2",
+    "22 1/8",
+    "22 7/8",
+    "23 5/8"
+   ]
+  },
+  {
+   "pom": "2.02A",
+   "description": "SHOULDER SLOPE FROM HPS",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4"
+   ]
+  },
+  {
+   "pom": "1.20A",
+   "description": "ACROSS SHOULDER SEAM TO SEAM-RELAXED",
+   "tol_minus": "-3/8",
+   "tol_plus": "3/8",
+   "values": [
+    "11 1/2",
+    "12",
+    "12 1/2",
+    "13",
+    "13 3/4",
+    "14 1/2",
+    "15 1/4"
+   ]
+  },
+  {
+   "pom": "1.22A",
+   "description": "ACROSS FRONT POSITION FROM HPS",
+   "tol_minus": "0",
+   "tol_plus": "0",
+   "values": [
+    "5",
+    "5",
+    "5",
+    "5",
+    "5",
+    "5",
+    "5"
+   ]
+  },
+  {
+   "pom": "1.23A",
+   "description": "ACROSS FRONT SEAM TO SEAM-RELAXED",
+   "tol_minus": "-3/8",
+   "tol_plus": "3/8",
+   "values": [
+    "10",
+    "10 1/2",
+    "11",
+    "11 1/2",
+    "12 1/4",
+    "13",
+    "13 3/4"
+   ]
+  },
+  {
+   "pom": "1.24A",
+   "description": "ACROSS BACK POSITION FROM HPS",
+   "tol_minus": "0",
+   "tol_plus": "0",
+   "values": [
+    "5",
+    "5",
+    "5",
+    "5",
+    "5",
+    "5",
+    "5"
+   ]
+  },
+  {
+   "pom": "1.25A",
+   "description": "ACROSS BACK SEAM TO SEAM-RELAXED",
+   "tol_minus": "-3/8",
+   "tol_plus": "3/8",
+   "values": [
+    "10 1/2",
+    "11",
+    "11 1/2",
+    "12",
+    "12 3/4",
+    "13 1/2",
+    "14 1/4"
+   ]
+  },
+  {
+   "pom": "1.28A",
+   "description": "CHEST 1\" BELOW ARMHOLE-RELAXED",
+   "tol_minus": "-3/4",
+   "tol_plus": "3/4",
+   "values": [
+    "26",
+    "28",
+    "30",
+    "32",
+    "35",
+    "38",
+    "42"
+   ]
+  },
+  {
+   "pom": "1.28A",
+   "description": "CHEST 1\" BELOW ARMHOLE-EXTENDED-MINIMUM",
+   "tol_minus": "-1",
+   "tol_plus": "1",
+   "values": [
+    "43 1/2",
+    "47",
+    "50 1/2",
+    "54",
+    "59 1/2",
+    "65",
+    "72"
+   ]
+  },
+  {
+   "pom": "4.22A",
+   "description": "BOTTOM OPENING RELAXED-LAST SMOCKING ROW",
+   "tol_minus": "-3/4",
+   "tol_plus": "3/4",
+   "values": [
+    "27",
+    "29",
+    "31",
+    "33",
+    "36",
+    "39",
+    "43"
+   ]
+  },
+  {
+   "pom": "4.22A",
+   "description": "BOTTOM OPENING EXTENDED-LAST SMOCKING ROW",
+   "tol_minus": "-1",
+   "tol_plus": "1",
+   "values": [
+    "45 1/2",
+    "49",
+    "52 1/2",
+    "56",
+    "61 1/2",
+    "67",
+    "74"
+   ]
+  },
+  {
+   "pom": "9.08A",
+   "description": "BOTTOM OPENING RUFFLE HEIGHT AT CF/SS/CB",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "2 3/4",
+    "2 3/4",
+    "2 3/4",
+    "2 3/4",
+    "2 3/4",
+    "2 3/4",
+    "2 3/4"
+   ]
+  },
+  {
+   "pom": "2.03A",
+   "description": "FRONT NECK DROP FROM HPS TO SEAM",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "8",
+    "8 1/8",
+    "8 1/4",
+    "8 3/8",
+    "8 1/2",
+    "8 5/8",
+    "8 3/4"
+   ]
+  },
+  {
+   "pom": "2.04A",
+   "description": "BACK NECK DROP FROM HPS TO SEAM",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "1 1/4",
+    "1 1/4",
+    "1 1/4",
+    "1 1/4",
+    "1 1/4",
+    "1 1/4",
+    "1 1/4"
+   ]
+  },
+  {
+   "pom": "2.05C",
+   "description": "NECK WIDTH SEAM TO SEAM",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "7 3/4",
+    "8",
+    "8 1/4",
+    "8 1/2",
+    "8 3/4",
+    "9",
+    "9 1/4"
+   ]
+  },
+  {
+   "pom": "9.08A",
+   "description": "NECKLINE RUFFLE HEIGHT EXPOSED",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2"
+   ]
+  },
+  {
+   "pom": "3.01A",
+   "description": "SLEEVE LENGTH FROM C.B LONGEST POINT",
+   "tol_minus": "-3/8",
+   "tol_plus": "3/8",
+   "values": [
+    "24 1/2",
+    "25",
+    "25 1/2",
+    "26",
+    "26 3/4",
+    "27 1/2",
+    "28 1/2"
+   ]
+  },
+  {
+   "pom": "3.06B",
+   "description": "ARMHOLE STRAIGHT",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "7 5/8",
+    "8",
+    "8 3/8",
+    "8 3/4",
+    "9 3/8",
+    "10",
+    "10 3/4"
+   ]
+  },
+  {
+   "pom": "3.13A",
+   "description": "MUSCLE 1\" FROM UNDERARM",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "13 1/4",
+    "14",
+    "14 3/4",
+    "15 1/2",
+    "16 3/4",
+    "18",
+    "19 1/2"
+   ]
+  },
+  {
+   "pom": "3.19B",
+   "description": "SLEEVE OPENING-RELAXED",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "7 1/2",
+    "8",
+    "8 1/2",
+    "9",
+    "9 1/2",
+    "10",
+    "10 1/2"
+   ]
+  },
+  {
+   "pom": "3.19B",
+   "description": "SLEEVE OPENING-EXTENDED",
+   "tol_minus": "-1/4",
+   "tol_plus": "1/4",
+   "values": [
+    "13 7/8",
+    "14 3/4",
+    "15 5/8",
+    "16 1/2",
+    "17 3/8",
+    "18 1/4",
+    "19 1/8"
+   ]
+  },
+  {
+   "pom": "3.22A",
+   "description": "SLEEVE EXPOSED RUFFLE HEIGHT",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1",
+    "1"
+   ]
+  },
+  {
+   "pom": "2.18A",
+   "description": "CENTER FRONT PLACKET WIDTH",
+   "tol_minus": "-1/16",
+   "tol_plus": "1/16",
+   "values": [
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4",
+    "3/4"
+   ]
+  },
+  {
+   "pom": "7.04A",
+   "description": "BUTTON POSITION FROM BELOW NECK SEAM",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2",
+    "1/2"
+   ]
+  },
+  {
+   "pom": "7.04B",
+   "description": "BUTTON POSITION FROM BOTTOM EDGE",
+   "tol_minus": "-1/8",
+   "tol_plus": "1/8",
+   "values": [
+    "2 7/8",
+    "2 7/8",
+    "2 7/8",
+    "2 7/8",
+    "2 7/8",
+    "2 7/8",
+    "2 7/8"
+   ]
+  }
+ ],
+ "style_no": "7122",
+ "description": "7122 SMOCKED BUTTON THROUGH",
+ "season": "HOLIDAY-B 2026",
+ "division": "02 / 035",
+ "company": "AMERICAN EAGLE OUTFITTERS",
+ "status": "FNL",
+ "base_size": "M",
+ "tolerance_model": "WW TOP L20",
+ "pom_descr": "GRADED SPECIFICATION",
+ "modified_by": "VANGR"
+}

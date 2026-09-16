@@ -48,13 +48,18 @@ def list_style_numbers(directory: Path) -> list[str]:
     return sorted(numbers)
 
 
-def find_style_set(style_no: str, directory: Path) -> StyleSet:
+def find_style_set(style_no: str, directory: Path, settings=None) -> StyleSet:
     """Load the style set for `style_no`.
 
     Matched on the filename first, which is cheap, then confirmed against the
     STYLE field inside the PDF. A mismatch is reported rather than accepted: the
     wrong spec sheet would silently validate every measurement against the wrong
     numbers.
+
+    `settings` only matters when every candidate is a scan. A generated PDF is
+    exact and an image has to be read, so a text layer always wins - for style
+    9662 that is the difference between using the clean re-export beside the
+    scan and reading the scan itself.
     """
     wanted = style_no.strip()
     if not wanted:
@@ -73,16 +78,29 @@ def find_style_set(style_no: str, directory: Path) -> StyleSet:
             f"Available: {', '.join(path.stem for path in available)}"
         )
 
-    errors = []
-    for path in candidates:
-        try:
-            style = read_style_set(path)
-        except SpecSheetError as exc:
-            errors.append(str(exc))
-            continue
-        if style.style_no and style.style_no != wanted:
-            errors.append(f"{path.name} is named for {wanted} but contains style {style.style_no}")
-            continue
-        return style
+    # Two passes: every candidate on its text layer, and only then - if none of
+    # them had one - as an image. Reading a scan when a clean export sits beside
+    # it would trade an exact sheet for a read one.
+    errors: list[str] = []
+    for scan_allowed in (None, settings):
+        for path in candidates:
+            try:
+                style = read_style_set(path, scan_allowed)
+            except SpecSheetError as exc:
+                errors.append(str(exc))
+                continue
+            if style.style_no and style.style_no != wanted:
+                errors.append(
+                    f"{path.name} is named for {wanted} but contains style {style.style_no}"
+                )
+                continue
+            if style.from_scan:
+                log.warning(
+                    "style %s was read from an image; no text-layer export was available",
+                    wanted,
+                )
+            return style
+        if settings is None:
+            break  # nothing else to try
 
     raise StyleSetNotFound(f"style set for {wanted} could not be used: " + "; ".join(errors))

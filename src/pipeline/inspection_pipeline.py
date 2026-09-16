@@ -221,7 +221,7 @@ def validate_stage(
         )
 
     try:
-        style = find_style_set(chosen, settings.style_sets_dir)
+        style = find_style_set(chosen, settings.style_sets_dir, settings)
     except (StyleSetNotFound, SpecSheetError) as exc:
         log.warning("no verdicts: %s", exc)
         return None

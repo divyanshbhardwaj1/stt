@@ -342,7 +342,7 @@ def _graded_sheet(job, settings: Settings):
         raise HTTPException(status_code=410, detail=f"{saved.name} is no longer on disk")
     sheet = load_json(saved)
     try:
-        style = find_style_set(job.graded_style_no, settings.style_sets_dir)
+        style = find_style_set(job.graded_style_no, settings.style_sets_dir, settings)
     except StyleSetNotFound as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
     return sheet, style
