@@ -96,6 +96,10 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
   const [playback, setPlayback] = useState<PlaybackCues | null>(null);
   const [cueError, setCueError] = useState("");
   const [loadingCues, setLoadingCues] = useState(false);
+  // Off the element's own events, not set when play() is called: the cue stops
+  // itself at the end of the reading, and a flag we set by hand would still say
+  // "playing" after it had.
+  const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const stopAt = useRef<number>(0);
 
@@ -270,6 +274,9 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
   }
 
   const settled = sheet.corrections.length;
+  // What the operator would regret not reading. Kept on the trigger so a sheet
+  // with shaky readings still says so while the note itself is folded away.
+  const shaky = sheet.below_full + sheet.disputed;
 
   return (
     <div className="audit">
@@ -282,52 +289,62 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
               `job.status` painted "FAIL CONDITIONALLY" in the pass green,
               which is the one thing a verdict must never do. */}
           <span className={`pill ${verdictState(job)}`}>{sheet.verdict}</span>
+          {/* Folded away: read once, then in the way. <details> rather than a
+              popover of our own - the browser already does open, close and the
+              keyboard. The count stays on the trigger, because a sheet with
+              shaky readings has to say so without being opened first. */}
+          <details className="explain">
+            <summary aria-label="About this sheet">
+              i{shaky > 0 && <b className="shaky-count">{shaky}</b>}
+            </summary>
+            <div className="explain-box">
+              <p className="lede">
+                Every measurement is the spec off style <b>{sheet.style_no}</b> plus the deviation
+                the inspector called. Click a cell to correct it; nothing is written until you
+                save.
+                {settled > 0 && (
+                  <>
+                    {" "}
+                    <b>
+                      {settled} cell{settled === 1 ? "" : "s"}
+                    </b>{" "}
+                    already settled by hand.
+                  </>
+                )}
+              </p>
+              {shaky > 0 && (
+                <p className="lede listen">
+                  Worth listening back to:
+                  {sheet.below_full > 0 && (
+                    <>
+                      {" "}
+                      <b className="shaky-count">{sheet.below_full}</b> heard below 100% confidence
+                      {sheet.low_confidence > 0 && (
+                        <>
+                          , <b className="shaky-count">{sheet.low_confidence}</b> of them under{" "}
+                          {Math.round(sheet.review_threshold * 100)}%
+                        </>
+                      )}
+                    </>
+                  )}
+                  {sheet.below_full > 0 && sheet.disputed > 0 ? ";" : ""}
+                  {sheet.disputed > 0 && (
+                    <>
+                      {" "}
+                      <b className="shaky-count">{sheet.disputed}</b> where the absolute the
+                      inspector read aloud matches neither the spec nor this measurement
+                    </>
+                  )}
+                  .
+                </p>
+              )}
+            </div>
+          </details>
           <span className="spacer" />
           <button className="ghost" onClick={onClose}>
             Back to the report
           </button>
         </div>
-        <p className="lede">
-          Every measurement here is the spec off style <b>{sheet.style_no}</b> plus the deviation
-          the inspector called &mdash; the recording never supplies the measurement itself. Click
-          any cell to correct what was heard, or to fill one the recording never covered. Nothing
-          is written until you save.
-          {settled > 0 && (
-            <>
-              {" "}
-              <b>
-                {settled} cell{settled === 1 ? "" : "s"}
-              </b>{" "}
-              already settled by hand.
-            </>
-          )}
-        </p>
-        {(sheet.below_full > 0 || sheet.disputed > 0) && (
-          <p className="lede listen">
-            Worth listening back to:
-            {sheet.below_full > 0 && (
-              <>
-                {" "}
-                <b className="shaky-count">{sheet.below_full}</b> heard below 100% confidence
-                {sheet.low_confidence > 0 && (
-                  <>
-                    , <b className="shaky-count">{sheet.low_confidence}</b> of them under{" "}
-                    {Math.round(sheet.review_threshold * 100)}%
-                  </>
-                )}
-              </>
-            )}
-            {sheet.below_full > 0 && sheet.disputed > 0 ? ";" : ""}
-            {sheet.disputed > 0 && (
-              <>
-                {" "}
-                <b className="shaky-count">{sheet.disputed}</b> where the absolute the inspector
-                read aloud matches neither the spec nor this measurement
-              </>
-            )}
-            .
-          </p>
-        )}
         {/* The one error that is wrong in every row at once. The recording
             usually does not say the size, so the grading falls back to the
             sheet's base size — and each row still looks individually plausible,
@@ -388,7 +405,15 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
           also starts the server building its seekable copy while the reviewer
           is still reading the grid. The audio itself still arrives by range
           request, a cue at a time. */}
-      <audio ref={audio} src={audioUrl(job.id)} preload="metadata" hidden />
+      <audio
+        ref={audio}
+        src={audioUrl(job.id)}
+        preload="metadata"
+        hidden
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+      />
 
       <div className="audit-scroll">
         <table className="grid">
@@ -488,6 +513,8 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
           onCancel={() => setOpen(null)}
           onStage={stage}
           onListen={listen}
+          onStop={silence}
+          playing={playing}
           locating={loadingCues}
           cueError={cueError}
           approximate={
@@ -569,6 +596,8 @@ function CellEditor({
   onCancel,
   onStage,
   onListen,
+  onStop,
+  playing,
   locating,
   cueError,
   approximate,
@@ -579,6 +608,8 @@ function CellEditor({
   setDraft: (next: Draft) => void;
   /** Play the seconds of the recording this reading was dictated in. */
   onListen: (reportRow: number) => void;
+  onStop: () => void;
+  playing: boolean;
   locating: boolean;
   cueError: string;
   /** The cue was inferred from its neighbours rather than found outright. */
@@ -697,9 +728,12 @@ function CellEditor({
             <button
               className="ghost"
               disabled={locating || cell?.row == null}
-              onClick={() => cell?.row != null && onListen(cell.row)}
+              onClick={() => {
+                if (playing) return onStop();
+                if (cell?.row != null) onListen(cell.row);
+              }}
             >
-              {locating ? "Locating…" : "▶ Play this reading"}
+              {locating ? "Locating…" : playing ? "■ Stop" : "▶ Play this reading"}
             </button>
             {approximate && (
               <span className="hint">

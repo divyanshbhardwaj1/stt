@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from services.playback import (
+    LEAD_SECONDS,
     MATCH_FLOOR,
     MIN_PLAUSIBLE_SECONDS,
     MIN_WINDOW_SECONDS,
@@ -54,8 +55,8 @@ def test_each_reading_is_placed_where_it_was_said():
     found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Back length")), index)
 
     assert set(found) == {1, 2}
-    assert found[1].start == pytest.approx(40.0)
-    assert found[2].start == pytest.approx(70.0)
+    assert found[1].anchor == pytest.approx(40.0)
+    assert found[2].anchor == pytest.approx(70.0)
     assert all(cue.exact for cue in found.values())
 
 
@@ -70,7 +71,7 @@ def test_the_search_is_not_windowed():
     index = _index(preamble + [("front", 500.0), ("length", 500.5)], duration=600.0)
 
     found = cues(_alignment(_reading(1, "Front length")), index)
-    assert found[1].start == pytest.approx(500.0)
+    assert found[1].anchor == pytest.approx(500.0)
 
 
 def test_readings_run_in_order_even_when_a_name_repeats():
@@ -82,8 +83,8 @@ def test_readings_run_in_order_even_when_a_name_repeats():
     ], duration=200.0)
 
     found = cues(_alignment(_reading(1, "Front length", "M"), _reading(2, "Front length", "L")), index)
-    assert found[1].start == pytest.approx(10.0)
-    assert found[2].start == pytest.approx(90.0)
+    assert found[1].anchor == pytest.approx(10.0)
+    assert found[2].anchor == pytest.approx(90.0)
 
 
 def test_a_reading_the_index_never_caught_is_placed_between_its_neighbours():
@@ -105,7 +106,7 @@ def test_a_reading_the_index_never_caught_is_placed_between_its_neighbours():
         ),
         index,
     )
-    assert 10.0 < found[2].start < 70.0, "placed inside the gap it must have happened in"
+    assert 10.0 < found[2].anchor < 70.0, "placed inside the gap it must have happened in"
     assert found[2].exact is False
     assert found[1].exact and found[3].exact
 
@@ -118,7 +119,7 @@ def test_a_window_runs_long_enough_to_reach_the_value():
                    duration=300.0)
     found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Back length")), index)
 
-    assert found[1].end - found[1].start >= 14.0
+    assert found[1].end - found[1].anchor >= 14.0
 
 
 def test_nothing_is_placed_from_an_empty_index():
@@ -175,11 +176,11 @@ def test_the_same_name_in_the_next_size_is_not_mistaken_for_this_one():
         _alignment(_reading(1, "Waistband height"), _reading(2, "Waistband height")),
         index,
     )
-    assert found[1].start == pytest.approx(10.0)
+    assert found[1].anchor == pytest.approx(10.0)
     # Five minutes ahead is the next size being read, not this reading. With no
     # later reading to interpolate towards, it is offered no cue at all - which
     # is the honest answer: the cell says so rather than playing the wrong size.
-    assert not any(cue.start == pytest.approx(300.0) for cue in found.values())
+    assert not any(cue.anchor == pytest.approx(300.0) for cue in found.values())
 
 
 def test_a_cue_opens_on_the_phrase_not_on_the_window():
@@ -194,7 +195,7 @@ def test_a_cue_opens_on_the_phrase_not_on_the_window():
     ], duration=200.0)
 
     found = cues(_alignment(_reading(1, "Sleeve opening")), index)
-    assert found[1].start == pytest.approx(44.0), "must open on 'sleeve', not on 'okay'"
+    assert found[1].anchor == pytest.approx(44.0), "must open on 'sleeve', not on 'okay'"
 
 
 
@@ -236,9 +237,9 @@ def test_the_number_rescues_a_reading_whose_name_was_misheard():
         ),
         index,
     )
-    assert found[1].start < 20.0, "must stay on its own reading, not steal the next one"
+    assert found[1].anchor < 20.0, "must stay on its own reading, not steal the next one"
     assert found[1].exact and found[2].exact
-    assert found[2].start == pytest.approx(20.0)
+    assert found[2].anchor == pytest.approx(20.0)
 
 
 def test_the_name_alone_still_settles_a_reading_with_no_usable_number():
@@ -246,7 +247,7 @@ def test_the_name_alone_still_settles_a_reading_with_no_usable_number():
     index = _index([("sleeve", 30.0), ("opening", 30.4), ("mumble", 31.0)], duration=200.0)
 
     found = cues(_alignment(_reading(1, "Sleeve opening", heard=None)), index)
-    assert found[1].start == pytest.approx(30.0)
+    assert found[1].anchor == pytest.approx(30.0)
     assert found[1].exact
 
 # ---------------------------------------------------------------- seekability
@@ -349,10 +350,10 @@ def test_a_cue_never_runs_into_the_reading_after_it():
     )
 
     assert len(found) == 4
-    ordered = sorted(found.values(), key=lambda cue: cue.start)
+    ordered = sorted(found.values(), key=lambda cue: cue.anchor)
     for cue, following in zip(ordered, ordered[1:]):
-        assert cue.end <= following.start + 1e-6, (
-            f"a cue ending at {cue.end} runs into the next reading at {following.start}"
+        assert cue.end <= following.anchor + 1e-6, (
+            f"a cue ending at {cue.end} runs into the next reading at {following.anchor}"
         )
 
 
@@ -363,8 +364,8 @@ def test_the_last_reading_still_gets_a_tail():
                    duration=300.0)
     found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Back length")), index)
 
-    last = max(found.values(), key=lambda cue: cue.start)
-    assert last.end - last.start >= MIN_WINDOW_SECONDS
+    last = max(found.values(), key=lambda cue: cue.anchor)
+    assert last.end - last.anchor >= MIN_WINDOW_SECONDS
 
 
 def test_two_readings_that_collide_are_not_offered_as_certain():
@@ -396,7 +397,7 @@ def test_two_readings_that_collide_are_not_offered_as_certain():
         index,
     )
 
-    crushed = [cue for cue in found.values() if cue.end - cue.start < MIN_PLAUSIBLE_SECONDS]
+    crushed = [cue for cue in found.values() if cue.end - cue.anchor < MIN_PLAUSIBLE_SECONDS]
     assert crushed, "this fixture is meant to collide two readings"
     assert all(not cue.exact for cue in crushed), (
         "a cue too short to hold a reading must never be offered as certain"
@@ -412,4 +413,43 @@ def test_a_full_length_reading_is_still_trusted():
     found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Sleeve opening")), index)
 
     assert all(cue.exact for cue in found.values())
-    assert min(cue.end - cue.start for cue in found.values()) >= MIN_PLAUSIBLE_SECONDS
+    assert min(cue.end - cue.anchor for cue in found.values()) >= MIN_PLAUSIBLE_SECONDS
+
+
+def test_playback_opens_before_the_anchor():
+    """The anchor is the first word MATCHED, not the first word said.
+
+    "across shoulder seam to seam" anchors on "shoulder" when "across" came back
+    mangled, and the operator hears the reading already under way.
+    """
+    index = _index([
+        ("front", 10.0), ("length", 10.4),
+        ("sleeve", 40.0), ("opening", 40.4),
+    ], duration=300.0)
+    found = cues(_alignment(_reading(1, "Front length"), _reading(2, "Sleeve opening")), index)
+
+    assert found[2].anchor == pytest.approx(40.0)
+    assert found[2].start == pytest.approx(40.0 - LEAD_SECONDS), "the full run-up, there is room"
+    assert found[1].start == pytest.approx(7.0), "clamped at zero only when it must be"
+
+
+def test_the_run_up_never_reaches_into_the_reading_before_it():
+    """Readings 2s apart are ordinary here, and a flat lead-in would open inside
+    the previous one - the wrong-cell playback arriving from the other side."""
+    index = _index([
+        ("front", 10.0), ("length", 10.2),
+        ("back", 12.0), ("length", 12.2),
+        ("hem", 14.0), ("height", 14.2),
+    ], duration=300.0)
+    found = cues(
+        _alignment(
+            _reading(1, "Front length"), _reading(2, "Back length"), _reading(3, "Hem height")
+        ),
+        index,
+    )
+
+    ordered = sorted(found.values(), key=lambda cue: cue.anchor)
+    for cue, following in zip(ordered, ordered[1:], strict=False):
+        assert following.start > cue.anchor, (
+            f"a cue opening at {following.start} plays the reading anchored at {cue.anchor}"
+        )

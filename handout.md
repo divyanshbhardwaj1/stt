@@ -292,6 +292,8 @@ Clearing `stopAt` matters as much as the pause: left set, the `timeupdate` handl
 
 ## 11. Open items
 
+> Superseded by **§21**, which carries the current state of every row below.
+
 ### 11.1 `data/` is committed to git — highest priority
 
 `README.md` states: *"`data/` is gitignored and must stay that way. It holds client audio and AEO spec sheets marked proprietary and confidential."*
@@ -337,3 +339,188 @@ cd src\frontend; npm test; npm run lint; npm run build
 ```
 
 The first open of a graded sheet spends ~2 s building the seekable copy, then it is cached. Cues are computed per request, so there is no cue cache to clear after a matcher change — but `.words.json` is cached per recording and survives, since re-encoding does not move the timeline.
+
+---
+
+# Session Handout — Scanned Sheets, Snippet Accuracy, and the Audit Screen
+
+**Date:** 16–17 September 2026
+**Scope:** stopped `data/` growing in git; declared the missing dependencies; taught the pipeline to read flattened spec sheets; made playback snippets land on the reading they belong to; tightened the audit screen.
+
+Continues the numbering above. Where this contradicts §11, this part is current.
+
+---
+
+## 13. Summary
+
+| # | Work | Outcome |
+|---|---|---|
+| 1 | `data/` excluded from git | **775** files untracked; 9 left, the StyleSets only |
+| 2 | `httpx`, `pillow`, `pydantic` declared | all three were imported but undeclared |
+| 3 | OCR for scanned/flattened spec sheets | style 7122 now grades from an image: 92 readings, 92 judged, PASS |
+| 4 | Snippet ran into the reading below it | **91/99 → 0/99** overruns on `7122(4)` |
+| 5 | Collided snippets demoted | a cue too short to hold a reading is no longer offered as certain |
+| 6 | Snippets now open 3 s before the anchor | full run-up on 74/100, zero bleed backwards |
+| 7 | Deepgram output written up | `deepgram_transcript_example.md` |
+| 8 | LLM snippet mapping measured | **5/5** on the case the heuristic gets wrong |
+| 9 | Audit screen tightened | explanation folded behind ⓘ, sidebar −20 %, Stop button |
+
+**Tests:** 323 → **341** Python, **35** frontend (unchanged).
+
+---
+
+## 14. `data/` is no longer tracked — §11.1 partly closed
+
+```
+data/*
+!data/StyleSets/
+```
+
+`data/*` rather than `data/`: **git will not re-include a path whose parent directory is excluded**, so the obvious `data/` + `!data/StyleSets/` silently does nothing. That is the one thing to know if this rule is ever edited.
+
+Then `git rm -r --cached` on everything else. Commit `3c0b0a2` untracks **775** files under `data/` (788 changed in total, 178,903 deletions). Tracked under `data/` now: **9** — the eight StyleSets PDFs plus `style_7122.ocr.json`, which is tracked **on purpose** (see §16).
+
+**Still open:** the ~1.3 GB of recordings, transcripts and graded PDFs remains in *history*. Anyone who clones the repo still gets it. That needs a history rewrite (`git filter-repo`) and a force-push, which is a decision, not a task.
+
+---
+
+## 15. Dependencies — §11.2 first row closed
+
+| Package | Why it had to be declared |
+|---|---|
+| `httpx` | `services/timing.py` imports it at module level. It does **not** arrive transitively: the OpenAI SDK depends on `httpx2`, a separate distribution, and FastAPI only pulls `httpx` under its `standard` extra. |
+| `pillow` | `pypdfium2`'s `.to_pil()` is how a page becomes an image. Without it, scanned sheets cannot be read at all. |
+| `pydantic` | `api/app.py` imports `BaseModel` directly. FastAPI does require it, but a direct import is a direct dependency. |
+
+All three are in `[project] dependencies`. `dev` is now `pytest`, `ruff`, `xlwt`.
+
+---
+
+## 16. Scanned and flattened spec sheets
+
+Two of the eight sheets on hand carry no text layer. The parser refused them, and that refusal was right: every measurement on a report is rebuilt as `spec + deviation`, so one misread spec makes every row wrong at once, quietly, in a document that goes to a vendor.
+
+`src/services/style_set/scanned.py` is the last resort, reached only when there is no text to read. It is built to be checked rather than trusted:
+
+| Guard | What it does |
+|---|---|
+| **Text always beats a scan** | `library.py` does two passes over the candidates — text-only first, scanning only if that finds nothing. A sheet that has *both* is never read by eye. |
+| **The sheet checks itself** | A graded sheet is graded: values hold constant or climb across sizes. A row that wanders is a misread digit. `suspect_rows()` reports them; it never corrects them. `0` is treated as blank, not as a drop — reference rows carry a value in the base size only. |
+| **Anything read this way is marked** | `StyleSet.from_scan` follows the sheet into the report, so a vendor-facing document never hides where its numbers came from. |
+| **The read is cached beside the PDF, and committed** | `<stem>.ocr.json`. Vision output is not deterministic, so two machines re-reading the same scan could grade the same style differently. One cached read is one answer — which is why `style_7122.ocr.json` is tracked. |
+
+Rendering at **3×**: at 2× the fraction strokes close up and `3/8` reads as `9/8`; past 3× the pages get large without reading any better.
+
+Ten header fields are read as well as the table (`style_no`, `description`, `season`, `division`, `company`, `status`, `base_size`, `tolerance_model`, `pom_descr`, `modified_by`). Leaving them out left blank fields on a vendor-facing document.
+
+**Result on style 7122** (no text layer): 92 readings, 92 judged, verdict PASS — the same answer a hand-built one-off produced earlier in the project.
+
+---
+
+## 17. Snippet accuracy
+
+> *"this should be 100% accurate cause missing any of the snippet will cost the company millions"*
+
+Three fixes landed. One known defect is diagnosed but **not** fixed.
+
+### 17.1 The window ran past the next reading
+
+`MIN_WINDOW_SECONDS` (14 s) was applied even when the next reading's anchor was already known — a guess overriding evidence. Readings on these recordings sit a median 7.7 s apart.
+
+On `7122(4)`: **91 of 99 cues ran into the next reading**, 37 ran through the one after that. That is the symptom reported as *"some cells are playing the audio of the measurements below them."*
+
+The floor now applies only to the **last** reading, which has nothing after it to run into. After: **0 of 99**.
+
+### 17.2 Collided readings are demoted, not hidden
+
+Consecutive points of measure share their wording — 7122 has five in a row (ACROSS SHOULDER / FRONT POSITION / FRONT SEAM / BACK POSITION / BACK SEAM), and *"across back seam to seam relaxed"* scores 80 % against *"across front seam to seam relaxed."* Two readings then anchor inside one utterance.
+
+Which of the two is misplaced is not knowable from the index, so it cannot be repaired here. It **can** be refused: a window shorter than `MIN_PLAUSIBLE_SECONDS` (4 s) is not a short reading, it is a collision, and the cue is marked inexact. An operator who plays the wrong reading confirms a deviation against the wrong point of measure and never finds out.
+
+### 17.3 Snippets now start 3 s early
+
+The anchor lands on the first word *matched*, which is rarely the first word *said* — "across shoulder seam to seam" anchors on "shoulder" when "across" came back mangled, and the reading is already under way when the operator hears it.
+
+The run-up is **clamped to half the gap back to the previous anchor**, never taken flat: readings 2 s apart are ordinary here, and a flat 3 s would open inside the previous reading — the same wrong-cell playback arriving from the other side.
+
+`Cue` now carries `anchor` (where the reading was found) separately from `start` (where playback opens). Both the plausibility check and the no-overrun invariant measure the reading, not the run-up; otherwise a lead-in would pad a collided pair out to a plausible-looking 4 s and silence the very warning §17.2 exists to raise.
+
+Measured on cached indexes and real alignments:
+
+| Inspection | Cues | Full 3 s run-up | Min lead | Ends inside next | Opens inside previous |
+|---|---|---|---|---|---|
+| `7122(4)` | 100 | 74 | 0.92 s | 0 | 0 |
+| `rec 2365(4)` | 39 | 34 | 2.21 s | 0 | 0 |
+
+### 17.4 Known defect — the pointer over-advances
+
+After a hit the pointer moves past the **last wanted word in the window**. When two consecutive readings share a word, the second reading's own utterance has already been consumed, and it is skipped entirely. Diagnosed, reproduced, **not fixed** — the fix interacts with the collision guard in §17.2 and wants measuring, not guessing.
+
+---
+
+## 18. LLM snippet mapping — measured, not built
+
+`deepgram_transcript_example.md` (new) shows the raw Deepgram response, the processed `WordIndex`, and a real excerpt, so the shape is on paper before anything is built on it.
+
+The question was whether the model that already reads these transcripts can place the readings better than the word-matching heuristic. Tested on the stretch of `7122(4)` the heuristic gets wrong — 478–516 s, five confusable readings at size M — under a strict schema returning **word indices, never timestamps**, so every answer is checkable against the index:
+
+```json
+{"pom": "1.23A", "found": true, "first_word": 822, "last_word": 829, "why": "..."}
+```
+
+**5 of 5 correct.** Including `1.23A`, where ACROSS FRONT SEAM TO SEAM was **never spoken** and the model found it by its value alone: *"Name omitted; 'eleven five by eight minus one by eight' gives the 11 5/8 measurement and deviation."* The heuristic placed that one at 499.0 s — a different reading's audio.
+
+**Not built yet.** Before it ships it needs: a full-job measurement rather than one window, index validation in code (in range, monotonic, non-overlapping), per-recording caching so a job is not re-billed, and the existing guards kept as a floor under it. Script and result are in the session scratchpad (`map_test.py`, `map_result.json`).
+
+---
+
+## 19. Audit screen
+
+| Change | Where |
+|---|---|
+| Sidebar narrowed 300 px → 240 px | `styles.css` `.shell` |
+| Header explanation folded behind an ⓘ | `AuditSheet.tsx`, native `<details>` — open, close and the keyboard come free |
+| ⓘ carries the shaky count | a sheet with 2 low-confidence readings must not look identical to a clean one when the note is closed |
+| New `--z-pop: 15` | the note was tying with the grid's sticky header on `--z-sticky`, so size and tolerance columns read through it |
+| Play button says **■ Stop** while playing | the flag comes off the `<audio>` element's own `play`/`pause`/`ended` events — the cue stops itself at the end of a reading, so a hand-set flag would lie |
+
+`src/api/index.html` (the dead parallel UI) was deliberately **not** kept in sync.
+
+---
+
+## 20. Files changed
+
+| File | Change |
+|---|---|
+| `.gitignore` | `data/*` + `!data/StyleSets/` |
+| `pyproject.toml` | `httpx`, `pillow`, `pydantic` to runtime; `dev` trimmed |
+| `src/services/style_set/scanned.py` | **new** — vision OCR, self-check, caching |
+| `src/services/style_set/spec_sheet.py` | `StyleSet.from_scan`, `scan_warnings`, scan fallback in `read_style_set` |
+| `src/services/style_set/library.py` | two-pass lookup so text always beats a scan |
+| `src/services/playback.py` | window fix, `MIN_PLAUSIBLE_SECONDS`, `LEAD_SECONDS`, `Cue.anchor` |
+| `src/frontend/src/components/AuditSheet.tsx` | ⓘ popover, Stop button |
+| `src/frontend/src/styles.css` | sidebar width, header padding, popover, `--z-pop` |
+| `tests/test_scanned_sheet.py` | **new** |
+| `tests/test_playback.py` | +2 run-up tests; placement assertions re-pointed at `Cue.anchor` |
+| `deepgram_transcript_example.md` | **new** |
+
+**Verification:** `pytest` 341 passed; `npm test` 35 passed; `tsc --noEmit` clean; `ruff` unchanged at the 12 pre-existing errors.
+
+---
+
+## 21. Open items — current
+
+| Item | State |
+|---|---|
+| `data/` in git **history** | **Open, highest priority.** `.gitignore` stopped the growth; ~1.3 GB of proprietary audio and stamped PDFs is still in history and still ships with a clone. Needs a rewrite decision. |
+| Pointer over-advance (§17.4) | **Open.** Diagnosed, reproducible, unfixed. |
+| LLM snippet mapping (§18) | **Proven on one window, not built.** |
+| End-to-end rehearsal | **Never run since playback landed.** Worth doing before the next demo. |
+| `httpx` in `pyproject` | **Done** (§15) |
+| `data/` gitignored | **Done going forward** (§14) |
+| `DEEPGRAM_API_KEY` undocumented | Open — absent from `.env.example` and `README.md` |
+| 12 pre-existing lint errors | Open — CI is already red on `main`; 5 auto-fixable |
+| `src/api/index.html` | Open — 1319-line parallel UI, now further behind |
+| `POST /api/transcript-jobs` | Open — reachable, called by nothing |
+| `CellEdit.measured` in `types.ts` | Open — dead field |
+| `README.md` drift | Open — and now also missing `scanned.py` |

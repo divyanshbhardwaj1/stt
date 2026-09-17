@@ -75,8 +75,11 @@
   --r-ctl: 7px;
   --r-chip: 5px;
 
-  /* Semantic layers. Two is all this page needs; never a bare 999. */
+  /* Semantic layers; never a bare 999. */
   --z-sticky: 10;
+  /* Above the grid's sticky header, below the cell editor: a note opened over
+     the sheet must cover the size and tolerance columns, not read through them. */
+  --z-pop: 15;
   --z-toast: 20;
 
   --ease: cubic-bezier(.22, .61, .36, 1);   /* ease-out-quart */
@@ -208,7 +211,7 @@ h1, h2, h3 { margin: 0; font-weight: 620; letter-spacing: -0.011em; text-wrap: b
   outline-offset: 2px;
   border-radius: 3px;
 }
-.shell { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100vh; }
+.shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100vh; }
 
 /* ============================================================
    Controls
@@ -797,9 +800,35 @@ details[open] summary { margin-bottom: 9px; }
    make it unusable for the one job it exists for.
    ============================================================ */
 .audit { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.audit-head { flex: 0 0 auto; padding: 20px 32px 12px; border-bottom: 1px solid var(--line); }
-.audit-head .title { margin-bottom: 5px; }
+.audit-head { flex: 0 0 auto; padding: 13px 32px 10px; border-bottom: 1px solid var(--line); }
+.audit-head .title { margin-bottom: 3px; }
 .audit-head .lede { margin: 0; }
+
+/* The folded note beside the heading. Native <details>, so open/close, focus
+   and the keyboard cost nothing. */
+.explain { position: relative; }
+.explain > summary {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0 8px; height: 21px;
+  border: 1px solid var(--line); border-radius: var(--r-chip);
+  background: var(--paper); color: var(--ink-mute);
+  font: italic 620 12px/1 var(--serif, Georgia, "Times New Roman", serif);
+  cursor: pointer; list-style: none; user-select: none;
+}
+.explain > summary::-webkit-details-marker { display: none; }
+.explain > summary:hover { color: var(--ink); border-color: var(--ink-mute); }
+.explain[open] > summary { background: var(--rail); color: var(--ink); }
+.explain-box {
+  position: absolute; z-index: var(--z-pop);
+  top: calc(100% + 6px); left: 0;
+  width: max(320px, 48ch); max-width: 86vw;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--r-panel);
+  box-shadow: 0 6px 18px oklch(0.24 0.014 240 / 0.12);
+}
+.explain-box .lede { max-width: none; }
+.explain-box .lede + .lede { margin-top: 9px; }
 .audit-foot { flex: 0 0 auto; padding: 18px 32px 28px; border-top: 1px solid var(--line); }
 .audit-foot h3 {
   display: flex; align-items: baseline; gap: 8px;

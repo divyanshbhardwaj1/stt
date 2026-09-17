@@ -67,6 +67,20 @@ MAX_WINDOW_SECONDS = 45.0
 # point of measure, and never finds out.
 MIN_PLAUSIBLE_SECONDS = 4.0
 
+# How long before the anchor playback opens.
+#
+# The anchor lands on the first word of the reading the index actually matched,
+# which is rarely the first word the inspector said: "across shoulder seam to
+# seam" anchors on "shoulder" when "across" was mis-transcribed, and the operator
+# hears the reading already in progress. Three seconds is about two words of
+# run-up at dictation pace.
+#
+# Clamped to half the gap back to the previous anchor, never taken flat. The
+# readings here sit a median 5s apart and some are 2s apart, so a flat lead-in
+# would open inside the PREVIOUS reading's utterance - the same wrong-cell
+# playback as an overrun, arriving from the other side.
+LEAD_SECONDS = 3.0
+
 # How far past the previous reading a match may sit before it is disbelieved.
 #
 # Every point of measure is read again for every size, so the same phrase occurs
@@ -153,8 +167,14 @@ class Cue:
     """Where one reading is in the recording."""
 
     row: int  # report number
+    # Where playback opens - a little before the anchor, so the reading is not
+    # already under way when the operator hears it.
     start: float
     end: float
+    # Where the reading was actually placed. Kept apart from `start` because
+    # every judgement about this cue is made against the reading, not against
+    # its run-up: how long the reading is, and whether it runs into the next.
+    anchor: float
     # False when the index never caught this reading's name and it was placed
     # between its neighbours instead. Shown to the operator rather than hidden:
     # an approximate cue that looks exact is worse than one that admits it.
@@ -289,6 +309,7 @@ def _windows(
     known = [(number, at) for number, at in placed if at is not None]
     out: dict[int, Cue] = {}
     for position, (number, at) in enumerate(known):
+        previous = known[position - 1][1] if position else None
         following = known[position + 1][1] if position + 1 < len(known) else None
         if following is None:
             # Nothing after it to run into, so the floor is safe here: it only
@@ -308,7 +329,12 @@ def _windows(
         # than dropped - the operator still gets somewhere to listen, and is
         # told not to take it at face value.
         trustworthy = number not in guessed and (end - at) >= MIN_PLAUSIBLE_SECONDS
-        out[number] = Cue(row=number, start=max(0.0, at), end=end, exact=trustworthy)
+        # Half the gap at most: the run-up may never reach back into the reading
+        # before this one.
+        lead = LEAD_SECONDS if previous is None else min(LEAD_SECONDS, (at - previous) / 2)
+        out[number] = Cue(
+            row=number, start=max(0.0, at - lead), end=end, anchor=at, exact=trustworthy
+        )
     return out
 
 
