@@ -524,3 +524,188 @@ The question was whether the model that already reads these transcripts can plac
 | `POST /api/transcript-jobs` | Open — reachable, called by nothing |
 | `CellEdit.measured` in `types.ts` | Open — dead field |
 | `README.md` drift | Open — and now also missing `scanned.py` |
+
+---
+
+# Session Handout — The Undeclared Dependency, Lint, and Crash-Durable Recording
+
+**Date:** 18–21 September 2026
+**Scope:** found and fixed the dependency that made the scanned-sheet path dead on any clean install; cleared the lint backlog CI has been red on since `7d02a8f`; made a recording survive the tab that captured it.
+
+Continues the numbering above. Where this contradicts §21, this part is current.
+
+---
+
+## 22. Summary
+
+| # | Work | Outcome |
+|---|---|---|
+| 1 | Read the whole codebase | Findings in §28 |
+| 2 | `pypdfium2` was never declared | 5 failing tests → **0**; scanned sheets worked only by luck |
+| 3 | `ruff check` backlog cleared | **12 → 0** errors, untouched since `7d02a8f` |
+| 4 | Recordings written to IndexedDB as they are captured | a killed tab no longer costs the inspection |
+| 5 | Recovery in the intake pane | rebuild a stored take, or delete it |
+| 6 | Upload is no longer the only copy | the stored take is dropped on 202, not before |
+| 7 | A read-modify-write race, caught while building | a recovered take claimed a duration of `0` |
+
+**Tests:** 341 Python (5 were failing, see §23), 35 → **42** frontend.
+
+---
+
+## 23. `pypdfium2` was imported but never declared
+
+`style_set/scanned.py` renders each page of a scanned sheet with `pypdfium2`. It is in neither `pyproject.toml` nor `requirements.txt`, and never has been.
+
+This is the same class of bug as §15, one layer down — and §15 is how it hid. That audit declared **`pillow`** with the note *"`pypdfium2`'s `.to_pil()` is how a page becomes an image"*: the dependency's dependency was declared and the dependency itself was not. `pillow` also arrives for `artwork.py`, so nothing pointed at the gap.
+
+What it cost on any environment that had not happened to install it:
+
+```
+read_style_set → no text layer → _read_scan → ScanError:
+  "reading a scanned sheet needs pypdfium2: No module named 'pypdfium2'"
+```
+
+`find_style_set` catches `SpecSheetError` and moves on to the next candidate, so **every scanned style set was silently unavailable** — the failure a clean `pip install -e ".[dev]"` produces, not a loud one. Two of the eight sheets on hand carry no text layer. §16's whole feature was reachable only on a machine where the package had arrived by accident.
+
+Declared in both files. `pytest` goes from `5 failed, 335 passed, 1 skipped` to **341 passed**; `tests/test_scanned_sheet.py` alone is 12/12.
+
+---
+
+## 24. Lint — `ruff check` is clean, and what remains is the formatter
+
+`ruff check .` had been red at 12 errors since `7d02a8f`, so the `ci` job has been failing on `main` this whole time.
+
+| Rule | Count | Fix |
+|---|---|---|
+| `I001` unsorted imports | 4 | `--fix` |
+| `UP017` `datetime.timezone.utc` | 1 | `--fix` → `datetime.UTC` |
+| `E501` line too long | 6 | by hand |
+| `B905` `zip()` without `strict=` | 1 | by hand |
+
+Two of the hand fixes were more than reflow:
+
+- **`alignment.py`** — the 118-character parameter type on `align_size` became a named `SpokenRow` alias with a comment naming the tuple's fields. The docstring already described the shape; now the signature does too.
+- **`test_playback.py`** — `zip(ordered, ordered[1:])` became `itertools.pairwise(ordered)`. `strict=` is the literal fix the rule asks for and is the wrong one here: the two arguments differ in length by one **by construction**, so `strict=True` fails and `strict=False` only silences the check. It is pairwise iteration, and the stdlib says so in one word.
+
+**`ruff format --check` is still red, and was before this session.** It reported **11** files at `HEAD`; the hand fixes happened to settle `alignment.py` and `timing.py`, so it now reports **9**. This is *not* worth closing with a blanket `ruff format .`: most of the remaining diff is deliberately hand-aligned data — `HEADER_FIELDS` in `scanned.py`, the index tables throughout `test_playback.py`, the row dicts in `test_scanned_sheet.py` — which the formatter would explode to one item per line. The repo already uses `# fmt: skip` for exactly this (`KEYWORDS`, `SPOKEN_DIGITS`, `ONES`), so the fix is extending those markers block by block and then formatting the rest. A judgement call per block, not a command.
+
+---
+
+## 25. A recording now survives the tab that captured it
+
+### 25.1 The premise was wrong, and it matters
+
+The ask was "keep recording when the internet drops". Recording already does that: `MediaRecorder`, `getUserMedia` and the `AnalyserNode` are local, and the only casualty of losing the network is the live monitor's WebRTC session — which `useLiveTranscript.ts` already handles and already says *"the recording is unaffected"*.
+
+The real exposure was never the network:
+
+1. **The upload fails at the end**, and the take existed only in `chunks.current` plus React state.
+2. **The tab dying takes the inspection with it** — a crash, or an OOM kill on a backgrounded tablet, against 10–20 MB of webm/opus held in a JS array. `Intake.tsx`'s `beforeunload` guard catches deliberate navigation and nothing else.
+
+Half an hour of a factory floor's time, and unrepeatable: the garments are back on the line. One mechanism fixes both.
+
+### 25.2 IndexedDB, and no dependency
+
+`localStorage` fails three independent ways here: it is **synchronous**, so it would stutter the `requestAnimationFrame` loop `Waveform` runs; it stores **strings**, so a `Blob` would travel as base64 at +33 %; and its **~5 MB cap** is a fraction of one inspection.
+
+Raw IndexedDB, not `idb` or `dexie`. This is "put a blob in a store, read them back in order" — about 200 lines including the comments, against a `package.json` whose runtime dependencies are `react` and `react-dom` and nothing else.
+
+### 25.3 The design
+
+`machine.start(1000)` was **already** emitting a chunk per second into an in-memory array. The whole feature is writing each one as it arrives, in a handler that already existed:
+
+```ts
+machine.ondataavailable = (event) => {
+  if (!event.data.size) return;
+  chunks.current.push(event.data);
+  void appendChunk(session.current.id, seq.current++, event.data);
+};
+```
+
+Not awaited: a slow write must never hold up capture, and a dropped chunk costs one second.
+
+Two stores — `sessions` keyed by id, `chunks` keyed by the compound `["session", "seq"]` so a key range returns one recording's chunks already in order. A session is deleted **only** once the server returns 202, so anything left on load is either a recording whose tab died (`status: "recording"`) or a take that was never uploaded (`status: "ready"`). Both surface in the intake pane with **Recover** and **Delete**.
+
+The backend needed **nothing**. A recovered take is a `File` and rides the identical `POST /api/jobs`.
+
+### 25.4 The gotcha that decides whether any of this works
+
+**MediaRecorder chunks are not independently valid.** Only chunk 0 carries the container header — the WebM EBML header, or the MP4 init segment on Safari — and every later chunk is raw cluster data.
+
+- In order → a playable file. This is what the in-memory path always did.
+- Reordered → corrupt.
+- **Missing chunk 0 → no header, and nothing will ever open it.**
+
+So the sequence number is not bookkeeping, it is the correctness requirement, and `assembleChunks` refuses a set whose first chunk is absent rather than returning a file that looks fine until someone tries to play it. An interior gap is *not* refused: the audio either side is still worth having, and the intake already tells the operator to play a take back before processing it.
+
+It also means **a crashed recording cannot be resumed into the same file** — a fresh `MediaRecorder` emits a fresh header. The honest scope is "recover everything captured up to the crash, then start a new take", which for this product is still the whole win.
+
+A recovered WebM has no duration and no Cues element, so the browser cannot seek it — but `playable_copy()` already re-encodes to CBR server-side for exactly that reason (§5.2), so recovery needed to solve nothing there.
+
+### 25.5 Two things the build changed
+
+**No `online` auto-retry, though it was in the plan.** The style set is chosen at upload time and a recovered recording carries none, so an automatic upload would quietly fall back to whatever style the recording announces — the wrong sheet, judged silently. Recovery routes back through the ordinary intake instead, where the operator picks the style and presses Process. Less code and more correct.
+
+**A read-modify-write race, found while wiring it.** `onstop` wrote `{ms}` and `Intake.accept` wrote `{liveTranscript}` back to back. Both are read-then-write and both read before either wrote, so the duration was being overwritten with `0` — a recovered take would have claimed it held no audio. Now `accept` makes **one** write carrying both fields, and `finishSession`'s docstring says why it must stay one call.
+
+---
+
+## 26. Files changed
+
+| File | Change |
+|---|---|
+| `pyproject.toml` | `pypdfium2>=4.30` in `[project] dependencies` |
+| `requirements.txt` | the same, beside `pypdf` / `pillow` |
+| `src/frontend/src/recordingStore.ts` | **new** — raw IndexedDB, fail-soft, `assembleChunks` |
+| `src/frontend/src/hooks/useRecorder.ts` | session per recording; chunk written on arrival; `Take.sessionId`; filename minted at start |
+| `src/frontend/src/components/Intake.tsx` | recovery banner, `finishSession`, drop-on-202 |
+| `src/frontend/src/styles.css` | `.msg.recover`, on the existing `--open` token |
+| `src/frontend/src/recordingStore.test.ts` | **new** — 7 tests |
+| `src/services/style_set/alignment.py` | `SpokenRow` alias; ternary reflow |
+| `src/services/timing.py` | signature and message reflow |
+| `src/api/app.py`, `src/services/audit.py`, `src/pipeline/__init__.py`, `src/services/csv_filler/__init__.py` | import order; `datetime.UTC` |
+| `tests/test_playback.py` | `itertools.pairwise`; one reflow |
+
+---
+
+## 27. Verification
+
+```
+pytest                341 passed          (was 5 failed, 335 passed, 1 skipped)
+ruff check .          All checks passed!  (was 12 errors)
+ruff format --check   9 files             (was 11 — pre-existing, see §24)
+
+tsc -b                clean
+eslint .              clean
+npm test              42 passed           (was 35)
+npm run build         clean
+```
+
+The 7 new frontend tests cover `assembleChunks` — in-order join, shuffled input re-sorted, **missing chunk 0 refused**, empty set refused, interior gap still rebuilt, Safari's `audio/mp4` not relabelled — plus the fail-soft path.
+
+**The IndexedDB plumbing itself is only exercised implicitly.** jsdom ships no `indexedDB`, which is also what private browsing and blocked site data look like from inside the module, so every existing recorder test now runs the whole absent-storage path; one test asserts directly that those calls resolve rather than throw. What this does **not** cover is a real browser actually writing, surviving a kill, and reading back. See §28.
+
+---
+
+## 28. Open items — current
+
+| Item | State |
+|---|---|
+| **Recording recovery never exercised in a real browser** | **Open, and it gates the feature.** The logic is tested; the round trip — record, kill the tab, reload, Recover, Process — is not. Do this before it is relied on. |
+| `data/` in git **history** | **Open, highest priority.** Unchanged since §14: `.gitignore` stopped the growth, ~1.3 GB of proprietary audio and stamped PDFs still ships with a clone. Needs a rewrite decision. |
+| Abandoned recordings have no TTL | **Open — a decision.** Client audio now persists on the operator's device until it uploads or is deleted by hand. A sweep dropping anything unuploaded after N days is ~10 lines; N is the question. |
+| Browser storage is per-origin | **Open — document it.** A recording saved on `127.0.0.1:8000` is invisible from a LAN address or a tunnel. Worth a line in the README before a tablet moves between them. |
+| Pointer over-advance (§17.4) | **Open.** Diagnosed, reproducible, unfixed. |
+| LLM snippet mapping (§18) | **Proven on one window, not built.** |
+| End-to-end rehearsal | **Never run since playback landed**, and now also since recovery landed. |
+| `ruff format --check` | Open — 9 files, pre-existing; wants `# fmt: skip` per block, not a blanket format (§24) |
+| `DEEPGRAM_API_KEY` undocumented | Open — absent from `.env.example` and `README.md`; playback is silently off without it |
+| `src/api/index.html` | Open — 1319-line parallel UI, and it has no recovery UI at all, so a fallback checkout can still lose a recording |
+| `POST /api/transcript-jobs` | Open — reachable, called by nothing |
+| `CellEdit.measured` in `types.ts` | Open — dead field |
+| `README.md` drift | Open — `pipeline/measurements.py` is `services/`; `scanned.py`, `audit.py`, `playback.py`, `timing.py`, `style_set/` and now `recordingStore.ts` are all absent |
+| Crash mid-recording loses the live transcript | Open, low — written once at stop. It is a monitor; no stage of the pipeline reads it |
+| No service worker / Background Sync | Open, deferred — the Retry path covers the tab-open case; this is for uploads completing with the tab closed |
+| No resumable upload | Open, deferred — `POST /api/jobs` takes one multipart body, so a 20 MB upload on a bad line restarts from zero. Backend work; do it if on-site retries actually fail |
+| 12 pre-existing lint errors | **Done** (§24) |
+| `pypdfium2` undeclared | **Done** (§23) |

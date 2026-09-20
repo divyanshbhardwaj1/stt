@@ -295,8 +295,15 @@ def _judge(
     return measured, deviation, ok, on_spec, False
 
 
+# One dictated reading: (number, field, value, deviation, confidence, note,
+# confirmed_okay), optionally followed by a `pom_index` pin.
+SpokenRow = (
+    tuple[int, str, str, str, float, str, bool] | tuple[int, str, str, str, float, str, bool, int]
+)
+
+
 def align_size(
-    spoken_rows: list[tuple[int, str, str, str, float, str, bool] | tuple[int, str, str, str, float, str, bool, int]],
+    spoken_rows: list[SpokenRow],
     sheet_rows: list[PomRow],
     size: str,
 ) -> list[AlignedRow]:
@@ -330,7 +337,9 @@ def align_size(
         # cell, so it goes straight to the matched path below.
         best_index = pinned if 0 <= pinned < len(sheet_rows) and pinned not in claimed else None
         candidates = []
-        search = range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD) if best_index is None else ()
+        search = (
+            range(max(pointer - LOOKBEHIND, 0), pointer + LOOKAHEAD) if best_index is None else ()
+        )
         for index in search:
             if index >= len(sheet_rows):
                 break

@@ -8,6 +8,13 @@ import {
   type Utterance,
 } from "../hooks/useLiveTranscript";
 import { useRecorder, type Take } from "../hooks/useRecorder";
+import {
+  assembleFile,
+  dropSession,
+  finishSession,
+  pendingSessions,
+  type StoredSession,
+} from "../recordingStore";
 import { LiveTranscript } from "./LiveTranscript";
 import { Waveform } from "./Waveform";
 
@@ -44,6 +51,21 @@ export function Intake({ onQueued, children }: Props) {
    */
   const [heard, setHeard] = useState<Utterance[]>([]);
   const [picked, setPicked] = useState<File | null>(null);
+  /**
+   * Where the take in hand is stored, so it can be forgotten once uploaded.
+   *
+   * Empty for a file the operator chose off disk: that one already exists
+   * somewhere they control, so there is nothing of ours to clean up.
+   */
+  const [takeSession, setTakeSession] = useState("");
+  /**
+   * Recordings held in browser storage that the server has never accepted -
+   * a tab that died mid-inspection, or a take whose upload never landed.
+   */
+  const [stored, setStored] = useState<StoredSession[]>([]);
+  /** The monitor's text off a recovered recording, which has no live session. */
+  const [savedTranscript, setSavedTranscript] = useState("");
+  const [recovering, setRecovering] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [styleNo, setStyleNo] = useState("");
   const [styleSets, setStyleSets] = useState<string[] | null>(null);
@@ -58,8 +80,18 @@ export function Intake({ onQueued, children }: Props) {
   const accept = useCallback((next: Take) => {
     setPicked(null);
     setTake(next);
+    setTakeSession(next.sessionId);
     setHeard(liveHeard.current);
+    setSavedTranscript("");
     setPreviewUrl(URL.createObjectURL(next.file));
+    // One write, marking the recording stopped and saving everything known
+    // about it. The transcript is written here rather than as it streams
+    // because nothing downstream reads it - it is audit material, not worth a
+    // write per utterance.
+    void finishSession(next.sessionId, {
+      ms: next.ms,
+      liveTranscript: transcriptText(liveHeard.current),
+    });
   }, []);
 
   const recorder = useRecorder(accept);
@@ -111,15 +143,62 @@ export function Intake({ onQueued, children }: Props) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [live, take]);
 
+  const refreshStored = useCallback(() => {
+    void pendingSessions().then(setStored);
+  }, []);
+
+  useEffect(() => {
+    refreshStored();
+  }, [refreshStored]);
+
+  /** Load a stored recording back into the intake, as though it had just stopped. */
+  const recover = useCallback(async (session: StoredSession) => {
+    setRecovering(true);
+    setUploadError("");
+    try {
+      const file = await assembleFile(session);
+      if (!file) {
+        setUploadError(
+          `${session.filename} could not be rebuilt: its opening chunk is missing, and ` +
+            "without that there is no container header and nothing can play it. " +
+            "Nothing else was touched.",
+        );
+        return;
+      }
+      setPicked(null);
+      setTake({ file, ms: session.ms, sessionId: session.id });
+      setTakeSession(session.id);
+      setHeard([]);
+      setSavedTranscript(session.liveTranscript);
+      setPreviewUrl(URL.createObjectURL(file));
+    } finally {
+      setRecovering(false);
+    }
+  }, []);
+
+  const forget = useCallback(
+    async (id: string) => {
+      await dropSession(id);
+      refreshStored();
+    },
+    [refreshStored],
+  );
+
   const clear = useCallback(() => {
+    // The take is finished with - uploaded, or thrown away on purpose - so the
+    // stored copy goes too. This is the ONLY place it is dropped: anywhere
+    // earlier and a failed upload would take the inspection with it.
+    if (takeSession) void dropSession(takeSession).then(refreshStored);
     setTake(null);
+    setTakeSession("");
     setHeard([]);
+    setSavedTranscript("");
     setPicked(null);
     setPreviewUrl("");
     setUploadError("");
     recorder.setError("");
     if (fileInput.current) fileInput.current.value = "";
-  }, [recorder]);
+  }, [recorder, takeSession, refreshStored]);
 
   const choose = useCallback(
     (file: File | undefined | null) => {
@@ -138,7 +217,10 @@ export function Intake({ onQueued, children }: Props) {
     setUploadError("");
     setProgress(0);
     try {
-      const job = await uploadRecording(pending, styleNo, transcriptText(heard), setProgress);
+      // A recovered take has no live session behind it, so its monitor text
+      // comes back off the stored recording instead.
+      const monitor = heard.length ? transcriptText(heard) : savedTranscript;
+      const job = await uploadRecording(pending, styleNo, monitor, setProgress);
       setProgress(-1);
       clear();
       onQueued(job);
@@ -146,7 +228,7 @@ export function Intake({ onQueued, children }: Props) {
       setProgress(-1);
       setUploadError(cause instanceof Error ? cause.message : "Upload failed.");
     }
-  }, [pending, styleNo, heard, clear, onQueued]);
+  }, [pending, styleNo, heard, savedTranscript, clear, onQueued]);
 
   const onDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -179,6 +261,43 @@ export function Intake({ onQueued, children }: Props) {
       onDrop={onDrop}
     >
       <div className="inner">
+        {/* Anything the server has never accepted. Shown only with the intake
+            idle, so it cannot be mistaken for the take already in hand. */}
+        {!live && !pending && stored.length > 0 && (
+          <div className="msg recover" role="status">
+            <b>
+              {stored.length === 1
+                ? "A recording on this device has not been processed"
+                : `${stored.length} recordings on this device have not been processed`}
+            </b>
+            <ul>
+              {stored.map((session) => (
+                <li key={session.id}>
+                  <span>
+                    <b>{session.filename}</b>
+                    {session.ms ? <> &middot; {hms(session.ms)}</> : null}
+                    {session.status === "recording" ? (
+                      <em> &middot; the tab closed while this was still recording</em>
+                    ) : null}
+                  </span>
+                  <span className="row tight">
+                    <button onClick={() => void recover(session)} disabled={recovering}>
+                      {recovering ? "Rebuilding…" : "Recover"}
+                    </button>
+                    <button
+                      className="danger"
+                      onClick={() => void forget(session.id)}
+                      disabled={recovering}
+                    >
+                      Delete
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {live ? (
           <>
             <div className="row">

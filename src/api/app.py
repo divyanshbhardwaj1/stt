@@ -12,12 +12,13 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from services.config import ConfigError, Settings
+from pipeline import resize_inspection, settle_inspection
 from services.audit import SettleError, audit_grid
-from services.playback import cues, playable_copy
-from services.timing import TimingError, word_index
+from services.config import ConfigError, Settings
 from services.csv_filler import load_json
+from services.playback import cues, playable_copy
 from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
+from services.timing import TimingError, word_index
 from services.transcript import (
     AUDIO_SUFFIXES,
     DOMAIN_PROMPT,
@@ -25,8 +26,6 @@ from services.transcript import (
     live_transcript_path_for,
 )
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
-
-from pipeline import resize_inspection, settle_inspection
 
 from .jobs import DONE, DOWNLOADS, JobStore, apply_result, process, process_transcript
 
@@ -488,7 +487,11 @@ def playback_cues(job_id: str, settings: SettingsDep) -> dict[str, object]:
     return {
         "duration": index.duration,
         "cues": {
-            str(number): {"start": round(cue.start, 2), "end": round(cue.end, 2), "exact": cue.exact}
+            str(number): {
+                "start": round(cue.start, 2),
+                "end": round(cue.end, 2),
+                "exact": cue.exact,
+            }
             for number, cue in found.items()
         },
     }

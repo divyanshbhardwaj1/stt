@@ -14,6 +14,9 @@ reportlab>=4.1          # writes the report and graded-sheet PDFs
 pillow>=10.0            # style_set/artwork.py: lifts the sketch and eagle out of
                         # a style set. Optional — without it the report still
                         # builds, minus the client's own artwork.
+pypdfium2>=4.30         # style_set/scanned.py: rasterises a scanned sheet for the
+                        # vision pass. pypdf reads text and cannot render, so this
+                        # does not come with it.
 
 # --- web app ------------------------------------------------------------
 fastapi>=0.115

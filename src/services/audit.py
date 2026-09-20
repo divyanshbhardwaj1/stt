@@ -25,13 +25,12 @@ the extraction together, and `csv_filler` already depends on `style_set`.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from services.csv_filler import Correction, InspectionRow, InspectionSheet
 from services.csv_filler.inspection_record import REVIEW_THRESHOLD
 from services.measurements import format_measurement as fmt
 from services.measurements import is_garment_fraction, parse
-
 from services.style_set import AlignedRow, Alignment
 from services.style_set.alignment import check_size_attribution
 from services.style_set.spec_sheet import StyleSet
@@ -232,7 +231,7 @@ class SettleError(ValueError):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _replace(row: InspectionRow, edit: dict[str, str]) -> InspectionRow:

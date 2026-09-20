@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { appendChunk, dropSession, keepStorage, startSession } from "../recordingStore";
 
 /**
  * Capture, as a state machine: idle -> recording <-> paused -> idle.
@@ -54,6 +55,14 @@ export interface Take {
   file: File;
   /** Recorded duration in milliseconds, excluding any paused stretches. */
   ms: number;
+  /**
+   * Where this take is stored until the server has it.
+   *
+   * Carried so the caller can forget the recording once it is uploaded, and
+   * only then — dropping it any earlier is how a failed upload becomes a lost
+   * inspection.
+   */
+  sessionId: string;
 }
 
 function container(): string {
@@ -97,6 +106,9 @@ export function useRecorder(onTake: (take: Take) => void) {
   const quietSince = useRef(0);
   const discarding = useRef(false);
   const takeMs = useRef(0);
+  /** The recording being written to storage, and the next chunk's position in it. */
+  const session = useRef({ id: "", filename: "" });
+  const seq = useRef(0);
 
   /** Level history, newest last. Read by <Waveform/>; never render state. */
   const levels = useRef<number[]>([]);
@@ -157,9 +169,33 @@ export function useRecorder(onTake: (take: Take) => void) {
     quietSince.current = 0;
     setPauses(0);
 
+    // Named at the start rather than at the stop, so a recording recovered
+    // after a crash carries the name it would have had.
+    const started = stamp();
+    session.current = {
+      id: `${started}-${Math.random().toString(36).slice(2, 8)}`,
+      filename: `inspection-${started}${CONTAINERS[type]}`,
+    };
+    seq.current = 0;
+    void keepStorage();
+    void startSession({
+      id: session.current.id,
+      filename: session.current.filename,
+      mimeType: type,
+      startedAt: Date.now(),
+      ms: 0,
+      status: "recording",
+      liveTranscript: "",
+    });
+
     const machine = new MediaRecorder(media, { mimeType: type });
     machine.ondataavailable = (event) => {
-      if (event.data.size) chunks.current.push(event.data);
+      if (!event.data.size) return;
+      chunks.current.push(event.data);
+      // Written as it arrives, not gathered up at the end: the end is exactly
+      // the moment we do not get to if the tab is killed. Not awaited — a slow
+      // write must never hold up capture, and a lost chunk costs a second.
+      void appendChunk(session.current.id, seq.current++, event.data);
     };
     machine.onerror = () => setError("Recording stopped unexpectedly.");
     machine.onstop = () => {
@@ -171,20 +207,24 @@ export function useRecorder(onTake: (take: Take) => void) {
       setState("idle");
       setSilent(false);
 
+      const { id, filename } = session.current;
       if (discarding.current) {
         discarding.current = false;
+        void dropSession(id);
         return;
       }
       if (!blob.size) {
         setError("Nothing was recorded. Check the microphone and try again.");
+        void dropSession(id);
         return;
       }
+      // Not marked stopped here. The consumer does that in one write, once it
+      // has the duration AND the monitor's text: two read-modify-writes racing
+      // each other drop whichever field lost, and a recovered take with a
+      // duration of zero is a lie about what is on the device.
       // A File, not a Blob: the upload path reads .name for the report name,
       // and the server names the transcript and every output after it.
-      deliver.current({
-        file: new File([blob], `inspection-${stamp()}${CONTAINERS[type]}`, { type }),
-        ms: duration,
-      });
+      deliver.current({ file: new File([blob], filename, { type }), ms: duration, sessionId: id });
     };
 
     // Level metering taps the same MediaStream; it does not affect capture.

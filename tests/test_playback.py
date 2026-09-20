@@ -9,6 +9,7 @@ floor's speech is Hindi, so the index has to come from somewhere else.
 import json
 import subprocess
 from fractions import Fraction
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -82,7 +83,9 @@ def test_readings_run_in_order_even_when_a_name_repeats():
         ("front", 90.0), ("length", 90.5),
     ], duration=200.0)
 
-    found = cues(_alignment(_reading(1, "Front length", "M"), _reading(2, "Front length", "L")), index)
+    found = cues(
+        _alignment(_reading(1, "Front length", "M"), _reading(2, "Front length", "L")), index
+    )
     assert found[1].anchor == pytest.approx(10.0)
     assert found[2].anchor == pytest.approx(90.0)
 
@@ -351,7 +354,7 @@ def test_a_cue_never_runs_into_the_reading_after_it():
 
     assert len(found) == 4
     ordered = sorted(found.values(), key=lambda cue: cue.anchor)
-    for cue, following in zip(ordered, ordered[1:]):
+    for cue, following in pairwise(ordered):
         assert cue.end <= following.anchor + 1e-6, (
             f"a cue ending at {cue.end} runs into the next reading at {following.anchor}"
         )

@@ -86,7 +86,9 @@ def index_path_for(recording: Path, settings: Settings) -> Path:
     return settings.transcripts_dir / f"{recording.stem}.words.json"
 
 
-def word_index(recording: Path, settings: Settings, client: httpx.Client | None = None) -> WordIndex:
+def word_index(
+    recording: Path, settings: Settings, client: httpx.Client | None = None
+) -> WordIndex:
     """The recording's words and their times, building and caching on first ask.
 
     Lazy on purpose. Most inspections are never listened back to, and paying to
@@ -128,7 +130,9 @@ def word_index(recording: Path, settings: Settings, client: httpx.Client | None 
     if response.status_code != 200:
         # The upstream reason verbatim: a rejected key and an unsupported format
         # need different things done about them.
-        raise TimingError(f"timing service refused the recording ({response.status_code}): {_detail(response)}")
+        raise TimingError(
+            f"timing service refused the recording ({response.status_code}): {_detail(response)}"
+        )
 
     index = _read(response.json())
     if not index.words:

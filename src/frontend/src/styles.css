@@ -416,6 +416,25 @@ audio { width: 100%; max-width: 420px; height: 34px; }
 .msg { margin-top: 9px; font-size: 12.5px; line-height: 1.45; }
 .msg.bad { color: var(--fail); }
 
+/* A recording still on the device. --open rather than a new hue: this is an
+   inspection nobody has ruled on yet, which is the state that colour already
+   means everywhere else on the page. */
+.msg.recover {
+  margin-bottom: 12px; padding: 11px 13px;
+  background: var(--open-tint);
+  border: 1px solid var(--open);
+  border-radius: var(--radius);
+}
+.msg.recover > b { color: var(--open); }
+.msg.recover ul { list-style: none; margin: 7px 0 0; padding: 0; }
+.msg.recover li {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.msg.recover li > span:first-child { flex: 1 1 260px; overflow-wrap: anywhere; }
+.msg.recover em { color: var(--open); font-style: normal; }
+
 /* ============================================================
    Report
    ============================================================ */

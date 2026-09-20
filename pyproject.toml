@@ -26,6 +26,11 @@ dependencies = [
     # so this has never been at risk of going missing - but a direct import is a
     # dependency whether or not something else happens to satisfy it.
     "pydantic>=2.9",
+    # `style_set/scanned.py` renders a scanned sheet to images so the vision pass
+    # can read it. pypdf reads text and cannot rasterise, so this does not arrive
+    # with it. Without it a style set that came in as a scan is refused outright -
+    # which is safe, but it is the whole of the scanned-sheet path.
+    "pypdfium2>=4.30",
 ]
 
 [project.optional-dependencies]

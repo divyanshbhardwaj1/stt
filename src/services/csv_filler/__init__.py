@@ -21,8 +21,8 @@ from .inspection_record import (
     ROW_COLUMNS,
     SECTIONS,
     AccessoryCheck,
-    Correction,
     CommentAction,
+    Correction,
     InspectionRow,
     InspectionSheet,
 )
