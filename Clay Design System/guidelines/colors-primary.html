@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Primary & semantic" subtitle="CTA states + success / warning / error" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); }
+  .wrap { padding: 24px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .sw { width: 104px; }
+  .chip { height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-hairline); }
+  .name { font: var(--text-caption); color: var(--color-ink); margin-top: 8px; }
+  .hex { font: var(--text-caption); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:var(--color-primary)"></div><div class="name">Primary</div><div class="hex">#0a0a0a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-primary-active)"></div><div class="name">Primary active</div><div class="hex">#1f1f1f</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-primary-disabled)"></div><div class="name">Disabled</div><div class="hex">#e5e5e5</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-success)"></div><div class="name">Success</div><div class="hex">#22c55e</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-warning)"></div><div class="name">Warning</div><div class="hex">#f59e0b</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-error)"></div><div class="name">Error</div><div class="hex">#ef4444</div></div>
+  </div>
+</body>
+</html>

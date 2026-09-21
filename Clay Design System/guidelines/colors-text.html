@@ -1,0 +1,27 @@
+<!-- @dsCard group="Colors" viewport="700x170" name="Ink & text scale" subtitle="Ink → body-strong → body → muted → muted-soft" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); }
+  .wrap { padding: 24px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .sw { width: 104px; }
+  .chip { height: 56px; border-radius: var(--radius-md); }
+  .name { font: var(--text-caption); color: var(--color-ink); margin-top: 8px; }
+  .hex { font: var(--text-caption); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+  .row { display:flex; align-items:center; gap:24px; margin-top:20px; }
+  .specimen { font: var(--text-title-md); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:var(--color-ink)"></div><div class="name">Ink</div><div class="hex">#0a0a0a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-body-strong)"></div><div class="name">Body strong</div><div class="hex">#1a1a1a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-body)"></div><div class="name">Body</div><div class="hex">#3a3a3a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-muted)"></div><div class="name">Muted</div><div class="hex">#6a6a6a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-muted-soft)"></div><div class="name">Muted soft</div><div class="hex">#9a9a9a</div></div>
+  </div>
+</body>
+</html>

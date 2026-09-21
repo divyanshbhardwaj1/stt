@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Brand feature palette" subtitle="The 6-color saturated card cycle + accents" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); }
+  .wrap { padding: 24px; display: flex; flex-wrap: wrap; gap: 14px; }
+  .sw { width: 96px; }
+  .chip { height: 64px; border-radius: var(--radius-lg); }
+  .name { font: var(--text-caption); color: var(--color-ink); margin-top: 8px; }
+  .hex { font: var(--text-caption); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:var(--color-brand-pink)"></div><div class="name">Pink</div><div class="hex">#ff4d8b</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-teal)"></div><div class="name">Teal</div><div class="hex">#1a3a3a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-lavender)"></div><div class="name">Lavender</div><div class="hex">#b8a4ed</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-peach)"></div><div class="name">Peach</div><div class="hex">#ffb084</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-ochre)"></div><div class="name">Ochre</div><div class="hex">#e8b94a</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-surface-card)"></div><div class="name">Cream card</div><div class="hex">#f5f0e0</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-mint)"></div><div class="name">Mint</div><div class="hex">#a4d4c5</div></div>
+    <div class="sw"><div class="chip" style="background:var(--color-brand-coral)"></div><div class="name">Coral</div><div class="hex">#ff6b5a</div></div>
+  </div>
+</body>
+</html>

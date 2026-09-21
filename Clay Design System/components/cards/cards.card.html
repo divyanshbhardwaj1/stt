@@ -1,0 +1,58 @@
+<!-- @dsCard group="Components" viewport="700x560" name="Cards" subtitle="FeatureCard color cycle + Card variants" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); color: var(--color-ink); }
+  #root { padding: 28px 32px; }
+  .lab { font: var(--text-caption-uppercase); letter-spacing: var(--tracking-caption-uppercase); text-transform: uppercase; color: var(--color-muted); margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .frag { font: var(--text-caption); background: rgba(255,255,255,.18); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .frag.dark { background: rgba(10,10,10,.06); color: var(--color-muted); }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { FeatureCard, Card, Button, Avatar } = window.ClayDesignSystem_d1a48f;
+    function Demo() {
+      return (
+        <>
+          <div className="lab">Feature cards — color cycle</div>
+          <div className="grid">
+            <FeatureCard color="pink" eyebrow="Outbound" title="Sequence in one click" description="Push enriched records straight into outbound." />
+            <FeatureCard color="teal" eyebrow="Enterprise" title="Scale to the whole team" description="Roles, SSO, and audit logs built in." />
+            <FeatureCard color="lavender" eyebrow="Claygent" title="AI research agents" description="Let agents find what static data can't." />
+            <FeatureCard color="peach" eyebrow="Sources" title="100+ data providers" description="Waterfall enrichment across every source." />
+            <FeatureCard color="ochre" eyebrow="Community" title="Work with experts" description="Book a Clay-certified specialist." />
+            <FeatureCard color="cream" eyebrow="Templates" title="Start from a recipe" description="Proven playbooks, ready to run." />
+          </div>
+          <div className="lab">Card variants</div>
+          <div className="grid">
+            <Card variant="plain"><div style={{font:"var(--text-title-sm)"}}>Plain</div><div style={{font:"var(--text-body-sm)",color:"var(--color-muted)",marginTop:6}}>Canvas + hairline — mockups & tiers.</div></Card>
+            <Card variant="cream">
+              <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
+                <Avatar name="Mei Lin" tone="lavender" size={32} />
+                <div style={{font:"var(--text-title-sm)"}}>Mei Lin</div>
+              </div>
+              <div style={{font:"var(--text-body-sm)",color:"var(--color-body)"}}>"Clay replaced five tools for us."</div>
+            </Card>
+            <Card variant="featured">
+              <div style={{font:"var(--text-title-md)"}}>Team</div>
+              <div style={{font:"var(--text-display-sm)",letterSpacing:"var(--tracking-display-sm)",margin:"6px 0 12px"}}>$349</div>
+              <Button variant="on-color" style={{width:"100%"}}>Choose plan</Button>
+            </Card>
+          </div>
+        </>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+  </script>
+</body>
+</html>

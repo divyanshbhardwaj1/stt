@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Graded sheet · Size Set</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body data-rail="index.html">
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div class="audit">
+
+      <div class="audit-head">
+        <div class="page-title">
+          <h1 style="font: var(--text-title-lg); letter-spacing: var(--tracking-title-lg)">
+            Graded sheet <span class="dim" style="font-weight: 400">style 7122</span>
+          </h1>
+          <span class="pill ochre">NOT FINAL</span>
+
+          <!-- Folded away: read once, then in the way. The count stays on the
+               trigger, because a sheet with shaky readings has to say so
+               without being opened first. -->
+          <details class="explain">
+            <summary aria-label="About this sheet">i <span class="count">7</span></summary>
+            <div class="explain-box">
+              <p>
+                Every measurement is the spec off style <b>7122</b> plus the deviation the inspector
+                called. Click a cell to correct it; nothing is written until you save.
+                <b>1 cell</b> already settled by hand.
+              </p>
+              <p>
+                Worth listening back to: <b class="n">5</b> heard below 100% confidence,
+                <b class="n">2</b> of them under 85%; <b class="n">1</b> where the absolute the
+                inspector read aloud matches neither the spec nor this measurement.
+              </p>
+            </div>
+          </details>
+
+          <span class="spacer"></span>
+          <a class="btn secondary sm" href="index.html">Back to the report</a>
+        </div>
+      </div>
+
+      <div class="audit-scroll">
+        <!-- The one error that is wrong in every row at once. The recording
+             usually does not say the size, so grading falls back to the sheet's
+             base size — and each row still looks individually plausible. -->
+        <div style="padding: 16px 32px 0">
+          <!-- Shown to anyone without audit.edit. An approver looking at a
+               sheet they cannot change should be told that, once, rather than
+               discovering it by clicking cells that do nothing. -->
+          <div class="notice info" data-readonly hidden style="margin-bottom: 12px">
+            <b>You are looking at this sheet read-only.</b>
+            <span data-readonly-why></span>
+          </div>
+          <div class="notice warn">
+            <b>These readings are graded as M, but the recording sounds like L.</b>
+            16 spoken absolutes match the L column and 0 match M. Regrading rewrites every
+            measurement on this sheet.
+            <div class="row">
+              <button class="btn sm" data-need="audit.edit">Regrade as L</button>
+              <button class="btn secondary sm" data-need="audit.edit">Keep M</button>
+            </div>
+          </div>
+        </div>
+
+        <table class="grid" id="grid"></table>
+
+        <div class="gridkey">
+          <span><i class="sw" style="background: rgba(63,111,216,.20)"></i>
+            Heard below 85% — listen before releasing</span>
+          <span><i class="sw" style="background: rgba(63,111,216,.10)"></i>
+            Heard below 100%</span>
+          <span><i class="sw" style="background: rgba(184,164,237,.5)"></i> No verdict</span>
+          <span><i class="sw" style="background: rgba(239,68,68,.25)"></i> Out of tolerance</span>
+          <span class="spacer"></span>
+          <span>Sizes marked <b>*</b> were never dictated — spec only. Base size <b>M</b>.</span>
+        </div>
+      </div>
+
+      <div class="audit-foot">
+        <div data-staged hidden style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+          <span class="pill peach">
+            <b>1 correction</b>
+          </span>
+          <span class="hint muted" style="font: var(--text-caption)">
+            staged, not written
+          </span>
+        </div>
+        <span class="spacer"></span>
+        <span class="muted" style="font: var(--text-caption)">
+          74 readings · 71 judged · 3 without a verdict
+        </span>
+        <button class="btn secondary sm" data-need="audit.edit">Discard</button>
+        <button class="btn sm" data-need="audit.edit">Save corrections</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ------------------------------------------------------- cell editor -->
+<div class="scrim" id="scrim" hidden>
+  <div class="dialog" id="cell-dialog" role="dialog" aria-modal="true" aria-labelledby="cd-title">
+    <h2 id="cd-title" data-title>1.23A · M</h2>
+    <p class="sub" data-desc>ACROSS FRONT SEAM TO SEAM — RELAXED</p>
+
+    <dl class="kv">
+      <dt>Spec</dt>
+      <dd data-spec></dd>
+      <dt>Heard as</dt>
+      <dd data-heard></dd>
+    </dl>
+
+    <p class="notice bad" data-disputed hidden style="margin-bottom: 16px">
+      The absolute read aloud is neither the spec nor this measurement. The two numbers the
+      inspector said do not agree — listen back before releasing it.
+    </p>
+
+    <p class="notice info" data-fresh hidden style="margin-bottom: 16px">
+      The recording never covered this point of measure. Anything entered here is your reading,
+      not the inspector's — it is recorded as settled by hand.
+    </p>
+
+    <div class="fld">
+      <span>Recording<em>hear what was said</em></span>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+        <button class="btn secondary sm" data-play data-playing="false">▶ Play this reading</button>
+        <span class="dim" style="font: var(--text-caption)" data-approx hidden>
+          Placed between its neighbours, so this is approximate.
+        </span>
+      </div>
+    </div>
+
+    <div class="fld">
+      <span>Verdict</span>
+      <select id="verdict">
+        <option value="">—</option>
+        <option value="okay">okay — passed aloud</option>
+        <option value="deviation">deviation</option>
+        <option value="not stated">not stated</option>
+      </select>
+    </div>
+
+    <div class="fld">
+      <span>Deviation<em>what the inspector called</em></span>
+      <input type="text" id="deviation" placeholder="e.g. -1/8" />
+    </div>
+
+    <!-- The result, not a field. The style sheet is the only source for the
+         measurement, so there is nothing here to type into. -->
+    <div class="fld result">
+      <span>Measurement</span>
+      <div data-result>—</div>
+    </div>
+
+    <div class="dialog-foot">
+      <button class="btn sm" data-stage>Stage this correction</button>
+      <button class="btn secondary sm" data-close>Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="auth.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

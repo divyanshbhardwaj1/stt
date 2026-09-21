@@ -1,0 +1,13 @@
+/* Clay typefaces.
+   Display: "Plain Black" is a proprietary Clay typeface (not publicly licensed).
+   Substitute = Inter at weight 500 with negative letter-spacing (per Clay's own
+   substitution guidance). Body/UI = Inter.
+   Both are loaded from Google Fonts here. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Display headlines — Plain Black substitute */
+  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Body, UI, navigation */
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}

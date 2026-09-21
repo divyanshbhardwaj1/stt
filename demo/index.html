@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Inspection report · Size Set</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div class="wrap">
+
+      <!-- Intake. In the real app this sits at the top of the work pane and
+           takes over the whole pane while recording. -->
+      <div class="intake">
+        <div class="row">
+          <a class="btn" href="record.html" data-need="record">Record inspection</a>
+          <span class="hint">or <a class="link" href="#">choose a recording</a> — drop one anywhere here</span>
+        </div>
+        <div class="opts">
+          <label for="style">Check against</label>
+          <select id="style">
+            <option>Style announced in the recording</option>
+            <option selected>7122 — smocked button through</option>
+            <option>2463 — ribbed henley</option>
+            <option>2365 — poplin shirt dress</option>
+            <option>9662 — cropped cardigan</option>
+          </select>
+          <span class="hint">Eight sheets in the library</span>
+        </div>
+      </div>
+
+      <header>
+        <div class="page-title">
+          <h1>7122(4).mp3</h1>
+          <span class="pill success">done</span>
+        </div>
+        <p class="page-meta">
+          14 min 22 s · <b>Size set — holiday B 2026</b> · style <b>7122</b> · graded 21 Sep 2026
+        </p>
+      </header>
+
+      <!-- The verdict. One saturated feature card per screen, on the single
+           fact the page exists to deliver. Ochre = not final. -->
+      <section style="margin-top: 24px">
+        <div class="verdict open">
+          <span class="glyph" aria-hidden="true">??</span>
+          <div>
+            <span class="eyebrow">Verdict</span>
+            <h2>Not final — 3 points of measure have no verdict</h2>
+            <p>
+              The recording never ruled on them. These are <b>not</b> passes: transcription drops
+              short words, so each one has to be listened back to and filled in before this report
+              reaches a vendor. 2 measurements also came back out of tolerance.
+            </p>
+            <div class="row">
+              <a class="btn on-color" href="audit.html" data-need="audit.view">Open the graded sheet</a>
+              <a class="btn on-tint" href="#unanswered">Jump to the 3 open readings</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="unanswered">
+        <div class="section-head">
+          <h2>Unanswered points of measure</h2>
+          <span class="pill lavender">3 of 74 listed below</span>
+        </div>
+        <p class="lede">
+          Listen back to each of these and record the deviation the inspector called, or the pass.
+          Until then the report is not final.
+        </p>
+        <div class="tablewrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>POM</th><th>Size</th><th>Point of measure</th>
+                <th class="num">Spec</th><th>Heard as</th><th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pom">1.22A</td><td>S</td>
+                <td>ACROSS FRONT POSITION FROM HPS</td>
+                <td class="num">5</td><td class="why">—</td>
+                <td><span class="pill lavender">no verdict</span></td>
+              </tr>
+              <tr>
+                <td class="pom">1.22A</td><td>M</td>
+                <td>ACROSS FRONT POSITION FROM HPS</td>
+                <td class="num">5</td><td class="why">—</td>
+                <td><span class="pill lavender">no verdict</span></td>
+              </tr>
+              <tr>
+                <td class="pom">1.24A</td><td>M</td>
+                <td>ACROSS BACK POSITION FROM HPS</td>
+                <td class="num">5</td><td class="why">—</td>
+                <td><span class="pill lavender">no verdict</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Out of tolerance</h2>
+          <span class="pill error">2</span>
+        </div>
+        <p class="lede">
+          Measured against the graded spec sheet. The deviation is what the inspector called; the
+          measurement is rebuilt from the sheet, not from the spoken absolute.
+        </p>
+        <div class="tablewrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>POM</th><th>Size</th><th>Point of measure</th>
+                <th class="num">Spec</th><th class="num">Measured</th>
+                <th class="num">Deviation</th><th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pom">1.28A</td><td>M</td>
+                <td>CHEST 1" BELOW ARMHOLE — RELAXED</td>
+                <td class="num">32</td><td class="num">30 3/4</td>
+                <td class="num">−1 1/4</td>
+                <td><span class="pill error">out of tol</span></td>
+              </tr>
+              <tr>
+                <td class="pom">3.01A</td><td>L</td>
+                <td>SLEEVE LENGTH FROM C.B LONGEST POINT</td>
+                <td class="num">26 3/4</td><td class="num">26 1/4</td>
+                <td class="num">−1/2</td>
+                <td><span class="pill error">out of tol</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Worth confirming</h2>
+          <span class="pill ochre">4 of 74 rows</span>
+        </div>
+        <p class="lede">
+          Heard with less than full confidence — mid-sentence corrections, crosstalk, or a name the
+          model could not place. The value may well be right.
+        </p>
+        <div class="tablewrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th class="num">#</th><th>Size</th><th>Point of measure</th>
+                <th class="num">Value</th><th class="num">Heard</th><th>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="num">18</td><td>M</td>
+                <td>ACROSS FRONT SEAM TO SEAM — RELAXED</td>
+                <td class="num">11 3/8</td><td class="num">74%</td>
+                <td class="why">the absolute read aloud matches neither the spec nor this measurement</td>
+              </tr>
+              <tr>
+                <td class="num">12</td><td>M</td>
+                <td>ACROSS SHOULDER SEAM TO SEAM — RELAXED</td>
+                <td class="num">12 7/8</td><td class="num">82%</td>
+                <td class="why">crosstalk over the deviation</td>
+              </tr>
+              <tr>
+                <td class="num">31</td><td>L</td>
+                <td>ACROSS BACK SEAM TO SEAM — RELAXED</td>
+                <td class="num">12 3/4</td><td class="num">88%</td>
+                <td class="why">mid-sentence correction</td>
+              </tr>
+              <tr>
+                <td class="num">57</td><td>XL</td>
+                <td>FRONT NECK DROP FROM HPS TO SEAM</td>
+                <td class="num">8 5/8</td><td class="num">91%</td>
+                <td class="why">name not placed on the first pass</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Extracted</h2></div>
+        <dl class="readout">
+          <div><dt>Rows</dt><dd>74</dd></div>
+          <div><dt>Sizes</dt><dd class="sizes">S · M · L · XL</dd></div>
+          <div><dt>Judged</dt><dd>71</dd></div>
+          <div class="warm"><dt>Out of tolerance</dt><dd>2</dd></div>
+          <div class="hot"><dt>No verdict</dt><dd>3</dd></div>
+          <div><dt>Accessories</dt><dd>6</dd></div>
+          <div><dt>Comments</dt><dd>4</dd></div>
+        </dl>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Report header</h2>
+          <span class="pill">7 of 11 fields stated</span>
+        </div>
+        <dl class="kv">
+          <dt>Buyer</dt><dd>American Eagle Outfitters</dd>
+          <dt>Style</dt><dd>7122 — smocked button through</dd>
+          <dt>Season</dt><dd>Holiday B 2026</dd>
+          <dt>Factory</dt><dd>Unit 4, Gurugram</dd>
+          <dt>Inspector</dt><dd>R. Menon</dd>
+          <dt>Date</dt><dd>21 September 2026</dd>
+          <dt>Sample stage</dt><dd>Size set</dd>
+        </dl>
+        <details class="more">
+          <summary>4 fields the recording did not state</summary>
+          <div class="unstated">
+            <span>PO number</span><span>Colourway</span><span>Order quantity</span><span>Ship date</span>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Downloads</h2></div>
+        <p class="notice warn" style="margin-bottom: 16px">
+          The report and graded sheet mark the 3 unanswered points of measure in violet. Fill those
+          in before this goes to a vendor — a missing verdict is not a pass.
+        </p>
+        <div class="files">
+          <a class="lead" href="#" data-need="download.vendor">Report PDF</a>
+          <a href="#" data-need="download.vendor">Graded sheet PDF</a>
+          <a href="#" data-need="download.working">Form CSV</a>
+          <a href="#" data-need="download.working">Measurements CSV</a>
+          <a href="#" data-need="download.working">Graded sheet CSV</a>
+          <a href="#" data-need="download.working">JSON</a>
+        </div>
+
+        <!-- The irreversible one. Separate from the downloads on purpose:
+             sending a stamped document to a buyer is not a file operation. -->
+        <div class="card" style="margin-top: 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+          <div style="flex: 1 1 320px">
+            <b>Release to the vendor</b>
+            <p class="lede" style="margin: 4px 0 0">
+              Sends the stamped report to American Eagle Outfitters and locks the sheet.
+              Three readings still have no verdict.
+            </p>
+          </div>
+          <button class="btn" data-need="release">Release</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

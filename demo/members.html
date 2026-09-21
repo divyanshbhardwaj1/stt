@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Members · Size Set</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <!-- Everything inside swaps for a denial notice unless you can manage
+         people. The screen does not exist for anyone else. -->
+    <div data-need-panel="manage.people">
+      <div class="wrap">
+
+        <header>
+          <div class="page-title">
+            <h1>Members</h1>
+            <span class="pill" id="count"></span>
+            <span class="spacer"></span>
+            <button class="btn secondary sm" id="reset">Reset to defaults</button>
+            <button class="btn sm" id="add">Add member</button>
+          </div>
+          <p class="page-meta">
+            An id is what somebody signs in with and what the audit trail records against every
+            correction. A role decides who can correct a reading and who can release a report —
+            and deliberately never the same person. Changes take effect the next time they load
+            a screen.
+          </p>
+        </header>
+
+        <div id="flash" hidden style="margin-top: 20px"></div>
+
+        <section style="margin-top: 24px">
+          <div class="tablewrap">
+            <table class="data" id="members"></table>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ------------------------------------------------- add / edit member -->
+<div class="scrim" id="memberscrim" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="md-title">
+    <h2 id="md-title">Add member</h2>
+    <p class="sub" id="md-sub">They will be invited, and can sign in once a password is set.</p>
+
+    <div class="notice bad" id="md-error" hidden style="margin-bottom: 16px"></div>
+
+    <div class="fld">
+      <span>Id<em>what they sign in with</em></span>
+      <input type="text" id="md-id" placeholder="e.g. j.rao" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div class="fld">
+      <span>Name<em>as it appears in the audit trail</em></span>
+      <input type="text" id="md-name" placeholder="e.g. J. Rao" />
+    </div>
+    <div class="fld">
+      <span>Role</span>
+      <select id="md-role"></select>
+    </div>
+    <div class="fld" id="md-state-row">
+      <span>Status</span>
+      <select id="md-state">
+        <option value="active">Active — can sign in</option>
+        <option value="invited">Invited — no password yet</option>
+      </select>
+    </div>
+    <p class="lede" id="md-blurb" style="margin: 4px 0 0"></p>
+
+    <div class="dialog-foot">
+      <button class="btn sm" id="md-save">Save</button>
+      <button class="btn secondary sm" data-close-member>Cancel</button>
+      <span class="spacer"></span>
+      <button class="btn danger sm" id="md-remove" hidden>Remove member</button>
+    </div>
+  </div>
+</div>
+
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+/* The admin roster screen. Every write goes through auth.js so the guard
+   rules are the same ones the rest of the prototype is gated on. */
+
+const scrim = document.querySelector("#memberscrim");
+const flash = document.querySelector("#flash");
+let editing = null; // the id being edited, or null when adding
+
+function say(kind, text) {
+  flash.className = "notice " + kind;
+  flash.innerHTML = text;
+  flash.hidden = false;
+}
+
+function draw() {
+  const list = roster();
+  const me = session();
+  document.querySelector("#count").textContent =
+    list.length + (list.length === 1 ? " member" : " members");
+
+  document.querySelector("#members").innerHTML =
+    `<thead><tr>
+       <th>Id</th><th>Name</th><th>Role</th><th>Status</th><th>Last active</th><th></th>
+     </tr></thead><tbody>` +
+    list
+      .map(
+        (m) => `
+      <tr>
+        <td class="pom">${m.id}${m.id === me.id ? ' <span class="pill">you</span>' : ""}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="avatar">${m.name.slice(0, 1)}</span><b>${m.name}</b>
+          </div>
+        </td>
+        <td>
+          <select data-role-for="${m.id}"
+                  style="height:34px;width:auto;min-width:150px;font:var(--text-caption)">
+            ${Object.entries(ROLES)
+              .map(([id, r]) => `<option value="${id}"${id === m.role ? " selected" : ""}>${r.label}</option>`)
+              .join("")}
+          </select>
+        </td>
+        <td>${
+          m.state === "invited"
+            ? '<span class="pill warning">invited</span>'
+            : '<span class="pill success">active</span>'
+        }</td>
+        <td class="why">${m.seen}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn quiet sm" data-edit="${m.id}">Edit</button>
+          <button class="btn quiet sm" data-remove="${m.id}">Remove</button>
+        </td>
+      </tr>`,
+      )
+      .join("") +
+    "</tbody>";
+}
+
+/* ------------------------------------------------------------- dialog */
+function openMember(id) {
+  editing = id || null;
+  const who = id ? member(id) : null;
+  document.querySelector("#md-title").textContent = who ? "Edit member" : "Add member";
+  document.querySelector("#md-sub").textContent = who
+    ? "An id cannot be changed — corrections are already recorded against it."
+    : "They will be invited, and can sign in once a password is set.";
+  document.querySelector("#md-id").value = who ? who.id : "";
+  document.querySelector("#md-id").disabled = Boolean(who);
+  document.querySelector("#md-name").value = who ? who.name : "";
+  document.querySelector("#md-role").innerHTML = Object.entries(ROLES)
+    .map(([rid, r]) => `<option value="${rid}"${who && who.role === rid ? " selected" : ""}>${r.label}</option>`)
+    .join("");
+  document.querySelector("#md-state").value = who ? who.state : "invited";
+  document.querySelector("#md-state-row").hidden = !who;
+  document.querySelector("#md-remove").hidden = !who;
+  document.querySelector("#md-error").hidden = true;
+  blurb();
+  scrim.hidden = false;
+}
+
+function blurb() {
+  const role = document.querySelector("#md-role").value;
+  document.querySelector("#md-blurb").textContent = ROLES[role] ? ROLES[role].blurb : "";
+}
+
+function fail(text) {
+  const box = document.querySelector("#md-error");
+  box.innerHTML = "<b>" + text + "</b>";
+  box.hidden = false;
+}
+
+/* app.js has already run gate(), so on a non-admin the panel above is now a
+   denial notice and none of these controls exist. Nothing below should run. */
+if (can("manage.people")) wireMembers();
+
+function wireMembers() {
+document.querySelector("#add").addEventListener("click", () => openMember(null));
+document.querySelector("#md-role").addEventListener("change", blurb);
+
+document.querySelector("#md-save").addEventListener("click", () => {
+  const name = document.querySelector("#md-name").value;
+  const role = document.querySelector("#md-role").value;
+  if (editing) {
+    const problem = updateMember(editing, {
+      name,
+      role,
+      state: document.querySelector("#md-state").value,
+    });
+    if (problem) return fail(problem);
+    say("info", `<b>${name}</b> updated.`);
+  } else {
+    const id = document.querySelector("#md-id").value;
+    const problem = addMember({ id, name, role });
+    if (problem) return fail(problem);
+    say(
+      "info",
+      `<b>${name}</b> invited as ${ROLES[role].label.toLowerCase()}. They can sign in as
+       <code>${id.trim().toLowerCase()}</code> once a password is set.`,
+    );
+  }
+  scrim.hidden = true;
+  draw();
+});
+
+document.querySelector("#md-remove").addEventListener("click", () => {
+  const who = member(editing);
+  const problem = removeMember(editing);
+  if (problem) return fail(problem);
+  scrim.hidden = true;
+  say("warn", `<b>${who.name}</b> removed. Corrections already attributed to them are unchanged.`);
+  draw();
+});
+
+/* ------------------------------------------------------- table actions */
+document.querySelector("#members").addEventListener("click", (event) => {
+  const edit = event.target.closest("[data-edit]");
+  if (edit) return openMember(edit.dataset.edit);
+  const remove = event.target.closest("[data-remove]");
+  if (remove) {
+    const who = member(remove.dataset.remove);
+    const problem = removeMember(remove.dataset.remove);
+    if (problem) return say("bad", "<b>" + problem + "</b>");
+    say("warn", `<b>${who.name}</b> removed. Corrections already attributed to them are unchanged.`);
+    draw();
+  }
+});
+
+// Changing a role straight from the table — the common edit, so it should
+// not need a dialog.
+document.querySelector("#members").addEventListener("change", (event) => {
+  const picker = event.target.closest("[data-roleFor], [data-role-for]");
+  if (!picker) return;
+  const id = picker.dataset.roleFor;
+  const problem = updateMember(id, { role: picker.value });
+  if (problem) {
+    say("bad", "<b>" + problem + "</b>");
+  } else {
+    say("info", `<b>${member(id).name}</b> is now ${ROLES[picker.value].label.toLowerCase()}.`);
+  }
+  draw();
+});
+
+document.querySelector("#reset").addEventListener("click", () => {
+  resetRoster();
+  say("info", "Roster reset to the six accounts the prototype ships with.");
+  draw();
+});
+
+scrim.addEventListener("click", (event) => {
+  if (event.target === scrim || event.target.closest("[data-close-member]")) scrim.hidden = true;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") scrim.hidden = true;
+});
+
+draw();
+}
+</script>
+</body>
+</html>

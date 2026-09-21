@@ -1,0 +1,23 @@
+:root {
+  /* ── Spacing — 4px base unit ───────────────── */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  --space-section: 96px;
+
+  /* ── Border radius ─────────────────────────── */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* ── Layout ────────────────────────────────── */
+  --container-max: 1280px;
+}

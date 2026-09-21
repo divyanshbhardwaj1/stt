@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Recording · Size Set</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-panel="record">
+    <div class="wrap">
+
+      <!-- A take left behind by a tab that died. The real app writes each
+           second of audio to IndexedDB as it is captured, so this is the
+           recovery path, not a warning. -->
+      <div class="notice recover" style="margin-bottom: 24px">
+        <b>A recording from 19 September was left unfinished.</b>
+        11 min 04 s captured before the tab closed. Rebuild it and it goes through the ordinary
+        intake, where you pick the style and press Process.
+        <div class="row">
+          <button class="btn sm">Recover</button>
+          <button class="btn danger sm">Delete</button>
+        </div>
+      </div>
+
+      <header>
+        <div class="page-title">
+          <h1>New inspection</h1>
+          <span class="pill error">recording</span>
+        </div>
+        <p class="page-meta">Capturing locally — the network is not in this path</p>
+      </header>
+
+      <!-- The recorder. Deep teal, one of the six brand fills: this is the
+           loudest state the product has, and it should look like it. -->
+      <section style="margin-top: 24px">
+        <div class="recorder">
+          <div class="row">
+            <span class="recdot" aria-hidden="true"></span>
+            <span class="clock" role="timer">07:41</span>
+            <span class="state">recording</span>
+            <span class="spacer"></span>
+            <button class="btn on-color sm">Pause</button>
+            <button class="btn on-color sm">Done</button>
+            <button class="btn on-dark sm">Discard</button>
+          </div>
+
+          <div class="wave" aria-hidden="true"></div>
+
+          <div class="transcript">
+            <div class="section-head" style="margin-bottom: 8px">
+              <h2 style="font: var(--text-title-sm)">Live transcript</h2>
+              <span class="pill success">connected</span>
+              <span class="spacer"></span>
+              <span class="dim" style="font: var(--text-caption)">monitor only — the report is transcribed again afterwards</span>
+            </div>
+            <ul class="lines">
+              <li><span class="t">06:58</span><span>Size medium, across shoulder seam to seam relaxed, thirteen, okay.</span></li>
+              <li><span class="t">07:06</span><span>Across front position from HPS, five, okay.</span></li>
+              <li><span class="t">07:12</span><span>Across front seam to seam relaxed, eleven five by eight, minus one by eight.</span></li>
+              <li><span class="t">07:21</span><span>बैक पोजीशन फ्रॉम एचपीएस, पाँच, ओके।</span></li>
+              <li><span class="t">07:29</span><span>Across back seam to seam relaxed, twelve, okay.</span></li>
+              <li><span class="t">07:36</span><span>Chest one inch below armhole relaxed, thirty two,</span></li>
+              <li class="partial"><span class="t">07:41</span><span>minus one and a quarter…</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>While this runs</h2>
+        </div>
+        <p class="lede">
+          Recording is local. Losing the network costs you the live monitor above and nothing else —
+          the take is written to this device a second at a time, so a crash or a closed tab is
+          recoverable up to the moment it happened.
+        </p>
+        <dl class="readout">
+          <div><dt>Captured</dt><dd>07:41</dd></div>
+          <div><dt>Written to device</dt><dd>462</dd></div>
+          <div><dt>Sound level</dt><dd>ok</dd></div>
+          <div><dt>Live monitor</dt><dd class="sizes">on</dd></div>
+        </dl>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>If the room goes quiet</h2></div>
+        <div class="notice warn">
+          <b>No sound detected.</b> The microphone is open but nothing has come through for 20
+          seconds. Check the headset before carrying on — a silent take cannot be graded, and you
+          will not know until the transcript comes back empty.
+        </div>
+      </section>
+
+    </div>
+    </div>
+  </main>
+</div>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

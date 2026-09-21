@@ -1,0 +1,28 @@
+<!-- @dsCard group="Type" viewport="700x300" name="Title & body" subtitle="Inter 600 titles · Inter 400 body" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); color: var(--color-ink); }
+  .wrap { padding: 28px 32px; display: flex; flex-direction: column; gap: 16px; }
+  .row { display: flex; align-items: baseline; gap: 20px; }
+  .tag { font: var(--text-caption); color: var(--color-muted); width: 92px; flex: none; }
+  .tlg { font: var(--text-title-lg); letter-spacing: var(--tracking-title-lg); }
+  .tmd { font: var(--text-title-md); }
+  .tsm { font: var(--text-title-sm); }
+  .bmd { font: var(--text-body-md); color: var(--color-body); max-width: 460px; }
+  .bsm { font: var(--text-body-sm); color: var(--color-muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row"><span class="tag">title-lg · 24</span><span class="tlg">Pricing that scales with you</span></div>
+    <div class="row"><span class="tag">title-md · 18</span><span class="tmd">Enrich every record automatically</span></div>
+    <div class="row"><span class="tag">title-sm · 16</span><span class="tsm">Data providers</span></div>
+    <div class="row"><span class="tag">body-md · 16</span><span class="bmd">Pull from 100+ sources, run AI research, and push clean records straight into your sequences.</span></div>
+    <div class="row"><span class="tag">body-sm · 14</span><span class="bsm">Fine print and footer copy uses body-sm in muted ink.</span></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!-- @dsCard group="Spacing" viewport="700x190" name="Elevation & borders" subtitle="Flat by default — depth comes from color, not shadow" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>body{margin:0;background:var(--color-canvas);font-family:var(--font-body)}.wrap{padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.box{height:88px;border-radius:var(--radius-lg);display:flex;align-items:flex-end;padding:12px;font:var(--text-caption)}.cap{font:var(--text-caption);color:var(--color-muted);margin-top:8px}</style>
+</head>
+<body>
+<div class="wrap">
+<div><div class="box" style="background:var(--color-canvas)">Flat</div><div class="cap">No shadow, no border</div></div>
+<div><div class="box" style="background:var(--color-canvas);border:1px solid var(--color-hairline)">Hairline</div><div class="cap">1px #e5e5e5 — inputs, cards</div></div>
+<div><div class="box" style="background:var(--color-brand-pink);color:var(--color-on-primary);border-radius:var(--radius-xl)">Saturated</div><div class="cap">Fill carries it — no border</div></div>
+<div><div class="box" style="background:var(--color-canvas);box-shadow:0 6px 20px rgba(10,10,10,.06)">Hover lift</div><div class="cap">Rare, low alpha only</div></div>
+</div>
+</body>
+</html>

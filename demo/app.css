@@ -1,0 +1,1618 @@
+/* ============================================================================
+   Size Set Inspection — product layer on the Clay Design System.
+
+   `clay/` is the design system copied in verbatim (tokens only; the component
+   primitives are React and this demo is plain HTML). Everything below is the
+   product extension: Clay's published system covers a marketing surface and
+   says so — "Product UI (in-app tables, formula editor, agent builder) is out
+   of scope" — so the job here is to carry its language into dense product UI
+   without inventing a second design system.
+
+   What is carried over unchanged:
+     · cream canvas (#fffaf0) on every surface, including the sidebar. Never
+       cool gray, never a dark chrome.
+     · near-black primary CTA, 12px radius, sentence case.
+     · 1px hairlines instead of shadows. Depth comes from color, not elevation.
+     · pill tabs and badges, 16px content cards, 24px saturated cards.
+     · Inter 500 + negative tracking for display, Inter 400/600 for body.
+     · the 6-color feature palette, cycled, never repeated back to back.
+
+   Three deliberate deviations, each because a working screen is not a landing
+   page — flagged rather than smuggled:
+     1. SECTION RHYTHM is 40px, not Clay's 96px. 96px is an editorial band on a
+        long-scroll page; at that spacing an inspection report would be four
+        screens of scrolling to answer "did it pass?".
+     2. A MODAL SCRIM and one soft shadow exist. Clay specifies almost no
+        elevation, but a dialog over a data grid has to detach from it or the
+        grid reads as still-editable behind it.
+     3. SEMANTIC COLOR does real work in the grid and the tables. The system
+        reserves success/warning/error for "product UI states" — this is that.
+   ========================================================================= */
+
+@import url("clay/styles.css");
+
+:root {
+  /* Not in the Clay palette, and deliberately so. The six brand fills are all
+     spoken for on the graded sheet — lavender already means "no verdict" —
+     and how sure the transcription was is a different axis from pass and
+     fail, so it needed a colour that could not be mistaken for either. Blue
+     is the one hue the system leaves free. */
+  --state-uncertain: #3f6fd8;
+  --state-uncertain-ink: #2a4fa0;
+}
+
+/* ---------------------------------------------------------------- reset */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font: var(--text-body-sm);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, p, dl, dd, figure { margin: 0; }
+/* Inline `display` on a hidden element beats the UA rule, and several panels
+   here carry both. Make `hidden` win. */
+[hidden] { display: none !important; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+a { color: inherit; }
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--color-surface-card);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+}
+
+/* Display type: Inter 500 + negative tracking is Clay's own documented
+   substitute for Plain Black. Never heavier than 500 — the system is explicit
+   that 700 "reads as bombastic". */
+.display-md { font: var(--text-display-md); letter-spacing: var(--tracking-display-md); }
+.display-sm { font: var(--text-display-sm); letter-spacing: var(--tracking-display-sm); }
+
+.eyebrow {
+  font: var(--text-caption-uppercase);
+  letter-spacing: var(--tracking-caption-uppercase);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.muted { color: var(--color-muted); }
+.dim { color: var(--color-muted-soft); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ============================================================ app shell */
+.shell {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* Cream, like everything else. Clay has no dark chrome anywhere in the
+   system and a dark rail is the most common way a product breaks it. */
+aside.rail {
+  background: var(--color-surface-soft);
+  border-right: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+.brand .mark {
+  font: var(--text-title-lg);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  display: block;
+}
+.brand p {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+.listhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-lg) var(--space-lg) var(--space-xs);
+  font: var(--text-caption-uppercase);
+  letter-spacing: var(--tracking-caption-uppercase);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.listhead span {
+  font: var(--text-caption);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-muted-soft);
+}
+
+.list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background-color .15s ease;
+}
+.item:hover { background: var(--color-surface-card); }
+.item[aria-current="true"] {
+  background: var(--color-canvas);
+  border-color: var(--color-hairline);
+}
+.item .n {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font: var(--text-title-sm);
+  font-size: 13.5px;
+}
+.item .n em {
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item .s {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  margin: 3px 0 0 18px;
+}
+.item .s.flag { color: #9a6206; }
+
+/* Status dot. The color is doubled by the word beside it — never the only
+   signal. */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+  background: var(--color-muted-soft);
+}
+.dot.done { background: var(--color-success); }
+.dot.running,
+.dot.queued { background: var(--color-warning); }
+.dot.failed { background: var(--color-error); }
+
+.rail-foot {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-hairline-soft);
+  font: var(--text-caption);
+  color: var(--color-muted-soft);
+}
+
+/* ---------- who is signed in ---------- */
+.rail-nav {
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.navlink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font: var(--text-nav-link);
+  color: var(--color-body);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.navlink:hover { background: var(--color-surface-card); color: var(--color-ink); }
+.navlink .ico {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+}
+.navlink:hover .ico { color: var(--color-ink); }
+.navlink .ico svg { width: 17px; height: 17px; display: block; }
+
+.me {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.me .grow { min-width: 0; flex: 1 1 auto; }
+.me b {
+  display: block;
+  font: var(--text-title-sm);
+  font-size: 13px;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.me .grow > span {
+  display: block;
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  background: var(--color-brand-lavender);
+  color: var(--color-ink);
+  font: var(--text-title-sm);
+  font-size: 13px;
+}
+/* The sign-in screen's list of demo ids. Chips, not a table: they are there
+   to be clicked into the field. */
+.idlist { display: flex; flex-wrap: wrap; gap: 6px; }
+.idchip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.idchip:hover { border-color: var(--color-ink); }
+.idchip b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--color-ink);
+}
+.idchip span { font: var(--text-caption); font-size: 11px; color: var(--color-muted); }
+.idchip[data-invited] { opacity: .55; }
+
+/* ---------- gated controls ----------
+   Dead, not gone. A control that vanishes teaches nobody why it is not
+   there; one that is visibly locked names the person to go to instead. */
+.locked {
+  opacity: .45;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+.locked::after {
+  content: " 🔒";
+  font-size: .85em;
+}
+a.locked { text-decoration: none; }
+tr .locked::after, .pill.locked::after { content: ""; }
+
+/* ---------- collapsing the rail ----------
+   Collapsed is 56px, not zero. The list is the only place a reviewer sees
+   that something failed or is still running, so the status dots stay and
+   only the words go — hiding the rail outright would hide that too.
+
+   The state is written to localStorage and applied to <html> before the
+   stylesheet paints, or every page navigation would flash the open rail. */
+.rail-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  color: var(--color-muted);
+  cursor: pointer;
+  font: var(--text-caption);
+  line-height: 1;
+  transition: color .15s ease, border-color .15s ease;
+}
+.rail-toggle:hover { color: var(--color-ink); border-color: var(--color-muted-soft); }
+.brand-row { display: flex; align-items: center; gap: var(--space-sm); }
+.brand-row .grow { min-width: 0; flex: 1 1 auto; }
+
+@media (min-width: 901px) {
+  /* 56px of usable rail. Everything inside has to fit that width without a
+     scrollbar, so anything laid out in a row has to stop being a row. */
+  :root[data-rail="closed"] .shell { grid-template-columns: 56px minmax(0, 1fr); }
+  :root[data-rail="closed"] aside.rail { overflow-x: hidden; }
+
+  :root[data-rail="closed"] .brand { padding: var(--space-md) 0 var(--space-sm); }
+  :root[data-rail="closed"] .brand-row { justify-content: center; }
+  :root[data-rail="closed"] .brand-row .grow,
+  :root[data-rail="closed"] .listhead,
+  :root[data-rail="closed"] .me .grow,
+  :root[data-rail="closed"] .navlink .lbl,
+  :root[data-rail="closed"] .item .s,
+  :root[data-rail="closed"] .item .n em { display: none; }
+
+  /* The nav STAYS. Collapsing the rail should cost you the labels, not the
+     ability to reach the other screens — that was the bug. */
+  :root[data-rail="closed"] .rail-nav { padding: var(--space-xs) 6px; }
+  :root[data-rail="closed"] .navlink { justify-content: center; padding: 9px 0; gap: 0; }
+
+  :root[data-rail="closed"] .list { padding: var(--space-sm) 6px; }
+  :root[data-rail="closed"] .item { padding: 10px 0; }
+  :root[data-rail="closed"] .item .n { justify-content: center; }
+  /* Bigger, because it is now the whole signal. */
+  :root[data-rail="closed"] .dot { width: 10px; height: 10px; }
+
+  /* Avatar and sign-out side by side came to 70px inside a 56px rail and
+     pushed a scrollbar into it. Stacked, they fit. */
+  :root[data-rail="closed"] .rail-foot { padding: var(--space-sm) 6px; }
+  :root[data-rail="closed"] .me {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+}
+
+/* ========================================================= auth screens */
+/* No rail here: signing in is the one screen with no inspection behind it. */
+body.plain { background: var(--color-canvas); }
+
+.topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-xl);
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+.topbar .mark {
+  font: var(--text-title-lg);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  gap: 64px;
+  align-items: start;
+  padding: 64px var(--space-xl) 96px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.auth-form { max-width: 460px; }
+.auth-aside {
+  border-radius: var(--radius-xl);
+  padding: 40px;
+}
+.auth-aside .kv { margin-bottom: 0; max-width: none; }
+
+/* The "or" divider between the password form and SSO. */
+.rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0;
+}
+.rule::before,
+.rule::after {
+  content: "";
+  height: 1px;
+  background: var(--color-hairline);
+  flex: 1 1 auto;
+}
+.rule span { font: var(--text-caption); color: var(--color-muted-soft); }
+
+@media (max-width: 900px) {
+  .auth-split { grid-template-columns: 1fr; gap: 32px; padding: 32px var(--space-md) 64px; }
+  .auth-aside { padding: var(--space-lg); }
+  .topbar { padding: 0 var(--space-md); }
+}
+
+/* ============================================================= work pane */
+main { min-width: 0; }
+
+/* Full width, no centred column. Clay caps editorial content at 1280px, but
+   this is a working tool on a factory-floor monitor: the tables and the grid
+   are what the width is for, and a gutter on the right is wasted evidence.
+   Prose keeps its own measure instead — see `.lede` and `.verdict p`. */
+.wrap { padding: var(--space-xl) var(--space-xl) 72px; }
+
+/* Product rhythm, not editorial rhythm — see the header note. */
+section + section { margin-top: 40px; }
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.page-title h1 {
+  font: var(--text-display-sm);
+  letter-spacing: var(--tracking-display-sm);
+  overflow-wrap: anywhere;
+}
+.page-meta {
+  font: var(--text-body-sm);
+  color: var(--color-muted);
+  margin-top: 6px;
+}
+.page-meta b { color: var(--color-body-strong); font-weight: 600; }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  flex-wrap: wrap;
+}
+.section-head h2 {
+  font: var(--text-title-lg);
+  letter-spacing: var(--tracking-title-lg);
+}
+.lede {
+  font: var(--text-body-sm);
+  color: var(--color-body);
+  max-width: 72ch;
+  margin-bottom: var(--space-md);
+}
+
+.spacer { flex: 1 1 auto; }
+
+/* ============================================================== controls */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  height: 44px;
+  padding: 0 20px;
+  font: var(--text-button);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease;
+}
+.btn:hover { background: var(--color-primary-active); }
+.btn.sm { height: 36px; padding: 0 14px; }
+.btn.lg { height: 52px; padding: 0 28px; font: var(--text-title-sm); }
+
+.btn.secondary {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  border-color: var(--color-hairline);
+}
+.btn.secondary:hover { background: var(--color-surface-card); }
+
+.btn.on-color {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+.btn.quiet {
+  background: transparent;
+  color: var(--color-body);
+  border-color: transparent;
+}
+.btn.quiet:hover { background: var(--color-surface-card); color: var(--color-ink); }
+
+/* Secondary actions sitting ON a saturated feature card. Needed because the
+   cream hover of .quiet would put white text on cream over a teal fill. */
+.btn.on-dark {
+  background: rgba(255, 255, 255, .14);
+  color: var(--color-on-dark);
+  border-color: transparent;
+}
+.btn.on-dark:hover { background: rgba(255, 255, 255, .24); color: var(--color-on-dark); }
+.btn.on-tint {
+  background: rgba(10, 10, 10, .08);
+  color: var(--color-ink);
+  border-color: transparent;
+}
+.btn.on-tint:hover { background: rgba(10, 10, 10, .14); color: var(--color-ink); }
+
+.btn.danger {
+  background: var(--color-canvas);
+  color: #b3261e;
+  border-color: rgba(239, 68, 68, .35);
+}
+.btn.danger:hover { background: rgba(239, 68, 68, .08); }
+
+.btn[disabled] {
+  background: var(--color-primary-disabled);
+  color: var(--color-muted);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+.link {
+  font: var(--text-nav-link);
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* Inputs — 44px, 12px radius, hairline that thickens to ink on focus. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field > span,
+label.lbl {
+  font: var(--text-caption);
+  color: var(--color-body-strong);
+}
+.field em {
+  display: block;
+  font-style: normal;
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+input[type="text"],
+select,
+textarea {
+  height: 44px;
+  padding: 0 var(--space-md);
+  font: var(--text-body-sm);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color .15s ease;
+  width: 100%;
+  font-family: var(--font-body);
+}
+input[type="text"]:focus,
+select:focus,
+textarea:focus { border-color: var(--color-ink); }
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236a6a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+}
+
+/* Pills — Clay's badge, tuned per product state. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  white-space: nowrap;
+  background: var(--color-surface-card);
+  color: var(--color-ink);
+}
+.pill.uc {
+  font: var(--text-caption-uppercase);
+  letter-spacing: var(--tracking-caption-uppercase);
+  text-transform: uppercase;
+  padding: 5px 12px;
+}
+.pill.success { background: rgba(34, 197, 94, .16); color: #137a3b; }
+.pill.warning { background: rgba(245, 158, 11, .16); color: #9a6206; }
+.pill.error { background: rgba(239, 68, 68, .14); color: #b3261e; }
+.pill.pink { background: var(--color-brand-pink); color: var(--color-on-primary); }
+.pill.teal { background: var(--color-brand-teal); color: var(--color-on-dark); }
+.pill.lavender { background: var(--color-brand-lavender); color: var(--color-ink); }
+.pill.ochre { background: var(--color-brand-ochre); color: var(--color-ink); }
+.pill.peach { background: var(--color-brand-peach); color: var(--color-ink); }
+
+/* Pill tab group, straight from the system's Tab primitive. */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tabs button {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  font: var(--text-nav-link);
+  background: transparent;
+  color: var(--color-muted);
+  transition: background-color .15s ease, color .15s ease;
+}
+.tabs button[aria-selected="true"] {
+  background: var(--color-surface-card);
+  color: var(--color-ink);
+}
+
+/* ================================================================= cards */
+.card {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+.card.cream {
+  background: var(--color-surface-card);
+  border-color: transparent;
+}
+.card.soft {
+  background: var(--color-surface-soft);
+  border-color: transparent;
+}
+
+/* The saturated feature card — the system's signature element. In a product
+   this pays for itself exactly once per screen, on the verdict: the single
+   fact the whole page exists to deliver. Cycled by state, never repeated
+   back to back on one screen. */
+.verdict {
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+.verdict .glyph {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  font: var(--text-display-sm);
+  letter-spacing: 0;
+  background: rgba(255, 255, 255, .22);
+}
+.verdict h2 {
+  font: var(--text-title-lg);
+  letter-spacing: var(--tracking-title-lg);
+  margin-bottom: 6px;
+}
+.verdict p {
+  font: var(--text-body-sm);
+  max-width: 68ch;
+}
+.verdict .eyebrow { margin-bottom: 10px; display: block; }
+
+.verdict.pass { background: var(--color-brand-teal); color: var(--color-on-dark); }
+.verdict.pass p { color: rgba(255, 255, 255, .82); }
+.verdict.pass .eyebrow { color: rgba(255, 255, 255, .7); }
+
+.verdict.fail { background: var(--color-brand-pink); color: var(--color-on-primary); }
+.verdict.fail p { color: rgba(255, 255, 255, .88); }
+.verdict.fail .eyebrow { color: rgba(255, 255, 255, .75); }
+
+.verdict.open { background: var(--color-brand-ochre); color: var(--color-ink); }
+.verdict.open p { color: var(--color-body); }
+.verdict.open .glyph { background: rgba(10, 10, 10, .12); }
+
+.verdict.none { background: var(--color-surface-card); color: var(--color-ink); }
+.verdict.none p { color: var(--color-body); }
+.verdict.none .glyph { background: rgba(10, 10, 10, .06); }
+
+.verdict .row { margin-top: var(--space-md); display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* ============================================================ dashboard */
+.dash-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+/* Fourteen pairs of small integers. Drawn in CSS — a charting library here
+   would be a dependency to keep current in exchange for nothing. */
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 130px;
+}
+.bar {
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.bar .stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  min-height: 2px;
+  background: var(--color-surface-card);
+}
+.bar .good { background: var(--color-brand-teal); }
+.bar .gap { background: var(--color-brand-ochre); }
+.bar > span {
+  font: var(--text-caption);
+  font-size: 10px;
+  color: var(--color-muted-soft);
+  text-align: center;
+}
+
+.legend {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.sw.teal { background: var(--color-brand-teal); }
+.sw.ochre { background: var(--color-brand-ochre); }
+
+/* The activity feed. A list of who did what, not a table — the actor is the
+   subject of each line. */
+.feed {
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+.feed li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+.feed li:last-child { border-bottom: 0; }
+.feed .grow { flex: 1 1 auto; min-width: 0; }
+.feed b { font: var(--text-title-sm); font-size: 13.5px; }
+.feed p { font: var(--text-body-sm); color: var(--color-body); margin-top: 1px; }
+.feed .when {
+  text-align: right;
+  font: var(--text-caption);
+  color: var(--color-muted-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.feed .when .pom {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+  .dash-split { grid-template-columns: 1fr; }
+}
+
+/* =========================================================== the library */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin: var(--space-lg) 0;
+}
+
+/* A list, not a grid of cards. Eight sheets is a register: what a reviewer
+   does here is scan down one column — which of these was read from a scan,
+   which needs review — and columns beat cards for that every time. */
+table.data.sheets td { vertical-align: middle; }
+table.data.sheets td b { font-weight: 600; }
+.styleno { display: flex; align-items: center; }
+
+/* The feature-card cycle at list-marker scale — see the note in library.html. */
+.tile {
+  width: 46px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font: var(--text-title-sm);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.tile.pink { background: var(--color-brand-pink); color: var(--color-on-primary); }
+.tile.teal { background: var(--color-brand-teal); color: var(--color-on-dark); }
+.tile.lavender { background: var(--color-brand-lavender); color: var(--color-ink); }
+.tile.peach { background: var(--color-brand-peach); color: var(--color-ink); }
+.tile.ochre { background: var(--color-brand-ochre); color: var(--color-ink); }
+.tile.mint { background: var(--color-brand-mint); color: var(--color-ink); }
+
+.sizes { display: flex; flex-wrap: wrap; gap: 3px; }
+.sz {
+  font: var(--text-caption);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-card);
+  color: var(--color-body);
+}
+.sz.base { background: var(--color-brand-lavender); color: var(--color-ink); font-weight: 600; }
+
+.pill.mint { background: var(--color-brand-mint); color: var(--color-ink); }
+.pill .spin { width: 10px; height: 10px; border-width: 1.5px; }
+
+/* The sheet detail is a spec table, so it needs the width. */
+.dialog.wide { width: min(1040px, 100%); }
+
+/* ---------- upload ----------
+   PDF only, and the zone says so before anything is chosen rather than
+   after. */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 150px;
+  padding: var(--space-lg);
+  text-align: center;
+  border: 1px dashed var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-soft);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.dropzone:hover { border-color: var(--color-muted-soft); }
+.dropzone.over {
+  border-color: var(--color-ink);
+  border-style: solid;
+  background: var(--color-surface-card);
+}
+.dropzone .big { font: var(--text-title-md); }
+.dropzone .small { font: var(--text-caption); color: var(--color-muted); }
+.dropzone .chosen {
+  margin-top: var(--space-sm);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  font: var(--text-caption);
+  color: var(--color-body);
+}
+.dropzone .chosen b { color: var(--color-ink); }
+
+/* ============================================================== readout */
+/* Label-over-value pairs on one hairline strip. Deliberately not a grid of
+   equal tiles: that gives "4 comments" the same weight as "12 unanswered
+   verdicts", which is backwards. */
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+.readout > div {
+  flex: 1 1 128px;
+  padding: var(--space-md) var(--space-lg);
+  border-right: 1px solid var(--color-hairline-soft);
+}
+.readout > div:last-child { border-right: 0; }
+.readout dt {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+.readout dd {
+  font: var(--text-title-lg);
+  letter-spacing: var(--tracking-title-lg);
+  font-variant-numeric: tabular-nums;
+}
+.readout dd.sizes { font: var(--text-title-md); }
+.readout .warm { background: rgba(245, 158, 11, .10); }
+.readout .warm dd { color: #9a6206; }
+.readout .hot { background: rgba(184, 164, 237, .22); }
+.readout .hot dd { color: #4c3a8a; }
+.readout .clear dd { color: var(--color-success); }
+
+/* ================================================================ tables */
+.tablewrap {
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  background: var(--color-canvas);
+}
+table.data {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font: var(--text-body-sm);
+  font-size: 13.5px;
+}
+table.data th {
+  text-align: left;
+  font: var(--text-caption);
+  color: var(--color-muted);
+  background: var(--color-surface-soft);
+  padding: 10px var(--space-md);
+  border-bottom: 1px solid var(--color-hairline);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+table.data td {
+  padding: 11px var(--space-md);
+  border-bottom: 1px solid var(--color-hairline-soft);
+  vertical-align: top;
+}
+table.data tr:last-child td { border-bottom: 0; }
+table.data td.num,
+table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.data td.pom {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--color-body);
+  white-space: nowrap;
+}
+table.data .why { color: var(--color-muted); }
+table.data tr:hover td { background: var(--color-surface-soft); }
+
+/* ============================================================ audit grid */
+.audit {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.audit-head {
+  flex: 0 0 auto;
+  padding: var(--space-lg) var(--space-xl) var(--space-sm);
+  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+}
+.audit-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-canvas);
+}
+.audit-foot {
+  flex: 0 0 auto;
+  padding: var(--space-md) var(--space-xl);
+  border-top: 1px solid var(--color-hairline);
+  background: var(--color-surface-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+table.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  width: 100%;
+}
+table.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  font: var(--text-caption);
+  text-align: left;
+  padding: 9px var(--space-sm);
+  border-bottom: 1px solid var(--color-hairline);
+  white-space: nowrap;
+}
+table.grid th.size {
+  text-align: right;
+  min-width: 84px;
+}
+/* The base size is what the sheet grades from — worth knowing at a glance. */
+table.grid th.size.base {
+  color: var(--color-ink);
+  box-shadow: inset 0 -3px 0 var(--color-brand-lavender);
+}
+table.grid th.size.unmeasured { color: var(--color-muted-soft); }
+table.grid th:first-child,
+table.grid td:first-child { padding-left: var(--space-xl); }
+table.grid td {
+  padding: 0;
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+table.grid td.pom,
+table.grid td.desc,
+table.grid td.tol {
+  padding: 9px var(--space-sm);
+  vertical-align: middle;
+}
+table.grid td.pom {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-body);
+  white-space: nowrap;
+}
+table.grid td.desc { color: var(--color-body-strong); min-width: 260px; }
+table.grid td.tol {
+  text-align: right;
+  color: var(--color-muted-soft);
+  font-variant-numeric: tabular-nums;
+}
+tr.sheet-note td {
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  font: var(--text-caption);
+  padding: 8px var(--space-sm);
+}
+
+/* One cell = one reading. The whole cell is the hit area. */
+td.cell {
+  border-left: 1px solid var(--color-hairline-soft);
+  min-width: 84px;
+}
+td.cell > button {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+td.cell > button:hover { background: var(--color-surface-soft); }
+/* Read-only: the readings still have to be legible — only editing goes. */
+table.grid.readonly td.cell > button { cursor: default; }
+table.grid.readonly td.cell > button:hover { background: none; }
+td.cell .read {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 1 1 auto;
+  line-height: 1.25;
+}
+/* Shown on every reading, not only the shaky ones: a reviewer comparing two
+   cells needs to know that one is 100% and the other 92%, and a number that
+   appears only when it is bad makes every good cell look unmeasured. Full
+   confidence is set quiet enough to read as texture. */
+td.cell .conf {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--color-muted-soft);
+  font-variant-numeric: tabular-nums;
+}
+td.cell.conf-mid .conf,
+td.cell.conf-low .conf { color: var(--state-uncertain-ink); font-weight: 600; }
+td.cell .dev {
+  color: var(--color-muted);
+  min-width: 34px;
+  text-align: right;
+}
+/* A pass, said in the word the inspector used. Quieter than a real deviation
+   — the rows that matter are the ones carrying a number. */
+td.cell .dev.okay {
+  color: var(--color-muted-soft);
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+td.cell .spec-only { flex: 1 1 auto; color: var(--color-muted-soft); }
+td.cell .mark {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-muted-soft);
+}
+
+/* Heard below full confidence. A band, not an underline — across a sheet this
+   wide an underline was too easy to miss, and this is the thing a reviewer is
+   scanning for. */
+td.cell.conf-mid { background: rgba(63, 111, 216, .10); }
+td.cell.conf-low { background: rgba(63, 111, 216, .20); }
+
+td.cell.pass .mark { color: var(--color-success); }
+td.cell.fail { background: rgba(239, 68, 68, .07); }
+td.cell.fail .mark { color: #b3261e; }
+td.cell.fail .dev { color: #b3261e; font-weight: 600; }
+td.cell.unconfirmed { background: rgba(184, 164, 237, .22); }
+td.cell.unconfirmed .mark { color: #4c3a8a; }
+/* Out of tolerance and unanswered keep their own fill — those are verdicts,
+   and a verdict outranks a caveat about the audio. The confidence band moves
+   to a bottom edge there so it is still on the cell. */
+td.cell.fail.conf-mid,
+td.cell.unconfirmed.conf-mid { box-shadow: inset 0 -3px 0 rgba(63, 111, 216, .45); }
+td.cell.fail.conf-low,
+td.cell.unconfirmed.conf-low { box-shadow: inset 0 -3px 0 var(--state-uncertain); }
+td.cell.settled > button { box-shadow: inset 3px 0 0 var(--color-brand-lavender); }
+td.cell.staged > button {
+  background: rgba(255, 176, 132, .28);
+  box-shadow: inset 3px 0 0 var(--color-brand-peach);
+}
+.disputed-mark { color: #b3261e; font-weight: 700; }
+
+/* The folded note beside the heading. Native <details>: open, close and the
+   keyboard come free. */
+.explain { position: relative; }
+.explain > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 24px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  color: var(--color-muted);
+  font: var(--text-caption);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.explain > summary::-webkit-details-marker { display: none; }
+.explain > summary:hover { color: var(--color-ink); border-color: var(--color-muted-soft); }
+.explain[open] > summary { background: var(--color-surface-card); color: var(--color-ink); }
+.explain .count {
+  font-weight: 700;
+  color: #9a6206;
+}
+.explain-box {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 8px);
+  left: 0;
+  width: max(340px, 46ch);
+  max-width: 86vw;
+  padding: var(--space-md);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(10, 10, 10, .10);
+}
+.explain-box p { font: var(--text-body-sm); color: var(--color-body); }
+.explain-box p + p { margin-top: var(--space-xs); }
+.explain-box b.n { color: #9a6206; }
+
+/* The key under the grid. Every band on the sheet, named. */
+.gridkey {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 14px var(--space-xl) 24px;
+  font: var(--text-caption);
+  color: var(--color-muted);
+}
+.gridkey span { display: inline-flex; align-items: center; gap: 6px; }
+.gridkey .sw { border: 1px solid var(--color-hairline); }
+
+/* ================================================================= modal */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: var(--space-lg);
+  background: rgba(10, 26, 26, .38);
+}
+.scrim[hidden] { display: none; }
+.dialog {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: 0 16px 40px rgba(10, 10, 10, .16);
+}
+.dialog h2 {
+  font: var(--text-title-lg);
+  letter-spacing: var(--tracking-title-lg);
+}
+.dialog .sub {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  margin: 4px 0 var(--space-lg);
+}
+.kv {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 8px var(--space-lg);
+  font: var(--text-body-sm);
+  margin-bottom: var(--space-lg);
+  /* Label/value pairs, not a table: past this the eye loses the row. */
+  max-width: 760px;
+}
+.kv dt { color: var(--color-muted); }
+.kv dd b { font-weight: 600; }
+.fld {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+.fld > span { font: var(--text-caption); color: var(--color-body-strong); }
+.fld.result > div {
+  font: var(--text-title-md);
+  font-variant-numeric: tabular-nums;
+}
+.fld.result small {
+  display: block;
+  font: var(--text-caption);
+  color: var(--color-muted);
+  font-weight: 400;
+}
+.dialog-foot {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-hairline-soft);
+}
+
+/* ================================================================ notices */
+.notice {
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  font: var(--text-body-sm);
+  border: 1px solid transparent;
+}
+.notice.warn {
+  background: rgba(245, 158, 11, .10);
+  border-color: rgba(245, 158, 11, .30);
+  color: #7a4e05;
+}
+.notice.bad {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(239, 68, 68, .28);
+  color: #8d1d17;
+}
+.notice.info {
+  background: var(--color-surface-card);
+  color: var(--color-body);
+}
+.notice.recover {
+  background: rgba(184, 164, 237, .22);
+  border-color: rgba(184, 164, 237, .5);
+  color: #3a2f5e;
+}
+.notice pre {
+  margin: var(--space-sm) 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: var(--color-body);
+}
+.notice .row { margin-top: var(--space-sm); display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* ================================================================ intake */
+.intake {
+  border: 1px dashed var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-soft);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+.intake .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.intake .hint {
+  font: var(--text-body-sm);
+  color: var(--color-muted);
+}
+.intake .opts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-hairline-soft);
+  flex-wrap: wrap;
+}
+.intake .opts label { font: var(--text-caption); color: var(--color-body-strong); }
+.intake .opts select { width: auto; min-width: 280px; height: 36px; }
+
+/* ============================================================= recording */
+.recorder {
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  background: var(--color-brand-teal);
+  color: var(--color-on-dark);
+}
+.recorder .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.recdot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-pink);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.recdot.held { background: var(--color-brand-ochre); animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recdot { animation: none; }
+}
+.clock {
+  font: var(--text-display-sm);
+  letter-spacing: var(--tracking-display-sm);
+  font-variant-numeric: tabular-nums;
+}
+.recorder .state {
+  font: var(--text-caption-uppercase);
+  letter-spacing: var(--tracking-caption-uppercase);
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .7);
+}
+
+/* Waveform — bars, drawn in CSS. */
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 64px;
+  margin-top: var(--space-lg);
+}
+.wave i {
+  flex: 1 1 auto;
+  background: rgba(255, 255, 255, .55);
+  border-radius: var(--radius-pill);
+  min-height: 3px;
+}
+
+.transcript {
+  margin-top: var(--space-lg);
+  background: var(--color-canvas);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  max-height: 320px;
+  overflow: auto;
+}
+.lines li {
+  display: grid;
+  grid-template-columns: 4.6em 1fr;
+  gap: 0 var(--space-sm);
+  padding: 5px 0;
+  font: var(--text-body-sm);
+  color: var(--color-body);
+}
+.lines li + li { border-top: 1px solid var(--color-hairline-soft); }
+.lines .t {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-soft);
+  font-size: 12px;
+}
+.lines li.partial { color: var(--color-muted); font-style: italic; }
+
+/* ============================================================== progress */
+.stages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-lg);
+}
+.stages li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 11px var(--space-md);
+  border-radius: var(--radius-md);
+  font: var(--text-body-sm);
+  color: var(--color-muted-soft);
+}
+.stages li .tick {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  background: var(--color-surface-card);
+  color: var(--color-muted);
+}
+.stages li.past { color: var(--color-body); }
+.stages li.past .tick { background: rgba(34, 197, 94, .18); color: #137a3b; }
+.stages li.at {
+  color: var(--color-ink);
+  background: var(--color-surface-soft);
+  font-weight: 600;
+}
+.stages li.at .tick { background: var(--color-brand-ochre); color: var(--color-ink); }
+
+.doing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font: var(--text-body-sm);
+  color: var(--color-body);
+}
+.spin {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-hairline);
+  border-top-color: var(--color-ink);
+  animation: spin .9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 3s; }
+}
+
+.skel { display: flex; flex-direction: column; gap: 10px; }
+.skel i {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-card) 25%,
+    var(--color-surface-strong) 50%,
+    var(--color-surface-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: sweep 1.4s ease-in-out infinite;
+}
+@keyframes sweep { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .skel i { animation: none; }
+}
+
+/* =============================================================== blank */
+.blank {
+  display: grid;
+  place-items: center;
+  min-height: 52vh;
+  text-align: center;
+  padding: var(--space-xl);
+}
+.blank .art {
+  width: 200px;
+  height: 140px;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-hairline-soft);
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto var(--space-lg);
+}
+/* Stand-in for Clay's commissioned 3D claymation art, which ships with the
+   system as a placeholder too — soft brand-color blobs, labelled as such. */
+.blank .art i {
+  position: absolute;
+  border-radius: 50%;
+}
+.blank .art i:nth-child(1) { width: 74px; height: 74px; background: var(--color-brand-pink); top: 16%; left: 12%; }
+.blank .art i:nth-child(2) { width: 56px; height: 56px; background: var(--color-brand-ochre); bottom: 12%; left: 38%; }
+.blank .art i:nth-child(3) {
+  width: 82px; height: 82px; background: var(--color-brand-lavender);
+  top: 22%; right: 10%; border-radius: 46% 54% 50% 50% / 55% 50% 50% 45%;
+}
+.blank h2 {
+  font: var(--text-title-lg);
+  letter-spacing: var(--tracking-title-lg);
+  margin-bottom: 6px;
+}
+.blank p {
+  font: var(--text-body-sm);
+  color: var(--color-body);
+  max-width: 48ch;
+  margin: 0 auto var(--space-lg);
+}
+
+/* ============================================================= downloads */
+.files { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.files a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 40px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+  font: var(--text-nav-link);
+  text-decoration: none;
+  color: var(--color-ink);
+}
+.files a:hover { background: var(--color-surface-card); }
+.files a.lead {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: transparent;
+}
+.files a.lead:hover { background: var(--color-primary-active); }
+
+.unstated { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-sm); }
+.unstated span {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  background: var(--color-surface-card);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+details.more > summary {
+  font: var(--text-nav-link);
+  color: var(--color-body);
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  list-style: none;
+}
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "▸ "; color: var(--color-muted-soft); }
+details.more[open] > summary::before { content: "▾ "; }
+
+/* ============================================================ responsive */
+/* Structural, not fluid type. Clay collapses columns rather than scaling. */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  aside.rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-sm);
+  }
+  .item { min-width: 220px; }
+  .rail-foot { display: none; }
+  .wrap { padding: var(--space-lg) var(--space-md) 56px; }
+  .audit { height: auto; }
+  .audit-head, .audit-foot { padding-left: var(--space-md); padding-right: var(--space-md); }
+  table.grid th:first-child, table.grid td:first-child { padding-left: var(--space-md); }
+  .verdict { grid-template-columns: 1fr; padding: var(--space-lg); }
+  .verdict .glyph { width: 44px; height: 44px; font: var(--text-title-lg); }
+  .page-title h1 { font: var(--text-title-lg); letter-spacing: var(--tracking-title-lg); }
+  .fld { grid-template-columns: 1fr; gap: 6px; }
+  .kv { grid-template-columns: 1fr; gap: 2px var(--space-md); }
+  .kv dt { margin-top: var(--space-xs); }
+}
+
+@media (max-width: 560px) {
+  .readout > div { flex-basis: 50%; }
+  .dialog { padding: var(--space-lg); }
+  .clock { font: var(--text-title-lg); }
+}

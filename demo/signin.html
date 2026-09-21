@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sign in · Size Set</title>
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="plain">
+
+<nav class="topbar">
+  <a class="mark" href="index.html">Size&nbsp;Set</a>
+  <span class="spacer"></span>
+  <span class="muted" style="font: var(--text-caption)">Shivalika QA · Gurugram</span>
+</nav>
+
+<div class="auth-split">
+
+  <!-- ------------------------------------------------------------ form -->
+  <div class="auth-form">
+    <h1 class="display-md">Sign in</h1>
+    <p class="lede" style="margin: 16px 0 28px">
+      Inspections you record and reports you sign off are recorded against this id — it is the
+      name that appears in the audit trail.
+    </p>
+
+    <div class="notice bad" id="authfail" hidden style="margin-bottom: 20px"></div>
+
+    <form id="signin">
+      <div class="field" style="margin-bottom: 16px">
+        <label class="lbl" for="userid">Id</label>
+        <input type="text" id="userid" value="a.bhatt" autocomplete="username"
+               autocapitalize="off" spellcheck="false" />
+      </div>
+      <div class="field" style="margin-bottom: 8px">
+        <label class="lbl" for="password">Password</label>
+        <input type="password" id="password" value="············" autocomplete="current-password" />
+      </div>
+      <p style="margin-bottom: 24px">
+        <a class="link" href="#">Forgotten your password?</a>
+      </p>
+      <button class="btn lg" type="submit" style="width: 100%">Sign in</button>
+    </form>
+
+    <!-- Demo affordance: the roster is mock, so the ids have to be findable.
+         Your role comes from your account, not from a picker at the door. -->
+    <div class="card cream" style="margin-top: 28px">
+      <span class="eyebrow">Prototype</span>
+      <p class="lede" style="margin: 8px 0 12px">
+        Any password works. Sign in as any of these to see what that role can and cannot do.
+      </p>
+      <div class="idlist" id="ids"></div>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------------------- aside -->
+  <!-- Not a testimonial. What this account reaches is confidential client
+       material, and the sign-in screen is the right place to say so. -->
+  <div class="card cream auth-aside">
+    <span class="eyebrow">What this account reaches</span>
+    <h2 class="display-sm" style="margin: 18px 0 20px; text-wrap: pretty">
+      Graded sheets are vendor records, not drafts.
+    </h2>
+    <dl class="kv" style="margin-bottom: 28px">
+      <dt>Recordings</dt><dd>Client audio from the inspection floor</dd>
+      <dt>Spec sheets</dt><dd>Buyer measurement sheets, marked proprietary</dd>
+      <dt>Reports</dt><dd>Stamped and sent under your name</dd>
+    </dl>
+    <p class="lede" style="margin: 0">
+      Every graded sheet carries the line <i>“Subject to Legal Action if Disclosed Without
+      Authorization from AEO.”</i> Sessions end after 12 hours on a shared device, and corrections
+      are attributed to whoever was signed in when they were saved.
+    </p>
+    <div class="files" style="margin-top: 24px">
+      <span class="pill">12-hour sessions</span>
+      <span class="pill">Attributed edits</span>
+      <span class="pill">Roles set by an administrator</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="auth.js"></script>
+<script>
+  const fail = document.querySelector("#authfail");
+
+  document.querySelector("#signin").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const problem = signIn(
+      document.querySelector("#userid").value,
+      document.querySelector("#password").value,
+    );
+    if (problem) {
+      fail.innerHTML = `<b>${problem}</b> Check the id, or ask an administrator to reset it —
+        passwords are not recoverable.`;
+      fail.hidden = false;
+      return;
+    }
+    location.href = "index.html";
+  });
+
+  // The roster, so the ids are findable. Clicking one fills the field.
+  document.querySelector("#ids").innerHTML = roster()
+    .map(
+      (m) => `
+      <button class="idchip" data-id="${m.id}"${m.state === "invited" ? " data-invited" : ""}>
+        <b>${m.id}</b>
+        <span>${ROLES[m.role].label}${m.state === "invited" ? " · invited" : ""}</span>
+      </button>`,
+    )
+    .join("");
+
+  document.querySelector("#ids").addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-id]");
+    if (!chip) return;
+    document.querySelector("#userid").value = chip.dataset.id;
+    fail.hidden = true;
+  });
+</script>
+</body>
+</html>

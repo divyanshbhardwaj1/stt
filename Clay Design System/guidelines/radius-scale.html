@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" viewport="700x180" name="Radius scale" subtitle="xs(6) → md(12) buttons → lg(16) cards → xl(24) feature → pill" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); color: var(--color-ink); }
+  .wrap { padding: 24px 32px; display: flex; flex-wrap: wrap; gap: 20px; }
+  .item { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .box { width: 84px; height: 64px; background: var(--color-surface-card); border: 1px solid var(--color-hairline); }
+  .lab { font: var(--text-caption); color: var(--color-muted); }
+  .lab b { color: var(--color-ink); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="item"><div class="box" style="border-radius:var(--radius-xs)"></div><div class="lab"><b>xs</b> 6</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-sm)"></div><div class="lab"><b>sm</b> 8</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-md)"></div><div class="lab"><b>md</b> 12</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-lg)"></div><div class="lab"><b>lg</b> 16</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-xl)"></div><div class="lab"><b>xl</b> 24</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-pill)"></div><div class="lab"><b>pill</b> ∞</div></div>
+  </div>
+</body>
+</html>

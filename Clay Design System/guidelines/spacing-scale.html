@@ -1,0 +1,28 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Spacing scale" subtitle="4px base unit · xxs → section" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-canvas); font-family: var(--font-body); color: var(--color-ink); }
+  .wrap { padding: 24px 32px; display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end; }
+  .item { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .bar { background: var(--color-brand-teal); height: 24px; border-radius: var(--radius-xs); }
+  .lab { font: var(--text-caption); color: var(--color-muted); }
+  .lab b { color: var(--color-ink); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="item"><div class="bar" style="width:var(--space-xxs)"></div><div class="lab"><b>xxs</b> 4</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-xs)"></div><div class="lab"><b>xs</b> 8</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-sm)"></div><div class="lab"><b>sm</b> 12</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-md)"></div><div class="lab"><b>md</b> 16</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-lg)"></div><div class="lab"><b>lg</b> 24</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-xl)"></div><div class="lab"><b>xl</b> 32</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-xxl)"></div><div class="lab"><b>xxl</b> 48</div></div>
+    <div class="item"><div class="bar" style="width:var(--space-section)"></div><div class="lab"><b>section</b> 96</div></div>
+  </div>
+</body>
+</html>
