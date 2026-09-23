@@ -427,18 +427,25 @@ function denial(need) {
 /* Rendered into the rail foot by rail(). Your role is shown, never chosen —
    it comes from your account. To see the product as another role, sign out
    and sign in as somebody who holds it. */
+/* The account block at the foot of the rail: who you are, a way into your
+   own settings, and the way out. Signing out is its own line rather than an
+   icon tucked beside your name — it ends the session on a shared device and
+   deserves to be findable. */
 function whoami() {
   const me = session();
   const role = ROLES[myRole()];
   return `
-    <div class="me">
+    <a class="me" href="account.html" title="Account information">
       <span class="avatar" aria-hidden="true">${me.name.slice(0, 1)}</span>
       <div class="grow">
         <b>${me.name}</b>
-        <span>${role ? role.label + " · " + TEAMS[currentTeam()].name : "Not on this team"}</span>
+        <span>${role ? role.label + " · " + TEAMS[currentTeam()].name : "No role on this stage"}</span>
       </div>
-      <button class="rail-toggle" data-signout title="Sign out" aria-label="Sign out">⏻</button>
-    </div>`;
+      <span class="ico gear" aria-hidden="true">${ICON.settings}</span>
+    </a>
+    <button class="navlink signout" data-signout>
+      <span class="ico">${ICON.logout}</span><span class="lbl">Log out</span>
+    </button>`;
 }
 
 function wireAuth() {

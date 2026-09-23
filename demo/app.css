@@ -136,93 +136,6 @@ aside.rail {
   margin-top: 2px;
 }
 
-.listhead {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-lg) var(--space-lg) var(--space-xs);
-  font: var(--text-caption-uppercase);
-  letter-spacing: var(--tracking-caption-uppercase);
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-.listhead span {
-  font: var(--text-caption);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--color-muted-soft);
-}
-
-.list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 0 var(--space-sm) var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  text-decoration: none;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  transition: background-color .15s ease;
-}
-.item:hover { background: var(--color-surface-card); }
-.item[aria-current="true"] {
-  background: var(--color-canvas);
-  border-color: var(--color-hairline);
-}
-.item .n {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font: var(--text-title-sm);
-  font-size: 13.5px;
-}
-.item .n em {
-  font-style: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.item .s {
-  font: var(--text-caption);
-  color: var(--color-muted);
-  margin: 3px 0 0 18px;
-}
-.item .s.flag { color: #9a6206; }
-
-/* Status dot. The color is doubled by the word beside it — never the only
-   signal. */
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  flex: 0 0 auto;
-  background: var(--color-muted-soft);
-}
-.dot.done { background: var(--color-success); }
-.dot.running,
-.dot.queued { background: var(--color-warning); }
-.dot.failed { background: var(--color-error); }
-
-.rail-foot {
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--color-hairline-soft);
-  font: var(--text-caption);
-  color: var(--color-muted-soft);
-}
-
-/* ---------- who is signed in ---------- */
 .rail-nav {
   padding: var(--space-xs) var(--space-sm) var(--space-sm);
   display: flex;
@@ -257,7 +170,62 @@ aside.rail {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
 }
+.me:hover { background: var(--color-surface-card); }
+.me .gear { width: 18px; height: 18px; flex: 0 0 auto; color: var(--color-muted-soft); }
+.me .gear svg { width: 16px; height: 16px; display: block; }
+.me:hover .gear { color: var(--color-ink); }
+
+/* A square action next to something it acts on — the file it downloads is
+   already named beside it, so the label would only repeat it. */
+.iconbtn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.iconbtn svg { width: 17px; height: 17px; display: block; }
+.iconbtn:hover {
+  color: var(--color-ink);
+  border-color: var(--color-muted-soft);
+  background: var(--color-surface-card);
+}
+
+/* Log out is a nav row, not a glyph beside a name. */
+.navlink.signout {
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: var(--text-nav-link);
+  text-align: left;
+}
+.navlink.signout:hover { color: #b3261e; }
+.navlink.signout:hover .ico { color: #b3261e; }
+
+/* Pinned to the bottom. The work list used to sit between the nav and this
+   and claim the spare height; with it gone the foot has to claim the gap
+   itself, or Members and the way out drift up under the last nav row.
+
+   Split off by a hairline on purpose: Members and your own account are not
+   part of the stage above them. */
+.rail-foot {
+  margin-top: auto;
+  padding: var(--space-sm) var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-hairline-soft);
+}
+.rail-foot .rail-nav { padding: 0 0 var(--space-xs); }
 .me .grow { min-width: 0; flex: 1 1 auto; }
 .me b {
   display: block;
@@ -404,11 +372,6 @@ tr .locked::after, .pill.locked::after { content: ""; }
 }
 .teamswap select { height: 34px; font: var(--text-caption); padding: 0 var(--space-sm); }
 
-.list .empty {
-  font: var(--text-caption);
-  color: var(--color-muted-soft);
-  padding: var(--space-sm) var(--space-sm) 0;
-}
 .brand-row .grow { min-width: 0; flex: 1 1 auto; }
 
 @media (min-width: 676px) {
@@ -421,30 +384,20 @@ tr .locked::after, .pill.locked::after { content: ""; }
   :root[data-rail="closed"] .brand-row { justify-content: center; }
   :root[data-rail="closed"] .teamswap,
   :root[data-rail="closed"] .brand-row .grow,
-  :root[data-rail="closed"] .listhead,
   :root[data-rail="closed"] .me .grow,
-  :root[data-rail="closed"] .navlink .lbl,
-  :root[data-rail="closed"] .item .s,
-  :root[data-rail="closed"] .item .n em { display: none; }
+  :root[data-rail="closed"] .navlink .lbl { display: none; }
 
   /* The nav STAYS. Collapsing the rail should cost you the labels, not the
      ability to reach the other screens — that was the bug. */
   :root[data-rail="closed"] .rail-nav { padding: var(--space-xs) 6px; }
   :root[data-rail="closed"] .navlink { justify-content: center; padding: 9px 0; gap: 0; }
 
-  :root[data-rail="closed"] .list { padding: var(--space-sm) 6px; }
-  :root[data-rail="closed"] .item { padding: 10px 0; }
-  :root[data-rail="closed"] .item .n { justify-content: center; }
-  /* Bigger, because it is now the whole signal. */
-  :root[data-rail="closed"] .dot { width: 10px; height: 10px; }
-
   /* Avatar and sign-out side by side came to 70px inside a 56px rail and
      pushed a scrollbar into it. Stacked, they fit. */
   :root[data-rail="closed"] .rail-foot { padding: var(--space-sm) 6px; }
-  :root[data-rail="closed"] .me {
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
+  :root[data-rail="closed"] .me { justify-content: center; padding: 9px 0; }
+  :root[data-rail="closed"] .me .gear { display: none; }
+  :root[data-rail="closed"] .navlink.signout { justify-content: center; padding: 9px 0; }
 }
 
 /* ========================================================= auth screens */
@@ -515,6 +468,22 @@ main { min-width: 0; }
 
 /* Product rhythm, not editorial rhythm — see the header note. */
 section + section { margin-top: 40px; }
+
+/* Where you came from, on a page you always arrive at from somewhere. */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: var(--text-caption);
+  color: var(--color-muted-soft);
+  margin-bottom: var(--space-sm);
+}
+.crumbs a { color: var(--color-muted); text-decoration: none; }
+.crumbs a:hover { color: var(--color-ink); text-decoration: underline; }
+.crumbs b { color: var(--color-body); font-weight: 500; }
+
+/* The register is a list of links; the whole row acts like one. */
+table.data tr[data-open] { cursor: pointer; }
 
 .page-title {
   display: flex;
@@ -847,6 +816,51 @@ select {
 .teamcard .foot { margin-top: auto; }
 .teamcard .tile { width: 42px; height: 36px; }
 
+/* ======================================================== distributions */
+/* One bar split into parts. A pie would need a legend to say which slice is
+   which and still not let two inspections be compared at a glance. */
+.hbar {
+  display: flex;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-card);
+}
+.hbar .seg { display: block; min-width: 3px; }
+.hbar .seg.good { background: var(--color-brand-teal); }
+.hbar .seg.bad { background: var(--color-brand-pink); }
+.hbar .seg.open { background: var(--color-brand-lavender); }
+.sw.good { background: var(--color-brand-teal); }
+.sw.bad { background: var(--color-brand-pink); }
+.sw.open { background: var(--color-brand-lavender); }
+.legend b { color: var(--color-ink); }
+
+/* A labelled histogram. Rows, not columns: the buckets are words. */
+.dist { display: flex; flex-direction: column; gap: 8px; }
+.dist .row {
+  display: grid;
+  grid-template-columns: 5.5em 1fr 2.2em;
+  align-items: center;
+  gap: 10px;
+  font: var(--text-caption);
+}
+.dist .k { color: var(--color-body); }
+.dist .track {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-card);
+  overflow: hidden;
+}
+.dist .track i { display: block; height: 100%; border-radius: var(--radius-pill); }
+.dist .track i.cool { background: var(--state-uncertain); }
+.dist .track i.warm { background: var(--color-brand-ochre); }
+.dist .v {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
 /* ============================================================ dashboard */
 .dash-split {
   display: grid;
@@ -1120,6 +1134,9 @@ table.data td.pom {
 }
 table.data .why { color: var(--color-muted); }
 table.data tr:hover td { background: var(--color-surface-soft); }
+/* The row you are already looking at, further down the page. */
+table.data tr.here td { background: var(--color-surface-soft); }
+table.data tr.here td:first-child { box-shadow: inset 3px 0 0 var(--color-ink); }
 
 /* ============================================================ audit grid */
 .audit {
@@ -1533,6 +1550,9 @@ td.cell.staged > button {
   height: 64px;
   margin-top: var(--space-lg);
 }
+/* The strip beside a recording's details — the same bars, shorter. */
+.wave.small { height: 34px; gap: 2px; margin-top: 10px; }
+.wave.small i { background: var(--color-brand-teal); opacity: .5; }
 .wave i {
   flex: 1 1 auto;
   background: rgba(255, 255, 255, .55);
@@ -1563,6 +1583,39 @@ td.cell.staged > button {
   font-size: 12px;
 }
 .lines li.partial { color: var(--color-muted); font-style: italic; }
+
+/* The full transcript. Wider rows than the live monitor, a tag on the lines
+   a reading came out of, and a click that seeks. */
+.lines.script { padding: var(--space-xs) 0; }
+.lines.script li {
+  grid-template-columns: 4.4em 1fr auto;
+  gap: 0 var(--space-md);
+  padding: 9px var(--space-lg);
+  cursor: pointer;
+  align-items: baseline;
+}
+.lines.script li:hover { background: var(--color-surface-soft); }
+.lines.script li.took { background: rgba(63, 111, 216, .06); }
+.lines.script li.took:hover { background: rgba(63, 111, 216, .12); }
+.lines.script li.playing { box-shadow: inset 3px 0 0 var(--color-ink); }
+.lines.script .say { color: var(--color-ink); }
+.lines.script .tag {
+  font-size: 11px;
+  color: var(--state-uncertain-ink);
+  white-space: nowrap;
+}
+.lines.script li.none {
+  display: block;
+  padding: var(--space-lg);
+  color: var(--color-muted-soft);
+  cursor: default;
+}
+.lines.script mark {
+  background: var(--color-brand-ochre);
+  color: var(--color-ink);
+  border-radius: 3px;
+  padding: 0 2px;
+}
 
 /* ============================================================== progress */
 .stages {
@@ -1737,13 +1790,7 @@ details.more[open] > summary::before { content: "▾ "; }
     border-right: 0;
     border-bottom: 1px solid var(--color-hairline);
   }
-  .list {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: var(--space-sm);
-  }
-  .item { min-width: 220px; }
-  .rail-foot { display: none; }
+  /* The account block stays on a phone — it is the way out. */
   .wrap { padding: var(--space-lg) var(--space-md) 56px; }
   .audit { height: auto; }
   .audit-head, .audit-foot { padding-left: var(--space-md); padding-right: var(--space-md); }

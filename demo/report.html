@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Report · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body data-rail="index.html">
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-team="sizeset">
+      <div class="wrap" id="report"></div>
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="inspections.js"></script>
+<script src="app.js"></script>
+<script>
+if (currentTeam() === "sizeset") {
+
+const id = new URLSearchParams(location.search).get("id");
+const job = inspection(id);
+const host = document.querySelector("#report");
+
+/* An id that names nothing is a link somebody kept, not a crash. */
+if (!job) {
+  host.innerHTML = `
+    <div class="blank">
+      <div>
+        <div class="art" aria-hidden="true"><i></i><i></i><i></i></div>
+        <h2>No such inspection</h2>
+        <p>
+          ${id ? `Nothing on this floor is called <code>${id}</code>.` : "No inspection was named."}
+          It may have been removed, or the link may be from another floor.
+        </p>
+        <div class="files" style="justify-content: center">
+          <a class="lead" href="index.html">Back to the inspections</a>
+        </div>
+      </div>
+    </div>`;
+} else {
+  host.innerHTML =
+    head() +
+    `<div class="tabs" id="tabs" style="margin: 20px 0 4px">
+       <button data-panel="report" aria-selected="true">Report</button>
+       <button data-panel="stats" aria-selected="false">Stats</button>
+     </div>
+     <div data-panel-id="report">${body()}</div>
+     <div data-panel-id="stats" hidden>${stats()}</div>`;
+
+  /* Wired here rather than by app.js: app.js runs its own wire() before this
+     script builds the panels, so there is nothing to bind to yet. */
+  document.querySelector("#tabs").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-panel]");
+    if (!button) return;
+    document.querySelectorAll("#tabs button").forEach((b) =>
+      b.setAttribute("aria-selected", String(b === button)),
+    );
+    host.querySelectorAll("[data-panel-id]").forEach((panel) => {
+      panel.hidden = panel.dataset.panelId !== button.dataset.panel;
+    });
+  });
+
+  waveform();
+  gate(host);
+}
+
+/* ---------------------------------------------------------------- head */
+function head() {
+  const who = member(job.by);
+  return `
+    <div class="crumbs">
+      <a href="index.html">Inspections</a>
+      <span aria-hidden="true">/</span>
+      <b>${job.file}</b>
+    </div>
+
+    <header>
+      <div class="page-title">
+        <h1>${job.file}</h1>
+        <span class="${STATES[job.state][1]}">${STATES[job.state][0]}</span>
+        <span class="spacer"></span>
+        <a class="btn secondary sm" href="index.html">All inspections</a>
+      </div>
+      <p class="page-meta">
+        ${job.len} · <b>${job.description}</b> ·
+        ${job.style === "—" ? "no style" : "style <b>" + job.style + "</b>"} ·
+        recorded by ${who ? who.name : job.by}, ${job.when}
+      </p>
+    </header>`;
+}
+
+/* The state decides the whole page. Same switch the real app makes on
+   job.status: a running job has no report to show, a failed one has no
+   numbers, and an ungraded one has measurements but nothing to judge them
+   against. Rendering a half-report for any of those would be a lie with a
+   layout. */
+function body() {
+  if (job.state === "running") return running();
+  if (job.state === "failed") return failed();
+  if (job.state === "ungraded") return ungraded();
+  return graded();
+}
+
+/* ------------------------------------------------------------- running */
+function running() {
+  const stages = [
+    "Transcribe the recording",
+    "Cross-check with a second reading",
+    "Extract the inspection",
+    "Check against the style set",
+  ];
+  return `
+    <section>
+      <div class="section-head">
+        <h2>In progress</h2>
+        <span class="pill">${job.elapsed} elapsed</span>
+      </div>
+      <ol class="stages">
+        ${stages
+          .map((text, i) => {
+            const step = i < job.stage ? "past" : i === job.stage ? "at" : "";
+            const tick = step === "past" ? "✓" : step === "at" ? "→" : "·";
+            return `<li class="${step}"><span class="tick" aria-hidden="true">${tick}</span>${text}</li>`;
+          })
+          .join("")}
+      </ol>
+      <div class="doing"><span class="spin" role="status" aria-live="polite"></span>${job.message}</div>
+      <p class="lede" style="margin-top: 14px">
+        Transcription runs for several minutes on a full inspection, and it is done twice so a
+        dropped verdict shows up as a question rather than a false pass. You can close this tab;
+        the work continues on the server.
+      </p>
+      <div class="skel" style="margin-top: 22px" aria-hidden="true">
+        <i style="width: 62%"></i><i style="width: 88%"></i><i style="width: 74%"></i>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>What will come back</h2></div>
+      <p class="lede">
+        The shape of the report is known before the work finishes — the style set says how many
+        points of measure there are and which sizes the sheet grades.
+      </p>
+      <dl class="readout">
+        <div><dt>Points of measure</dt><dd>${job.poms}</dd></div>
+        <div><dt>Sizes on the sheet</dt><dd class="sizes">${job.sizes}</dd></div>
+        <div><dt>Base size</dt><dd>${job.base}</dd></div>
+        <div><dt>Tolerance model</dt><dd class="sizes">${job.tolerance}</dd></div>
+      </dl>
+    </section>`;
+}
+
+/* -------------------------------------------------------------- failed */
+function failed() {
+  return `
+    <section>
+      <div class="verdict none">
+        <span class="glyph" aria-hidden="true">×</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>No report was written</h2>
+          <p>
+            Nothing was written and nothing was sent anywhere. The recording is still in
+            <code>data/recordings/</code>, so it can be processed again once the reason below is
+            settled.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Reason</h2></div>
+      <!-- Neutral framing: the commonest cause is the audio, not a fault
+           here — a test clip, or the wrong file. -->
+      <div class="notice bad">
+        <b>${job.reason}</b>
+        <pre>${job.error}</pre>
+      </div>
+      <div class="files" style="margin-top: 20px">
+        <a class="lead" href="#" data-need="record">Process it again</a>
+        <a href="#">Play the recording</a>
+        <a href="transcript.html?id=${job.id}">Open the transcript</a>
+      </div>
+    </section>`;
+}
+
+/* ------------------------------------------------------------ ungraded */
+function ungraded() {
+  return `
+    <section>
+      <div class="verdict none">
+        <span class="glyph" aria-hidden="true">–</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>Not checked against a spec sheet</h2>
+          <p>
+            The recording announced style <code>${job.announced}</code>, which had no sheet picked
+            for it. Measurements were extracted but nothing was graded. Process it again and choose
+            the style to get a graded sheet.
+          </p>
+          <div class="row">
+            <button class="btn on-tint" data-need="record">Pick a style and re-run</button>
+            <a class="btn on-tint" href="library.html">Open the library</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Extracted</h2></div>
+      <p class="lede">
+        Everything the recording said is here. Without a sheet there is nothing to judge it
+        against, so no measurement was rebuilt and no tolerance was applied.
+      </p>
+      ${readout()}
+    </section>`;
+}
+
+/* -------------------------------------------------------------- graded */
+function graded() {
+  return verdict() + audit() + tables() + extracted() + headerFields() + downloads();
+}
+
+function verdict() {
+  if (job.state === "released") {
+    return `
+    <section>
+      <div class="verdict pass">
+        <span class="glyph" aria-hidden="true">✓</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>Signed off — every point of measure was heard and ruled on</h2>
+          <p>
+            ${job.judged} of ${job.rows} carry a verdict and every measurement sits inside the
+            tolerance band on style ${job.style}. Signed off by ${job.signedBy} on ${job.signedOn}.
+          </p>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  if (job.open) {
+    const one = job.open === 1;
+    return `
+    <section>
+      <div class="verdict open">
+        <span class="glyph" aria-hidden="true">??</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>Not final — ${job.open} point${one ? "" : "s"} of measure ${one ? "has" : "have"} no verdict</h2>
+          <p>
+            The recording never ruled on ${one ? "it" : "them"}. These are <b>not</b> passes:
+            transcription drops short words, so each one has to be listened back to and filled in
+            before this report is signed off.${
+              job.fail
+                ? ` ${job.fail} measurement${job.fail === 1 ? "" : "s"} also came back out of tolerance.`
+                : ""
+            }
+          </p>
+          <div class="row">
+            <a class="btn on-color" href="audit.html" data-need="audit.view">Open the graded sheet</a>
+            <a class="btn on-tint" href="#unanswered">Jump to the open readings</a>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  if (job.fail) {
+    const one = job.fail === 1;
+    return `
+    <section>
+      <div class="verdict fail">
+        <span class="glyph" aria-hidden="true">×</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>${job.fail} measurement${one ? "" : "s"} out of tolerance</h2>
+          <p>
+            Every point of measure was heard and ruled on. ${one ? "One sits" : job.fail + " sit"}
+            outside the tolerance band on style <code>${job.style}</code>.
+          </p>
+          <div class="row">
+            <a class="btn on-color" href="audit.html" data-need="audit.view">Open the graded sheet</a>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  return `
+    <section>
+      <div class="verdict pass">
+        <span class="glyph" aria-hidden="true">✓</span>
+        <div>
+          <span class="eyebrow">Verdict</span>
+          <h2>Pass — every point of measure was heard and ruled on</h2>
+          <p>
+            ${job.judged} of ${job.rows} carry a verdict and every measurement sits inside the
+            tolerance band on style ${job.style}. ${job.settled || ""} Ready for an approver to
+            sign off.
+          </p>
+          <div class="row">
+            <a class="btn on-color" href="audit.html" data-need="audit.view">Open the graded sheet</a>
+            <button class="btn on-color" data-need="release">Sign it off</button>
+          </div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function audit() {
+  if (!job.graded) return "";
+  return `
+    <section>
+      <div class="audit-open">
+        <a class="btn" href="audit.html" data-need="audit.view">Open the graded sheet</a>
+        <span class="hint">
+          Every point of measure on style <b>${job.style}</b>, one column per size. Correct anything
+          that was misheard, or fill in what the recording never covered — the report and the
+          graded sheet are rebuilt from your changes.
+        </span>
+      </div>
+    </section>`;
+}
+
+/* --------------------------------------------------------- the tables */
+function tables() {
+  let out = "";
+
+  if (job.unconfirmed && job.unconfirmed.length) {
+    out += `
+    <section id="unanswered">
+      <div class="section-head">
+        <h2>Unanswered points of measure</h2>
+        <span class="pill lavender">${job.open} of ${job.rows} listed below</span>
+      </div>
+      <p class="lede">
+        Listen back to each of these and record the deviation the inspector called, or the pass.
+        Until then the report is not final.
+      </p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th>POM</th><th>Size</th><th>Point of measure</th>
+            <th class="num">Spec</th><th>Heard as</th><th>State</th></tr></thead>
+          <tbody>
+            ${job.unconfirmed
+              .map(
+                ([pom, size, desc, spec]) => `
+              <tr><td class="pom">${pom}</td><td>${size}</td><td>${desc}</td>
+                <td class="num">${spec}</td><td class="why">—</td>
+                <td><span class="pill lavender">no verdict</span></td></tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+  }
+
+  if (job.outOfTol && job.outOfTol.length) {
+    out += `
+    <section>
+      <div class="section-head">
+        <h2>Out of tolerance</h2>
+        <span class="pill error">${job.fail}</span>
+      </div>
+      <p class="lede">
+        Measured against the graded spec sheet. The deviation is what the inspector called; the
+        measurement is rebuilt from the sheet, not from the spoken absolute.
+      </p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th>POM</th><th>Size</th><th>Point of measure</th>
+            <th class="num">Spec</th><th class="num">Measured</th>
+            <th class="num">Deviation</th><th>State</th></tr></thead>
+          <tbody>
+            ${job.outOfTol
+              .map(
+                ([pom, size, desc, spec, measured, dev]) => `
+              <tr><td class="pom">${pom}</td><td>${size}</td><td>${desc}</td>
+                <td class="num">${spec}</td><td class="num">${measured}</td>
+                <td class="num">${dev}</td>
+                <td><span class="pill error">out of tol</span></td></tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+  }
+
+  if (job.worth && job.worth.length) {
+    out += `
+    <section>
+      <div class="section-head">
+        <h2>Worth confirming</h2>
+        <span class="pill ochre">${job.flagged} of ${job.rows} rows</span>
+      </div>
+      <p class="lede">
+        Heard with less than full confidence — mid-sentence corrections, crosstalk, or a name the
+        model could not place. The value may well be right.
+      </p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th class="num">#</th><th>Size</th><th>Point of measure</th>
+            <th class="num">Value</th><th class="num">Heard</th><th>Why</th></tr></thead>
+          <tbody>
+            ${job.worth
+              .map(
+                ([n, size, desc, value, conf, why]) => `
+              <tr><td class="num">${n}</td><td>${size}</td><td>${desc}</td>
+                <td class="num">${value}</td><td class="num">${conf}</td>
+                <td class="why">${why}</td></tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+  }
+
+  return out;
+}
+
+/* --------------------------------------------------------- the numbers */
+function readout() {
+  const cell = (label, value, tone) =>
+    `<div class="${tone || ""}"><dt>${label}</dt><dd>${value}</dd></div>`;
+  return `
+    <dl class="readout">
+      ${cell("Rows", job.rows)}
+      ${cell("Sizes", job.sizes, "").replace("<dd>", '<dd class="sizes">')}
+      ${cell("Judged", job.judged)}
+      ${cell("Out of tolerance", job.graded ? job.fail : "—", job.fail ? "warm" : job.graded ? "clear" : "")}
+      ${cell("No verdict", job.graded ? job.open : "—", job.open ? "hot" : job.graded ? "clear" : "")}
+      ${cell("Accessories", job.accessories)}
+      ${cell("Comments", job.comments)}
+    </dl>`;
+}
+
+function extracted() {
+  return `
+    <section>
+      <div class="section-head"><h2>Extracted</h2></div>
+      ${readout()}
+    </section>`;
+}
+
+function headerFields() {
+  if (!job.header) return "";
+  const stated = job.header.length;
+  const missing = (job.unstated || []).length;
+  return `
+    <section>
+      <div class="section-head">
+        <h2>Report header</h2>
+        <span class="pill">${stated} of ${stated + missing} fields stated</span>
+      </div>
+      <dl class="kv">
+        ${job.header.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}
+      </dl>
+      ${
+        missing
+          ? `<details class="more">
+               <summary>${missing} field${missing === 1 ? "" : "s"} the recording did not state</summary>
+               <div class="unstated">${job.unstated.map((f) => `<span>${f}</span>`).join("")}</div>
+             </details>`
+          : ""
+      }
+    </section>`;
+}
+
+/* ---------------------------------------------------------- the stats */
+/* A different question from the report. The report asks what to do about
+   this inspection; the stats ask how it behaved — where confidence went, how
+   large the deviations were, which size carried the trouble, and where the
+   minutes went. Nothing here is actionable, and it should not pretend to be. */
+function stats() {
+  /* Provenance first, and for every state. When it was taken, by whom, where,
+     off what and into what transcript are the questions asked months later
+     when a vendor disputes a measurement — and they have answers even when a
+     recording produced nothing else. The numbers below are only interesting
+     if you already trust where they came from. */
+  return provenance() + (job.stats ? analysis() : nothingMeasured());
+}
+
+function analysis() {
+  return headline() + verdictSplit() + distribution() + bySize() + timing();
+}
+
+function nothingMeasured() {
+  return `
+    <section>
+      <div class="section-head"><h2>Measurements</h2></div>
+      <div class="notice info">
+        <b>Nothing measured yet.</b>
+        ${
+          job.state === "running"
+            ? "This inspection is still being processed — the counts arrive with the graded sheet."
+            : job.state === "failed"
+            ? "Nothing was extracted from this recording, so there is nothing to count."
+            : "This inspection was never checked against a spec sheet, so no reading carries a verdict, a confidence or a deviation."
+        }
+      </div>
+    </section>`;
+}
+
+/* ------------------------------------------------------- where it came from */
+function provenance() {
+  const who = member(job.by);
+  const role = who ? roleIn("sizeset", who) : null;
+  const rec = job.recording || {};
+  const tr = job.transcript || {};
+
+  return `
+    <section>
+      <div class="section-head"><h2>Where this came from</h2></div>
+      <p class="lede">
+        Everything a disputed measurement gets checked against: when it was taken, by whom, on
+        which bench, off which file, and through which transcript.
+      </p>
+
+      <dl class="readout">
+        <div><dt>Date</dt><dd class="sizes">${job.at}</dd></div>
+        <div><dt>Time</dt><dd class="sizes">${job.from} – ${job.to} IST</dd></div>
+        <div><dt>Duration</dt><dd class="sizes">${job.len}</dd></div>
+      </dl>
+
+      <div class="dash-split" style="margin-top: 16px">
+        <div class="card">
+          <span class="eyebrow">Who</span>
+          <div class="me" style="padding: 12px 0 0; pointer-events: none">
+            <span class="avatar">${(who ? who.name : job.by).slice(0, 1)}</span>
+            <div class="grow">
+              <b>${who ? who.name : job.by}</b>
+              <span>${role ? ROLES[role].label : "no longer on this stage"} · ${job.by}</span>
+            </div>
+          </div>
+          <dl class="kv" style="margin: 16px 0 0">
+            <dt>Location</dt><dd>${job.location}</dd>
+            <dt>Stage</dt><dd>Size set</dd>
+            <dt>Style</dt><dd>${job.style === "—" ? "none picked" : job.style + " — " + job.description}</dd>
+            <dt>Season</dt><dd>${job.season}</dd>
+          </dl>
+        </div>
+
+        <div class="card">
+          <span class="eyebrow">Recording</span>
+          <div class="row" style="display:flex;align-items:center;gap:10px;margin:12px 0 4px">
+            <button class="btn secondary sm" data-play data-playing="false">▶ Play</button>
+            <b class="pom" style="font-size:12.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis">${job.file}</b>
+            <button class="iconbtn" data-need="download.working"
+                    title="Download ${job.file}" aria-label="Download the recording">
+              ${ICON.download}
+            </button>
+          </div>
+          <div class="wave small" aria-hidden="true"></div>
+          <dl class="kv" style="margin: 16px 0 0">
+            <dt>Size</dt><dd>${rec.size}</dd>
+            <dt>Format</dt><dd>${rec.format}</dd>
+            <dt>Captured on</dt><dd>${rec.device}</dd>
+            <dt>Chunks</dt><dd>${rec.chunks}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 16px">
+        <div class="section-head" style="margin-bottom: 10px">
+          <h2 style="font: var(--text-title-md)">Transcript</h2>
+          <span class="pill">${tr.passes === 2 ? "two passes" : tr.passes + " pass"}</span>
+          <span class="spacer"></span>
+          <a class="btn secondary sm" href="transcript.html?id=${job.id}">Open</a>
+          <button class="iconbtn" data-need="download.working"
+                  title="Download the transcript" aria-label="Download the transcript">
+            ${ICON.download}
+          </button>
+        </div>
+        <p class="lede" style="margin-bottom: 14px">
+          The recording is transcribed twice by the same engine and compared. A reading the two
+          passes disagree on comes back as a question rather than a confident wrong answer.
+        </p>
+        <dl class="kv" style="margin: 0">
+          <dt>Words</dt><dd>${tr.words}</dd>
+          <dt>Languages</dt><dd>${tr.languages}</dd>
+          <dt>Engine</dt><dd>${tr.engine}</dd>
+          <dt>Time index</dt><dd>${tr.index}</dd>
+        </dl>
+      </div>
+    </section>`;
+}
+
+function headline() {
+  return `
+    <section>
+      <dl class="readout">
+        <div><dt>Readings</dt><dd>${job.rows}</dd></div>
+        <div><dt>Judged</dt><dd>${job.judged}</dd></div>
+        <div class="${job.fail ? "warm" : "clear"}"><dt>Out of tolerance</dt><dd>${job.fail}</dd></div>
+        <div class="${job.open ? "hot" : "clear"}"><dt>No verdict</dt><dd>${job.open}</dd></div>
+        <div><dt>Median confidence</dt><dd>${job.stats.medianConf}</dd></div>
+        <div><dt>Settled by hand</dt><dd>${job.stats.settled}</dd></div>
+      </dl>
+    </section>`;
+}
+
+/* One bar, three parts. A pie would need a legend to say which slice is which
+   and still not let you compare two inspections at a glance. */
+function verdictSplit() {
+  const pass = job.judged - job.fail;
+  const parts = [
+    ["Passed", pass, "good"],
+    ["Out of tolerance", job.fail, "bad"],
+    ["No verdict", job.open, "open"],
+  ].filter(([, n]) => n > 0);
+
+  return `
+    <section>
+      <div class="section-head"><h2>Verdicts</h2></div>
+      <p class="lede">
+        Every row on the sheet, by what the recording said about it. A row with no verdict is not
+        a pass — it is a question nobody has answered.
+      </p>
+      <div class="hbar">
+        ${parts
+          .map(
+            ([label, n, kind]) =>
+              `<span class="seg ${kind}" style="flex: ${n}" title="${label}: ${n}"></span>`,
+          )
+          .join("")}
+      </div>
+      <div class="legend">
+        ${parts
+          .map(
+            ([label, n, kind]) =>
+              `<span><i class="sw ${kind}"></i> ${label} <b>${n}</b></span>`,
+          )
+          .join("")}
+      </div>
+    </section>`;
+}
+
+function distribution() {
+  const bars = (buckets, counts, tone) => {
+    const top = Math.max(...counts, 1);
+    return `
+      <div class="dist">
+        ${counts
+          .map(
+            (n, i) => `
+          <div class="row" title="${buckets[i]}: ${n}">
+            <span class="k">${buckets[i]}</span>
+            <span class="track"><i class="${tone}" style="width:${Math.round((n / top) * 100)}%"></i></span>
+            <span class="v">${n}</span>
+          </div>`,
+          )
+          .join("")}
+      </div>`;
+  };
+
+  return `
+    <section>
+      <div class="dash-split">
+        <div>
+          <div class="section-head"><h2>How sure the transcription was</h2></div>
+          <p class="lede">
+            Anything under 100% is worth a second listen; anything under 85% is worth one before
+            the sheet is signed off.
+          </p>
+          <div class="card">${bars(CONF_BUCKETS, job.stats.confidence, "cool")}</div>
+        </div>
+        <div>
+          <div class="section-head"><h2>Deviations called</h2></div>
+          <p class="lede">
+            How far off spec the inspector called each reading, in inches. Most of a good
+            inspection is <b>OK</b>.
+          </p>
+          <div class="card">${bars(DEV_BUCKETS, job.stats.deviations, "warm")}</div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function bySize() {
+  return `
+    <section>
+      <div class="section-head">
+        <h2>By size</h2>
+        <span class="pill">${job.stats.bySize.length} measured</span>
+      </div>
+      <p class="lede">
+        Trouble concentrated in one size is a grading problem; trouble spread evenly is a
+        make problem. They are fixed by different people.
+      </p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th>Size</th><th class="num">Readings</th><th class="num">Judged</th>
+            <th class="num">Out of tol</th><th class="num">No verdict</th>
+            <th class="num">Median confidence</th></tr></thead>
+          <tbody>
+            ${job.stats.bySize
+              .map(
+                ([size, rows, judged, fail, open, conf]) => `
+              <tr>
+                <td><b>${size}</b></td>
+                <td class="num">${rows}</td>
+                <td class="num">${judged}</td>
+                <td class="num" style="${fail ? "color:#b3261e;font-weight:700" : ""}">${fail || "—"}</td>
+                <td class="num" style="${open ? "color:#4c3a8a;font-weight:700" : ""}">${open || "—"}</td>
+                <td class="num">${conf}</td>
+              </tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function timing() {
+  return `
+    <section>
+      <div class="section-head"><h2>Where the time went</h2></div>
+      <p class="lede">
+        The recording is transcribed twice on purpose, so a dropped verdict shows up as a question
+        rather than a false pass. That second pass is most of the wait.
+      </p>
+      <dl class="kv">
+        ${job.stats.timing
+          .map(([k, v]) => `<dt>${k}</dt><dd><b>${v}</b></dd>`)
+          .join("")}
+      </dl>
+    </section>`;
+}
+
+function downloads() {
+  return `
+    <section>
+      <div class="section-head"><h2>Downloads</h2></div>
+      ${
+        job.open
+          ? `<p class="notice warn" style="margin-bottom: 16px">
+               The report and graded sheet mark the ${job.open} unanswered point${
+                 job.open === 1 ? "" : "s"
+               } of measure in violet. Fill those in before this is signed off — a missing verdict
+               is not a pass. Nothing is sent to the vendor from this stage; the shipment is
+               released at <b>Final</b>.
+             </p>`
+          : ""
+      }
+      <div class="files">
+        <a class="lead" href="#" data-need="download.vendor">Report PDF</a>
+        <a href="#" data-need="download.vendor">Graded sheet PDF</a>
+        <a href="#" data-need="download.working">Form CSV</a>
+        <a href="#" data-need="download.working">Measurements CSV</a>
+        <a href="#" data-need="download.working">Graded sheet CSV</a>
+        <a href="#" data-need="download.working">JSON</a>
+      </div>
+    </section>`;
+}
+
+}
+</script>
+</body>
+</html>

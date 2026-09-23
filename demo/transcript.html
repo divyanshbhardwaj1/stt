@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Transcript · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body data-rail="index.html">
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-team="sizeset">
+      <div class="wrap" id="page"></div>
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="inspections.js"></script>
+<script src="app.js"></script>
+<script>
+if (currentTeam() === "sizeset") {
+
+const id = new URLSearchParams(location.search).get("id");
+const job = inspection(id);
+const host = document.querySelector("#page");
+
+if (!job) {
+  host.innerHTML = `
+    <div class="blank">
+      <div>
+        <div class="art" aria-hidden="true"><i></i><i></i><i></i></div>
+        <h2>No such inspection</h2>
+        <p>Nothing on this floor is called <code>${id || "—"}</code>.</p>
+        <div class="files" style="justify-content: center">
+          <a class="lead" href="index.html">Back to the inspections</a>
+        </div>
+      </div>
+    </div>`;
+} else {
+  render();
+}
+
+function render() {
+  const tr = job.transcript || {};
+  const lines = job.lines || [];
+  const diffs = job.diffs || [];
+  const readings = lines.filter((l) => l[2]).length;
+
+  host.innerHTML = `
+    <div class="crumbs">
+      <a href="index.html">Inspections</a>
+      <span aria-hidden="true">/</span>
+      <a href="${reportUrl(job)}">${job.file}</a>
+      <span aria-hidden="true">/</span>
+      <b>Transcript</b>
+    </div>
+
+    <header>
+      <div class="page-title">
+        <h1>Transcript</h1>
+        <span class="pill">${tr.passes === 2 ? "two passes" : "one pass"}</span>
+        <span class="spacer"></span>
+        <button class="iconbtn" data-need="download.working"
+                title="Download the transcript" aria-label="Download the transcript">
+          ${ICON.download}
+        </button>
+        <a class="btn secondary sm" href="${reportUrl(job)}">Back to the report</a>
+      </div>
+      <p class="page-meta">
+        ${job.file} · ${job.len} · recorded ${job.at}, ${job.from}
+      </p>
+    </header>
+
+    <!-- The transcript is not the report. It is what the report was built
+         from, and the only place to see a reading in the sentence it came
+         out of — which is the question asked when a number looks wrong. -->
+    <section style="margin-top: 20px">
+      <dl class="readout">
+        <div><dt>Words</dt><dd>${tr.words}</dd></div>
+        <div><dt>Lines</dt><dd>${lines.length}</dd></div>
+        <div><dt>Readings taken</dt><dd>${readings}</dd></div>
+        <div><dt>Languages</dt><dd class="sizes">${tr.languages}</dd></div>
+        <div class="${diffs.length ? "warm" : "clear"}">
+          <dt>Passes disagreed</dt><dd>${diffs.length}</dd>
+        </div>
+      </dl>
+    </section>
+
+    ${lines.length ? controls() + body() : empty()}
+    ${diffs.length ? differences() : ""}
+
+    <section>
+      <div class="section-head"><h2>How this was made</h2></div>
+      <p class="lede">
+        The recording is transcribed twice by the same engine and the two readings compared. Where
+        they disagree the reading comes back as a question rather than a confident wrong answer —
+        every percentage on the graded sheet traces to that comparison.
+      </p>
+      <dl class="kv">
+        <dt>Engine</dt><dd>${tr.engine}</dd>
+        <dt>Time index</dt><dd>${tr.index}</dd>
+        <dt>Why a second engine</dt>
+        <dd>
+          The transcription engine returns no timings, so playback needs a separate word-level
+          index. It is used for nothing else — the report is built from the passes above.
+        </dd>
+      </dl>
+    </section>`;
+
+  wireLines();
+  waveform();
+  gate(host);
+}
+
+function controls() {
+  return `
+    <section>
+      <div class="section-head">
+        <h2>What was said</h2>
+        <span class="pill" id="shown"></span>
+        <span class="spacer"></span>
+        <label class="check" style="margin-right: 12px">
+          <input type="checkbox" id="only" />
+          <span>Only lines that produced a reading</span>
+        </label>
+        <input type="text" id="find" placeholder="Find in the transcript"
+               style="max-width: 240px; height: 36px" />
+      </div>
+      <p class="lede">
+        Click a line to hear it. A line marked with a point of measure is one the extractor took a
+        reading from — the rest is the inspector talking.
+      </p>
+    </section>`;
+}
+
+function body() {
+  return `
+    <section style="margin-top: -8px">
+      <div class="card" style="padding: 0">
+        <ul class="lines script" id="script"></ul>
+      </div>
+    </section>`;
+}
+
+function empty() {
+  return `
+    <section>
+      <div class="notice info">
+        <b>No transcript yet.</b>
+        ${
+          job.state === "running"
+            ? "This recording is still being transcribed — the first pass has not finished."
+            : "Nothing came back from this recording."
+        }
+      </div>
+    </section>`;
+}
+
+function differences() {
+  return `
+    <section>
+      <div class="section-head">
+        <h2>Where the passes disagreed</h2>
+        <span class="pill warning">${job.diffs.length}</span>
+      </div>
+      <p class="lede">
+        Each of these became a confidence below 100% on the graded sheet. The value usually
+        survives; it is the phrasing that moves, and the sheet says so rather than guessing.
+      </p>
+      <div class="tablewrap">
+        <table class="data">
+          <thead><tr><th class="num">At</th><th>Reading</th><th>First pass</th>
+            <th>Second pass</th><th>What it cost</th></tr></thead>
+          <tbody>
+            ${job.diffs
+              .map(
+                ([at, pom, a, b, why]) => `
+              <tr>
+                <td class="num pom">${at}</td>
+                <td class="pom">${pom}</td>
+                <td class="why">“${a}”</td>
+                <td class="why">“${b}”</td>
+                <td>${why}</td>
+              </tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+/* ------------------------------------------------------------ the lines */
+function wireLines() {
+  const list = document.querySelector("#script");
+  if (!list) return;
+  const only = document.querySelector("#only");
+  const find = document.querySelector("#find");
+  let query = "";
+
+  function draw() {
+    const shown = job.lines.filter(
+      (l) => (!only.checked || l[2]) && (!query || l[1].toLowerCase().includes(query)),
+    );
+    document.querySelector("#shown").textContent =
+      shown.length === job.lines.length ? job.lines.length + " lines" : shown.length + " of " + job.lines.length;
+
+    list.innerHTML = shown.length
+      ? shown
+          .map(
+            ([at, text, pom]) => `
+        <li class="${pom ? "took" : ""}" data-at="${at}">
+          <span class="t">${at}</span>
+          <span class="say">${mark(text)}</span>
+          ${pom ? `<span class="pom tag">${pom}</span>` : ""}
+        </li>`,
+          )
+          .join("")
+      : '<li class="none">Nothing in the transcript matches that.</li>';
+  }
+
+  /* The searched words, marked in place. Finding a phrase and then hunting
+     for it again inside the line is the wrong half of a search. */
+  function mark(text) {
+    if (!query) return text;
+    const i = text.toLowerCase().indexOf(query);
+    if (i < 0) return text;
+    return (
+      text.slice(0, i) + "<mark>" + text.slice(i, i + query.length) + "</mark>" + text.slice(i + query.length)
+    );
+  }
+
+  only.addEventListener("change", draw);
+  find.addEventListener("input", (event) => {
+    query = event.target.value.trim().toLowerCase();
+    draw();
+  });
+
+  // No audio ships with the prototype, so a click shows the seek it would do.
+  list.addEventListener("click", (event) => {
+    const line = event.target.closest("li[data-at]");
+    if (!line) return;
+    list.querySelectorAll("li").forEach((l) => l.classList.remove("playing"));
+    line.classList.add("playing");
+  });
+
+  draw();
+}
+
+}
+</script>
+</body>
+</html>

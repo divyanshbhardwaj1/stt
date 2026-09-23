@@ -16,7 +16,8 @@ React component, route, stylesheet or backend file was modified, and nothing in
 | File | Screen | What it shows |
 |---|---|---|
 | `logs.html` | **Activity** | Every stage has one — append-only, attributed, filterable by kind and person |
-| `teams.html` | **Teams** | The four stages, your role on each, and who else is on them |
+| `teams.html` | **Stages** | The four stages, your role on each, and who else is on them |
+| `account.html` | **Account** | Your id and stages, password change, per-device preferences |
 | `ppm.html` | **PPM** | Pre-production meeting — approvals, open points, the room |
 | `interim.html` | **Line audit** | Interim — defect rate, defects by category, critical measurements |
 | `final.html` | **Final inspection** | AQL plan, defect classification, accept or reject |

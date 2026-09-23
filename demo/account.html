@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Account · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div class="wrap">
+
+      <header>
+        <div class="page-title">
+          <h1>Account</h1>
+          <span class="pill" id="state"></span>
+          <span class="spacer"></span>
+          <button class="btn secondary sm" data-signout>Log out</button>
+        </div>
+        <p class="page-meta" id="sub"></p>
+      </header>
+
+      <section style="margin-top: 24px">
+        <div class="section-head"><h2>You</h2></div>
+        <p class="lede">
+          Your id is what the audit trail records against every correction, approval and release
+          you make. It cannot be changed — renaming it would orphan everything already recorded
+          against it.
+        </p>
+        <dl class="kv" id="me"></dl>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Your stages</h2>
+          <span class="pill" id="stagecount"></span>
+        </div>
+        <p class="lede" id="stagelede"></p>
+        <div class="tablewrap">
+          <table class="data" id="stages"></table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Password</h2></div>
+        <p class="lede">
+          Changing it signs you out of other devices. An administrator can reset it but cannot read
+          it — a password nobody can recover is the point of having one.
+        </p>
+        <div class="card" style="max-width: 520px">
+          <div id="pwflash" hidden style="margin-bottom: 16px"></div>
+          <div class="field" style="margin-bottom: 14px">
+            <label class="lbl" for="old">Current password</label>
+            <input type="password" id="old" autocomplete="current-password" />
+          </div>
+          <div class="field" style="margin-bottom: 14px">
+            <label class="lbl" for="new1">New password</label>
+            <input type="password" id="new1" autocomplete="new-password" />
+          </div>
+          <div class="field" style="margin-bottom: 18px">
+            <label class="lbl" for="new2">New password again</label>
+            <input type="password" id="new2" autocomplete="new-password" />
+          </div>
+          <button class="btn sm" id="changepw">Change the password</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Preferences</h2></div>
+        <p class="lede">
+          Kept on this device, not on your account — a shared tablet on the floor should not carry
+          one person's habits into the next person's shift.
+        </p>
+        <div class="card" style="max-width: 520px">
+          <div class="fld">
+            <span>Stage to open<em>where you land after signing in</em></span>
+            <select id="home"></select>
+          </div>
+          <div class="fld">
+            <span>Sidebar<em>on this device</em></span>
+            <select id="railpref">
+              <option value="open">Open</option>
+              <option value="closed">Collapsed</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>This session</h2></div>
+        <dl class="readout" id="sessioninfo"></dl>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+const me = session();
+const who = member(me.id);
+
+document.querySelector("#state").textContent = isAdmin() ? "Administrator" : "Active";
+document.querySelector("#sub").textContent =
+  "Signed in as " + me.id + " · Shivalika QA, Gurugram";
+
+/* ------------------------------------------------------------- details */
+document.querySelector("#me").innerHTML = [
+  ["Name", who ? who.name : me.name],
+  ["Id", `<code>${me.id}</code>`],
+  ["Status", who && who.state === "invited" ? "Invited" : "Active"],
+  ["Stages", myTeams().length + " of " + TEAM_IDS.length],
+  ["Roles set by", "An administrator — roles are not yours to change"],
+]
+  .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
+  .join("");
+
+/* -------------------------------------------------------------- stages */
+const mine = myTeams();
+document.querySelector("#stagecount").textContent =
+  mine.length + " of " + TEAM_IDS.length;
+document.querySelector("#stagelede").textContent = isAdmin()
+  ? "You are an administrator, so every stage is open to you — including any added later. That is what the flag means; it is not a role held four times."
+  : "A role is held per stage, and a stage you hold no role on does not open. Ask an administrator to change either.";
+
+document.querySelector("#stages").innerHTML =
+  `<thead><tr><th>Stage</th><th>What happens there</th><th>Your role</th><th></th></tr></thead><tbody>` +
+  TEAM_IDS.map((id) => {
+    const team = TEAMS[id];
+    const role = roleIn(id);
+    return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="tile ${team.fill}">${team.tag}</span><b>${team.name}</b>
+        </div>
+      </td>
+      <td class="why">${team.blurb}</td>
+      <td>${
+        role
+          ? `<span class="pill${isAdmin() ? " lavender" : ""}">${ROLES[role].label}</span>`
+          : '<span class="dim">no role</span>'
+      }</td>
+      <td style="text-align:right">
+        ${
+          role
+            ? id === currentTeam()
+              ? '<span class="pill success">you are here</span>'
+              : `<button class="btn quiet sm" data-goto-team="${id}">Switch</button>`
+            : ""
+        }
+      </td>
+    </tr>`;
+  }).join("") +
+  "</tbody>";
+
+/* ------------------------------------------------------------ password */
+/* Nothing is stored — the roster's password is left alone. This is the shape
+   of the flow and its refusals, which is what there is to judge. */
+document.querySelector("#changepw").addEventListener("click", () => {
+  const box = document.querySelector("#pwflash");
+  const old = document.querySelector("#old").value;
+  const a = document.querySelector("#new1").value;
+  const b = document.querySelector("#new2").value;
+
+  const problem = !old
+    ? "Enter your current password."
+    : old !== (who && who.pass ? who.pass : "demo123")
+    ? "That is not your current password."
+    : a.length < 8
+    ? "A new password needs at least 8 characters."
+    : a !== b
+    ? "The two new passwords do not match."
+    : a === old
+    ? "The new password is the same as the old one."
+    : null;
+
+  box.className = "notice " + (problem ? "bad" : "info");
+  box.innerHTML = problem
+    ? "<b>" + problem + "</b>"
+    : "<b>Password changed.</b> Other devices have been signed out. Nothing was actually stored — this is a prototype.";
+  box.hidden = false;
+  if (!problem) {
+    ["#old", "#new1", "#new2"].forEach((id) => (document.querySelector(id).value = ""));
+  }
+});
+
+/* --------------------------------------------------------- preferences */
+const home = document.querySelector("#home");
+home.innerHTML = mine
+  .map((id) => `<option value="${id}"${id === currentTeam() ? " selected" : ""}>${TEAMS[id].name}</option>`)
+  .join("");
+home.addEventListener("change", () => setTeam(home.value));
+
+const railPref = document.querySelector("#railpref");
+railPref.value = document.documentElement.dataset.rail === "closed" ? "closed" : "open";
+railPref.addEventListener("change", () => {
+  document.documentElement.dataset.rail = railPref.value;
+  try {
+    localStorage.setItem("rail", railPref.value);
+  } catch (err) {
+    /* the change still applies to this page */
+  }
+  rail();
+  gate();
+});
+
+/* ------------------------------------------------------------- session */
+document.querySelector("#sessioninfo").innerHTML = [
+  ["Signed in", "Today, 08:41"],
+  ["Expires", "In 12 hours"],
+  ["Device", "Shared tablet — Unit 4"],
+  ["Stage", TEAMS[currentTeam()].name],
+]
+  .map(([k, v]) => `<div><dt>${k}</dt><dd class="sizes">${v}</dd></div>`)
+  .join("");
+
+gate();
+</script>
+</body>
+</html>

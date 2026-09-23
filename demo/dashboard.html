@@ -98,7 +98,7 @@ const MINE = [
   {
     file: "7122(4).mp3", style: "7122", why: "Graded — with questions for the QA team",
     detail: "74 rows, 3 points of measure the recording never ruled on",
-    age: "2 h", stage: "mine", severity: "open", href: "index.html",
+    age: "2 h", stage: "mine", severity: "open", href: "report.html?id=7122-4",
   },
   {
     file: "rec 2365(4).webm", style: "2365", why: "Still processing",
@@ -108,7 +108,7 @@ const MINE = [
   {
     file: "Recording_9662(1).mp3", style: "9662", why: "Nothing was written",
     detail: "41 seconds of audio and no measurements — worth re-recording",
-    age: "1 d", stage: "mine", severity: "fail", href: "states.html",
+    age: "1 d", stage: "mine", severity: "fail", href: "report.html?id=9662-1",
   },
 ];
 
@@ -116,32 +116,32 @@ const BLOCKED = [
   {
     file: "7122(4).mp3", style: "7122", why: "3 points of measure have no verdict",
     detail: "1.22A at S and M, 1.24A at M", age: "2 h", stage: "review",
-    severity: "open", href: "audit.html",
+    severity: "open", href: "report.html?id=7122-4",
   },
   {
     file: "7122(4).mp3", style: "7122", why: "2 measurements out of tolerance",
     detail: "1.28A at M, 3.01A at L", age: "2 h", stage: "review",
-    severity: "fail", href: "index.html",
+    severity: "fail", href: "report.html?id=7122-4",
   },
   {
     file: "2463(1)(3).m4a", style: "—", why: "Never checked against a spec sheet",
     detail: "The recording announced 2463; no sheet was picked", age: "1 d", stage: "review",
-    severity: "none", href: "states.html#not-checked",
+    severity: "none", href: "report.html?id=2463-1",
   },
   {
     file: "Recording_9662(1).mp3", style: "9662", why: "Processing failed",
     detail: "41 seconds of audio and no measurements", age: "1 d", stage: "review",
-    severity: "fail", href: "states.html",
+    severity: "fail", href: "report.html?id=9662-1",
   },
   {
     file: "2365(2).webm", style: "2365", why: "Reviewed, waiting for sign-off",
     detail: "Every verdict captured, all within tolerance", age: "4 h", stage: "signoff",
-    severity: "ready", href: "states.html",
+    severity: "ready", href: "report.html?id=2365-2",
   },
   {
     file: "7147(1).mp3", style: "7147", why: "Reviewed, waiting for sign-off",
     detail: "Two readings settled by hand by S. Iqbal", age: "6 h", stage: "signoff",
-    severity: "ready", href: "states.html",
+    severity: "ready", href: "report.html?id=7147-1",
   },
 ];
 
@@ -184,7 +184,7 @@ const HERO = {
     fill: "open", glyph: "??", eyebrow: "Waiting on you",
     title: "4 inspections need a reviewer before they can go anywhere",
     body: "Three carry points of measure the recording never ruled on, and those are not passes — transcription drops short words, so each one has to be listened back to. One failed to process at all.",
-    cta: [["Open the oldest", "audit.html", "on-tint"], ["See all four", "#blocked", "on-tint"]],
+    cta: [["Open the oldest", "report.html?id=7122-4", "on-tint"], ["See all four", "#blocked", "on-tint"]],
     queue: "review",
     queueTitle: "Needs attention",
     queueLede:
@@ -194,7 +194,7 @@ const HERO = {
     fill: "pass", glyph: "→", eyebrow: "Waiting on you",
     title: "2 graded sheets are reviewed and waiting for your sign-off",
     body: "Both have every verdict captured and sit inside tolerance. Signing off locks the sheet and lets the order move on — you are approving it exactly as the reviewers left it. Nothing is sent to the vendor from this stage; that happens at Final.",
-    cta: [["Review and sign off", "index.html", "on-color"]],
+    cta: [["Review and sign off", "report.html?id=7147-1", "on-color"]],
     queue: "signoff",
     queueTitle: "Waiting for sign-off",
     queueLede:

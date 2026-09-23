@@ -36,15 +36,9 @@ const TEAMS = {
     nav: [
       ["dashboard.html", "", "dashboard", "Dashboard"],
       ["record.html", "record", "record", "Record inspection"],
+      ["index.html", "", "inspection", "Inspection"],
       ["library.html", "", "library", "Style sets"],
       ["logs.html", "", "log", "Activity"],
-    ],
-    listhead: "Inspections",
-    items: [
-      { file: "7122(4).mp3", status: "done", note: "3 verdicts missing", flag: true, href: "index.html" },
-      { file: "rec 2365(4).webm", status: "running", note: "Second reading", href: "processing.html" },
-      { file: "2463(1)(3).m4a", status: "done", note: "71 rows extracted", href: "states.html" },
-      { file: "Recording_9662(1).mp3", status: "failed", note: "Failed", href: "states.html" },
     ],
     log: [
       ["21 Sep", "14:02", "a.bhatt", "correction", "Settled 1.22A at M — deviation −1/8", "7122(4)"],
@@ -75,12 +69,6 @@ const TEAMS = {
       ["library.html", "", "library", "Style sets"],
       ["logs.html", "", "log", "Activity"],
     ],
-    listhead: "Meetings",
-    items: [
-      { file: "7122 · PPM", status: "running", note: "4 points open", flag: true, href: "ppm.html" },
-      { file: "2365 · PPM", status: "done", note: "Cleared for bulk", href: "ppm.html" },
-      { file: "9685 · PPM", status: "queued", note: "Scheduled 23 Sep", href: "ppm.html" },
-    ],
     log: [
       ["21 Sep", "15:10", "p.grewal", "approval", "Marked the wash standard overdue — cutting held", "7122"],
       ["21 Sep", "15:02", "a.bhatt", "decision", "Raised a point — size set carries 3 open verdicts", "7122"],
@@ -107,11 +95,6 @@ const TEAMS = {
       ["library.html", "", "library", "Style sets"],
       ["logs.html", "", "log", "Activity"],
     ],
-    listhead: "Line audits",
-    items: [
-      { file: "7122 · Line 4", status: "running", note: "Audit in progress", flag: true, href: "interim.html" },
-      { file: "2463 · Line 2", status: "done", note: "2.1% defect rate", href: "interim.html" },
-    ],
     log: [
       ["21 Sep", "13:20", "s.iqbal", "defect", "Third audit — 330 pieces, 14 defects, 4.2%", "7122 · Line 4"],
       ["21 Sep", "13:18", "s.iqbal", "defect", "Logged 11 measurement defects at stations 6–9", "7122 · Line 4"],
@@ -136,13 +119,6 @@ const TEAMS = {
       ["final.html", "", "dashboard", "Inspections"],
       ["library.html", "", "library", "Style sets"],
       ["logs.html", "", "log", "Activity"],
-    ],
-    listhead: "Lots",
-    items: [
-      { file: "2365 · 4,800 pcs", status: "failed", note: "Rejected — 11 major", flag: true, href: "final.html" },
-      { file: "7147 · 3,200 pcs", status: "done", note: "Accepted", href: "final.html" },
-      { file: "2463 · 1,500 pcs", status: "running", note: "Drawing cartons", href: "final.html" },
-      { file: "9662 · 6,000 pcs", status: "queued", note: "Booked 24 Sep", href: "final.html" },
     ],
     log: [
       ["21 Sep", "16:05", "p.grewal", "decision", "Rejected the lot — 11 major against a reject number of 11", "2365 · 4,800"],

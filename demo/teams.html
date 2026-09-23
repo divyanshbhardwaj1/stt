@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Teams · Triburg QA</title>
+<title>Stages · Triburg QA</title>
 <link rel="stylesheet" href="app.css" />
 <script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
 </head>
@@ -16,15 +16,15 @@
 
       <header>
         <div class="page-title">
-          <h1>Teams</h1>
+          <h1>Stages</h1>
           <span class="pill" id="count"></span>
           <span class="spacer"></span>
           <a class="btn sm" href="members.html" data-need="manage.people">Manage members</a>
         </div>
         <p class="page-meta">
-          One team per stage of the check. A garment passes through all four, in order, and the
-          work at each is a different job — so the screens, the queue and your role are different
-          at each.
+          Four stages of the check. A garment passes through all of them, in order, and the work
+          at each is a different job — so the screens, the queue and your role are different at
+          each.
         </p>
       </header>
 
@@ -117,7 +117,7 @@ document.querySelector("#teams").innerHTML = TEAM_IDS.map((id) => {
             ? here
               ? `<a class="btn secondary sm" href="${team.home}">Open ${team.name}</a>`
               : `<button class="btn sm" data-goto-team="${id}">Switch to ${team.name}</button>`
-            : `<button class="btn sm" disabled title="An administrator has to add you">Not on this team</button>`
+            : `<button class="btn sm" disabled title="An administrator has to add you">No role on this stage</button>`
         }
       </div>
     </article>`;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Inspection report · Size Set</title>
+<title>Inspections · Triburg QA</title>
 <link rel="stylesheet" href="app.css" />
 <script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
 </head>
@@ -15,241 +15,165 @@
     <div data-need-team="sizeset">
       <div class="wrap">
 
-      <!-- Intake. In the real app this sits at the top of the work pane and
-           takes over the whole pane while recording. -->
-      <div class="intake">
-        <div class="row">
-          <a class="btn" href="record.html" data-need="record">Record inspection</a>
-          <span class="hint">or <a class="link" href="#">choose a recording</a> — drop one anywhere here</span>
+        <!-- Intake. In the real app this sits at the top of the work pane and
+             takes over the whole pane while recording. -->
+        <div class="intake">
+          <div class="row">
+            <a class="btn" href="record.html" data-need="record">Record inspection</a>
+            <span class="hint">or <a class="link" href="#">choose a recording</a> — drop one anywhere here</span>
+          </div>
+          <div class="opts">
+            <label for="style">Check against</label>
+            <select id="style">
+              <option>Style announced in the recording</option>
+              <option selected>7122 — smocked button through</option>
+              <option>2463 — ribbed henley</option>
+              <option>2365 — poplin shirt dress</option>
+              <option>9662 — cropped cardigan</option>
+            </select>
+            <span class="hint">Seven sheets in the library</span>
+          </div>
         </div>
-        <div class="opts">
-          <label for="style">Check against</label>
-          <select id="style">
-            <option>Style announced in the recording</option>
-            <option selected>7122 — smocked button through</option>
-            <option>2463 — ribbed henley</option>
-            <option>2365 — poplin shirt dress</option>
-            <option>9662 — cropped cardigan</option>
-          </select>
-          <span class="hint">Eight sheets in the library</span>
-        </div>
-      </div>
 
-      <header>
-        <div class="page-title">
-          <h1>7122(4).mp3</h1>
-          <span class="pill success">done</span>
-        </div>
-        <p class="page-meta">
-          14 min 22 s · <b>Size set — holiday B 2026</b> · style <b>7122</b> · graded 21 Sep 2026
-        </p>
-      </header>
+        <header>
+          <div class="page-title">
+            <h1>Inspections</h1>
+            <span class="pill" id="count"></span>
+            <span class="spacer"></span>
+            <input type="text" id="search" placeholder="Search file, style or inspector"
+                   style="max-width: 280px; height: 36px" />
+          </div>
+          <p class="page-meta">
+            Every size-set inspection on this floor. Open one for its report.
+          </p>
+        </header>
 
-      <!-- The verdict. One saturated feature card per screen, on the single
-           fact the page exists to deliver. Ochre = not final. -->
-      <section style="margin-top: 24px">
-        <div class="verdict open">
-          <span class="glyph" aria-hidden="true">??</span>
-          <div>
-            <span class="eyebrow">Verdict</span>
-            <h2>Not final — 3 points of measure have no verdict</h2>
-            <p>
-              The recording never ruled on them. These are <b>not</b> passes: transcription drops
-              short words, so each one has to be listened back to and filled in before this report
-              reaches a vendor. 2 measurements also came back out of tolerance.
-            </p>
-            <div class="row">
-              <a class="btn on-color" href="audit.html" data-need="audit.view">Open the graded sheet</a>
-              <a class="btn on-tint" href="#unanswered">Jump to the 3 open readings</a>
+        <section style="margin-top: 20px">
+          <div class="tabs" id="filters" style="margin-bottom: 14px"></div>
+          <div class="tablewrap">
+            <table class="data" id="inspections"></table>
+          </div>
+          <div class="blank" id="nothing" hidden style="min-height: 26vh">
+            <div>
+              <h2>Nothing matches that</h2>
+              <p>No inspection matches what you searched for.</p>
+              <div class="files" style="justify-content: center">
+                <button class="btn secondary" id="clear">Clear</button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="unanswered">
-        <div class="section-head">
-          <h2>Unanswered points of measure</h2>
-          <span class="pill lavender">3 of 74 listed below</span>
-        </div>
-        <p class="lede">
-          Listen back to each of these and record the deviation the inspector called, or the pass.
-          Until then the report is not final.
-        </p>
-        <div class="tablewrap">
-          <table class="data">
-            <thead>
-              <tr>
-                <th>POM</th><th>Size</th><th>Point of measure</th>
-                <th class="num">Spec</th><th>Heard as</th><th>State</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="pom">1.22A</td><td>S</td>
-                <td>ACROSS FRONT POSITION FROM HPS</td>
-                <td class="num">5</td><td class="why">—</td>
-                <td><span class="pill lavender">no verdict</span></td>
-              </tr>
-              <tr>
-                <td class="pom">1.22A</td><td>M</td>
-                <td>ACROSS FRONT POSITION FROM HPS</td>
-                <td class="num">5</td><td class="why">—</td>
-                <td><span class="pill lavender">no verdict</span></td>
-              </tr>
-              <tr>
-                <td class="pom">1.24A</td><td>M</td>
-                <td>ACROSS BACK POSITION FROM HPS</td>
-                <td class="num">5</td><td class="why">—</td>
-                <td><span class="pill lavender">no verdict</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div class="section-head">
-          <h2>Out of tolerance</h2>
-          <span class="pill error">2</span>
-        </div>
-        <p class="lede">
-          Measured against the graded spec sheet. The deviation is what the inspector called; the
-          measurement is rebuilt from the sheet, not from the spoken absolute.
-        </p>
-        <div class="tablewrap">
-          <table class="data">
-            <thead>
-              <tr>
-                <th>POM</th><th>Size</th><th>Point of measure</th>
-                <th class="num">Spec</th><th class="num">Measured</th>
-                <th class="num">Deviation</th><th>State</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="pom">1.28A</td><td>M</td>
-                <td>CHEST 1" BELOW ARMHOLE — RELAXED</td>
-                <td class="num">32</td><td class="num">30 3/4</td>
-                <td class="num">−1 1/4</td>
-                <td><span class="pill error">out of tol</span></td>
-              </tr>
-              <tr>
-                <td class="pom">3.01A</td><td>L</td>
-                <td>SLEEVE LENGTH FROM C.B LONGEST POINT</td>
-                <td class="num">26 3/4</td><td class="num">26 1/4</td>
-                <td class="num">−1/2</td>
-                <td><span class="pill error">out of tol</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div class="section-head">
-          <h2>Worth confirming</h2>
-          <span class="pill ochre">4 of 74 rows</span>
-        </div>
-        <p class="lede">
-          Heard with less than full confidence — mid-sentence corrections, crosstalk, or a name the
-          model could not place. The value may well be right.
-        </p>
-        <div class="tablewrap">
-          <table class="data">
-            <thead>
-              <tr>
-                <th class="num">#</th><th>Size</th><th>Point of measure</th>
-                <th class="num">Value</th><th class="num">Heard</th><th>Why</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="num">18</td><td>M</td>
-                <td>ACROSS FRONT SEAM TO SEAM — RELAXED</td>
-                <td class="num">11 3/8</td><td class="num">74%</td>
-                <td class="why">the absolute read aloud matches neither the spec nor this measurement</td>
-              </tr>
-              <tr>
-                <td class="num">12</td><td>M</td>
-                <td>ACROSS SHOULDER SEAM TO SEAM — RELAXED</td>
-                <td class="num">12 7/8</td><td class="num">82%</td>
-                <td class="why">crosstalk over the deviation</td>
-              </tr>
-              <tr>
-                <td class="num">31</td><td>L</td>
-                <td>ACROSS BACK SEAM TO SEAM — RELAXED</td>
-                <td class="num">12 3/4</td><td class="num">88%</td>
-                <td class="why">mid-sentence correction</td>
-              </tr>
-              <tr>
-                <td class="num">57</td><td>XL</td>
-                <td>FRONT NECK DROP FROM HPS TO SEAM</td>
-                <td class="num">8 5/8</td><td class="num">91%</td>
-                <td class="why">name not placed on the first pass</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div class="section-head"><h2>Extracted</h2></div>
-        <dl class="readout">
-          <div><dt>Rows</dt><dd>74</dd></div>
-          <div><dt>Sizes</dt><dd class="sizes">S · M · L · XL</dd></div>
-          <div><dt>Judged</dt><dd>71</dd></div>
-          <div class="warm"><dt>Out of tolerance</dt><dd>2</dd></div>
-          <div class="hot"><dt>No verdict</dt><dd>3</dd></div>
-          <div><dt>Accessories</dt><dd>6</dd></div>
-          <div><dt>Comments</dt><dd>4</dd></div>
-        </dl>
-      </section>
-
-      <section>
-        <div class="section-head">
-          <h2>Report header</h2>
-          <span class="pill">7 of 11 fields stated</span>
-        </div>
-        <dl class="kv">
-          <dt>Buyer</dt><dd>American Eagle Outfitters</dd>
-          <dt>Style</dt><dd>7122 — smocked button through</dd>
-          <dt>Season</dt><dd>Holiday B 2026</dd>
-          <dt>Factory</dt><dd>Unit 4, Gurugram</dd>
-          <dt>Inspector</dt><dd>R. Menon</dd>
-          <dt>Date</dt><dd>21 September 2026</dd>
-          <dt>Sample stage</dt><dd>Size set</dd>
-        </dl>
-        <details class="more">
-          <summary>4 fields the recording did not state</summary>
-          <div class="unstated">
-            <span>PO number</span><span>Colourway</span><span>Order quantity</span><span>Ship date</span>
-          </div>
-        </details>
-      </section>
-
-      <section>
-        <div class="section-head"><h2>Downloads</h2></div>
-        <p class="notice warn" style="margin-bottom: 16px">
-          The report and graded sheet mark the 3 unanswered points of measure in violet. Fill those
-          in before this is signed off — a missing verdict is not a pass. Nothing is sent to the
-          vendor from this stage; the shipment is released at <b>Final</b>.
-        </p>
-        <div class="files">
-          <a class="lead" href="#" data-need="download.vendor">Report PDF</a>
-          <a href="#" data-need="download.vendor">Graded sheet PDF</a>
-          <a href="#" data-need="download.working">Form CSV</a>
-          <a href="#" data-need="download.working">Measurements CSV</a>
-          <a href="#" data-need="download.working">Graded sheet CSV</a>
-          <a href="#" data-need="download.working">JSON</a>
-        </div>
-      </section>
-
-    </div>
+      </div>
     </div>
   </main>
 </div>
+
 <script src="teams.js"></script>
 <script src="auth.js"></script>
+<script src="inspections.js"></script>
 <script src="app.js"></script>
+<script>
+if (currentTeam() === "sizeset") {
+
+let filter = "all";
+let query = "";
+
+/* Built from what is in the list, so a state nobody is in does not get a tab
+   that returns nothing. */
+const present = [...new Set(INSPECTIONS.map((i) => i.state))];
+document.querySelector("#filters").innerHTML =
+  '<button data-filter="all" aria-selected="true">All</button>' +
+  present
+    .map((k) => `<button data-filter="${k}" aria-selected="false">${STATES[k][0]}</button>`)
+    .join("");
+
+function matches(job) {
+  if (filter !== "all" && job.state !== filter) return false;
+  if (!query) return true;
+  const who = member(job.by);
+  return (job.file + " " + job.style + " " + job.description + " " + (who ? who.name : job.by))
+    .toLowerCase()
+    .includes(query);
+}
+
+function draw() {
+  const shown = INSPECTIONS.filter(matches);
+  document.querySelector("#count").textContent =
+    shown.length === INSPECTIONS.length
+      ? INSPECTIONS.length + " inspections"
+      : shown.length + " of " + INSPECTIONS.length;
+  document.querySelector("#nothing").hidden = shown.length > 0;
+  document.querySelector("#inspections").closest(".tablewrap").hidden = shown.length === 0;
+
+  document.querySelector("#inspections").innerHTML =
+    `<thead><tr><th>Inspection</th><th>Style</th><th>Recorded</th>
+       <th class="num">Rows</th><th class="num">No verdict</th><th class="num">Out of tol</th>
+       <th>State</th><th></th></tr></thead><tbody>` +
+    shown
+      .map((job) => {
+        const who = member(job.by);
+        const n = (v) => (v === undefined || v === null ? "—" : v);
+        return `
+      <tr data-open="${job.id}">
+        <td>
+          <b>${job.file}</b>
+          <div class="dim" style="font-size:11.5px">${job.len} · ${job.description}</div>
+        </td>
+        <td class="pom">${job.style}</td>
+        <td>
+          ${who ? who.name : job.by}
+          <div class="dim" style="font-size:11.5px">${job.when}</div>
+        </td>
+        <td class="num">${n(job.rows)}</td>
+        <td class="num" style="${job.open ? "color:#4c3a8a;font-weight:700" : ""}">${n(job.open)}</td>
+        <td class="num" style="${job.fail ? "color:#b3261e;font-weight:700" : ""}">${n(job.fail)}</td>
+        <td><span class="${STATES[job.state][1]}">${STATES[job.state][0]}</span></td>
+        <td style="text-align:right">
+          <a class="btn quiet sm" href="${reportUrl(job)}">Open</a>
+        </td>
+      </tr>`;
+      })
+      .join("") +
+    "</tbody>";
+}
+
+/* The whole row opens the report. A table of reports where only the last
+   eight pixels are clickable is a table people learn to resent. */
+document.querySelector("#inspections").addEventListener("click", (event) => {
+  if (event.target.closest("a")) return;
+  const row = event.target.closest("tr[data-open]");
+  if (row) location.href = reportUrl(inspection(row.dataset.open));
+});
+
+document.querySelector("#filters").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-filter]");
+  if (!button) return;
+  filter = button.dataset.filter;
+  document.querySelectorAll("#filters button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b === button)),
+  );
+  draw();
+});
+
+document.querySelector("#search").addEventListener("input", (event) => {
+  query = event.target.value.trim().toLowerCase();
+  draw();
+});
+
+document.querySelector("#clear").addEventListener("click", () => {
+  filter = "all";
+  query = "";
+  document.querySelector("#search").value = "";
+  document.querySelectorAll("#filters button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b.dataset.filter === "all")),
+  );
+  draw();
+});
+
+draw();
+gate();
+}
+</script>
 </body>
 </html>
