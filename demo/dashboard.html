@@ -12,6 +12,7 @@
   <aside class="rail"></aside>
 
   <main>
+    <div data-need-team="sizeset">
     <div class="wrap">
 
       <header>
@@ -73,16 +74,18 @@
       <section>
         <div class="section-head"><h2>Recent activity</h2></div>
         <p class="lede">
-          Every correction and every release is attributed. This is the same trail the graded
-          sheet is built from.
+          The five newest entries in this stage's log. Every correction and every sign-off is
+          attributed — <a class="link" href="logs.html">see the whole log</a>.
         </p>
         <ul class="feed" id="feed"></ul>
       </section>
 
     </div>
+    </div>
   </main>
 </div>
 
+<script src="teams.js"></script>
 <script src="auth.js"></script>
 <script src="app.js"></script>
 <script>
@@ -131,33 +134,38 @@ const BLOCKED = [
     severity: "fail", href: "states.html",
   },
   {
-    file: "2365(2).webm", style: "2365", why: "Signed off, waiting to be released",
-    detail: "Every verdict captured, all within tolerance", age: "4 h", stage: "release",
+    file: "2365(2).webm", style: "2365", why: "Reviewed, waiting for sign-off",
+    detail: "Every verdict captured, all within tolerance", age: "4 h", stage: "signoff",
     severity: "ready", href: "states.html",
   },
   {
-    file: "7147(1).mp3", style: "7147", why: "Reviewed, waiting to be released",
-    detail: "Two readings settled by hand by S. Iqbal", age: "6 h", stage: "release",
+    file: "7147(1).mp3", style: "7147", why: "Reviewed, waiting for sign-off",
+    detail: "Two readings settled by hand by S. Iqbal", age: "6 h", stage: "signoff",
     severity: "ready", href: "states.html",
   },
 ];
 
-/* Fourteen days: how many inspections were processed, and how many of those
-   left with every verdict captured. Two numbers per day, not a single total —
-   a busy day where half the reports came out incomplete is not a good day. */
+/* The last two whole weeks — Monday 7 to Sunday 20 September. Per day: how
+   many inspections were processed, and how many of those left with every
+   verdict captured. Two numbers, not a single total, because a busy day where
+   half the reports came out incomplete is not a good day.
+
+   Six working days and a quiet Sunday, which is how the floor actually runs.
+   The totals add to the 34 and 26 printed underneath. */
 const FORTNIGHT = [
-  [3, 2], [2, 2], [4, 3], [1, 1], [0, 0], [0, 0], [3, 1],
-  [2, 2], [5, 3], [3, 3], [2, 1], [0, 0], [4, 4], [5, 4],
+  [3, 2], [2, 2], [4, 3], [1, 1], [3, 1], [2, 2], [0, 0],
+  [2, 2], [5, 3], [3, 3], [2, 1], [4, 3], [3, 3], [0, 0],
 ];
 const DAYS = ["M", "T", "W", "T", "F", "S", "S", "M", "T", "W", "T", "F", "S", "S"];
+/* The axis has room for one letter; the tooltip has room for the day and the
+   date, and needs them — "T" is Tuesday and Thursday, "S" is both weekend
+   days, and a tooltip that has to be decoded is not a tooltip. */
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const FIRST_DATE = 7; // Monday 7 September 2026
 
-const FEED = [
-  ["14:02", "A. Bhattacharya", "reviewer", "Settled 1.22A at M — deviation −1/8", "7122(4)"],
-  ["13:58", "A. Bhattacharya", "reviewer", "Regraded the sheet from M to L", "7122(4)"],
-  ["11:40", "P. Grewal", "approver", "Released the report to the vendor", "2365(2)"],
-  ["10:15", "S. Iqbal", "reviewer", "Settled 2 readings by hand", "7147(1)"],
-  ["09:12", "R. Menon", "inspector", "Recorded an inspection — 14 min 22 s", "7122(4)"],
-];
+/* The five newest lines of this stage's log, not a second list that can
+   disagree with it. */
+const FEED = TEAMS.sizeset.log.slice(0, 5);
 
 /* What each role is actually blocked on. The hero is the one saturated card
    on this screen, so it has to be the thing that role can do something about. */
@@ -184,18 +192,18 @@ const HERO = {
   },
   approver: {
     fill: "pass", glyph: "→", eyebrow: "Waiting on you",
-    title: "2 reports are reviewed and ready to release",
-    body: "Both have every verdict captured and sit inside tolerance. Releasing sends the stamped report to the vendor and locks the sheet — you are signing off on the sheet as the reviewers left it.",
-    cta: [["Review and release", "index.html", "on-color"]],
-    queue: "release",
-    queueTitle: "Waiting for release",
+    title: "2 graded sheets are reviewed and waiting for your sign-off",
+    body: "Both have every verdict captured and sit inside tolerance. Signing off locks the sheet and lets the order move on — you are approving it exactly as the reviewers left it. Nothing is sent to the vendor from this stage; that happens at Final.",
+    cta: [["Review and sign off", "index.html", "on-color"]],
+    queue: "signoff",
+    queueTitle: "Waiting for sign-off",
     queueLede:
-      "Reviewed, signed off and sitting still. Releasing sends the stamped report to the vendor and locks the sheet — you are approving it exactly as the reviewers left it.",
+      "Reviewed and sitting still. Signing off locks the sheet as the reviewers left it — you cannot change a measurement and approve it in the same hand, which is the point.",
   },
   admin: {
     fill: "fail", glyph: "!", eyebrow: "Across the floor",
     title: "6 inspections are blocked, the oldest for a day",
-    body: "Four are waiting on a QA reviewer and two on an approver. One failed to process and nobody has looked at it since yesterday morning.",
+    body: "Four are waiting on a QA reviewer and two on an approver to sign off. One failed to process and nobody has looked at it since yesterday morning.",
     cta: [["See the queue", "#blocked", "on-color"], ["Members and roles", "members.html", "on-color"]],
     queue: "all",
     queueTitle: "Blocked across the floor",
@@ -204,10 +212,15 @@ const HERO = {
   },
 };
 
-const me = session();
-const hero = HERO[me.role];
+/* Scoped twice over: to the stage (this is the size-set dashboard) and to
+   the role you hold ON that stage. */
+if (currentTeam() === "sizeset") {
 
-document.querySelector("#who").textContent = ROLES[me.role].label;
+const me = session();
+const role = myRole();
+const hero = HERO[role];
+
+document.querySelector("#who").textContent = ROLES[role].label + " · " + TEAMS.sizeset.name;
 
 /* ------------------------------------------------------------- the hero */
 const card = document.querySelector("#hero");
@@ -251,11 +264,11 @@ const STATS = {
     ["Cleared this week", "9", "clear"],
   ],
   approver: [
-    ["Ready to release", "2", "warm"],
-    ["Released today", "1", "clear"],
+    ["Waiting for sign-off", "2", "warm"],
+    ["Signed off today", "1", "clear"],
     ["Still with review", "4", ""],
     ["Out of tolerance", "2", "warm"],
-    ["Released this week", "7", ""],
+    ["Signed off this week", "7", ""],
   ],
   admin: [
     ["Processed today", "6", ""],
@@ -267,7 +280,7 @@ const STATS = {
   ],
 };
 
-document.querySelector("#stats").innerHTML = STATS[me.role]
+document.querySelector("#stats").innerHTML = STATS[role]
   .map(([label, value, tone]) => `<div class="${tone}"><dt>${label}</dt><dd>${value}</dd></div>`)
   .join("");
 
@@ -311,7 +324,9 @@ document.querySelector("#bars").innerHTML = FORTNIGHT.map(([total, clean], i) =>
   const h = Math.round((total / tallest) * 100);
   const good = total ? Math.round((clean / total) * 100) : 0;
   return `
-    <div class="bar" title="${DAYS[i]} — ${total} processed, ${clean} complete">
+    <div class="bar" title="${DAY_NAMES[i % 7]} ${FIRST_DATE + i} September — ${
+      total ? `${total} processed, ${clean} complete, ${total - clean} left a gap` : "nothing processed"
+    }">
       <div class="stack" style="height:${h}%">
         <div class="gap" style="height:${100 - good}%"></div>
         <div class="good" style="height:${good}%"></div>
@@ -321,19 +336,24 @@ document.querySelector("#bars").innerHTML = FORTNIGHT.map(([total, clean], i) =>
 }).join("");
 
 /* -------------------------------------------------------------- the feed */
-document.querySelector("#feed").innerHTML = FEED.map(
-  ([time, who, role, what, where]) => `
+document.querySelector("#feed").innerHTML = FEED.map(([day, time, id, kind, what, where]) => {
+  const who = member(id);
+  const name = who ? who.name : id;
+  return `
   <li>
-    <span class="avatar">${who.slice(0, 1)}</span>
+    <span class="avatar">${name.slice(0, 1)}</span>
     <div class="grow">
-      <b>${who}</b> <span class="pill">${ROLES[role].label}</span>
+      <b>${name}</b> <span class="pill">${
+        who && who.admin ? "Administrator" : ROLES[roleIn("sizeset", who) || "inspector"].label
+      }</span>
       <p>${what}</p>
     </div>
     <div class="when">${time}<span class="pom">${where}</span></div>
-  </li>`,
-).join("");
+  </li>`;
+}).join("");
 
 gate();
+}
 </script>
 </body>
 </html>

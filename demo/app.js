@@ -3,40 +3,15 @@
    Everything here is presentation: nothing is fetched, nothing is saved. */
 
 /* ------------------------------------------------------------------ rail */
-/* The inspection list IS the demo's navigation, which is also how the real
-   app works — you pick an inspection and the pane becomes that inspection. */
-const INSPECTIONS = [
-  {
-    file: "7122(4).mp3",
-    status: "done",
-    note: "3 verdicts missing",
-    flag: true,
-    href: "index.html",
-  },
-  {
-    file: "rec 2365(4).webm",
-    status: "running",
-    note: "Cross-checking with a second reading",
-    href: "processing.html",
-  },
-  {
-    file: "2463(1)(3).m4a",
-    status: "done",
-    note: "71 rows extracted",
-    href: "states.html#not-checked",
-  },
-  {
-    file: "Recording_9662(1).mp3",
-    status: "failed",
-    note: "Failed",
-    href: "states.html",
-  },
-];
+/* The rail is scoped to one team. The nav, the work list and the role under
+   your name all belong to the stage you are standing in — which is the point
+   of the change: a final inspector opening this product should not be looking
+   at somebody else's size-set queue. */
 
 /* Nav icons. The design system substitutes Lucide for UI glyphs — stroke 1.5,
-   rounded caps — so these are drawn to match. Inline rather than a CDN font:
-   collapsed, the icon IS the link, and a nav that depends on a network fetch
-   to be usable is not a nav. */
+   rounded caps — so these are drawn to match. Inline rather than a CDN:
+   collapsed, the icon IS the link, and a nav that needs a network fetch to be
+   usable is not a nav. */
 const ICON = {
   dashboard:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="8.5" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="3.5" y="15.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="12" width="7" height="8.5" rx="1.5"/></svg>',
@@ -46,55 +21,104 @@ const ICON = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   members:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 6"/><path d="M17.2 14.2a5.5 5.5 0 0 1 3.3 5.3"/></svg>',
+  log:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/></svg>',
+  teams:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="7" height="6" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="6" rx="1.5"/><rect x="13.5" y="14" width="7" height="6" rx="1.5"/><rect x="3.5" y="16" width="7" height="4" rx="1.5"/></svg>',
 };
 
 function navlink(href, need, icon, label) {
-  return `<a class="navlink" href="${href}"${need ? ` data-need="${need}" data-gate="hide"` : ""}
+  return `<a class="navlink" href="${href}"${need ? ` data-need="${need}"` : ""}
              title="${label}"><span class="ico">${ICON[icon]}</span><span class="lbl">${label}</span></a>`;
 }
 
 function rail() {
   const host = document.querySelector("aside.rail");
   if (!host) return;
-  // A page that is not itself in the list says which inspection it belongs to
-  // (audit.html is 7122's graded sheet), so the rail never loses its place.
   const here =
-    document.body.dataset.rail || (location.pathname.split("/").pop() || "index.html") + location.hash;
-
+    document.body.dataset.rail || (location.pathname.split("/").pop() || "dashboard.html");
+  const team = TEAMS[currentTeam()];
+  const mine = myTeams();
+  const items = team.items || [];
   const closed = document.documentElement.dataset.rail === "closed";
+
   host.innerHTML = `
     <div class="brand">
       <div class="brand-row">
+        <span class="tile ${team.fill}" aria-hidden="true">${team.tag}</span>
         <div class="grow">
-          <span class="mark">Size&nbsp;Set</span>
-          <p>Recording &rarr; transcript &rarr; filled report</p>
+          <span class="mark">${team.name}</span>
+          <p>${mine.length > 1 ? mine.length + " stages open to you" : "Triburg QA"}</p>
         </div>
         <button class="rail-toggle" data-rail-toggle
           aria-expanded="${!closed}"
-          title="${closed ? "Show the inspection list" : "Hide the inspection list"}">
-          ${closed ? "»" : "«"}
-        </button>
+          title="${closed ? "Show the rail" : "Hide the rail"}">${closed ? "»" : "«"}</button>
       </div>
+      ${
+        mine.length > 1
+          ? `<label class="teamswap">
+               <span>Stage</span>
+               <select data-teamswap>
+                 ${mine
+                   .map(
+                     (id) =>
+                       `<option value="${id}"${id === currentTeam() ? " selected" : ""}>${TEAMS[id].name}</option>`,
+                   )
+                   .join("")}
+               </select>
+             </label>`
+          : ""
+      }
     </div>
-    <div class="listhead">Inspections <span>${INSPECTIONS.length}</span></div>
+
+    <div class="rail-nav">
+      ${team.nav.map(([href, need, icon, label]) => navlink(href, need, icon, label)).join("")}
+      ${navlink("teams.html", "", "teams", "Teams")}
+      ${navlink("members.html", "manage.people", "members", "Members")}
+    </div>
+
+    <div class="listhead">${team.listhead || "Work"} <span>${items.length || ""}</span></div>
     <div class="list">
-      ${INSPECTIONS.map((job) => {
-        const current = job.href === here;
-        return `
-          <a class="item" href="${job.href}" aria-current="${current}"
+      ${
+        items.length
+          ? items
+              .map(
+                (job) => `
+          <a class="item" href="${job.href}" aria-current="${job.href.split("#")[0] === here}"
              title="${job.file} — ${job.note}">
             <div class="n"><span class="dot ${job.status}"></span><em>${job.file}</em></div>
             <div class="s${job.flag ? " flag" : ""}">${job.note}</div>
-          </a>`;
-      }).join("")}
-    </div>
-    <div class="rail-nav">
-      ${navlink("dashboard.html", "", "dashboard", "Dashboard")}
-      ${navlink("record.html", "record", "record", "Record inspection").replace(' data-gate="hide"', "")}
-      ${navlink("library.html", "", "library", "Style sets")}
-      ${navlink("members.html", "manage.people", "members", "Members")}
+          </a>`,
+              )
+              .join("")
+          : '<p class="empty">Nothing open on this stage.</p>'
+      }
     </div>
     <div class="rail-foot">${whoami()}</div>`;
+}
+
+/* The collapse toggle and the stage switcher. Switching stage navigates
+   rather than re-rendering: every screen belongs to one team, so half of the
+   product would be wrong for a moment otherwise. */
+function railToggle() {
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-rail-toggle]")) return;
+    const root = document.documentElement;
+    const next = root.dataset.rail === "closed" ? "open" : "closed";
+    root.dataset.rail = next;
+    try {
+      localStorage.setItem("rail", next);
+    } catch (err) {
+      /* the toggle still works for this page */
+    }
+    rail();
+    gate();
+  });
+
+  document.addEventListener("change", (event) => {
+    const picker = event.target.closest("[data-teamswap]");
+    if (picker) setTeam(picker.value);
+  });
 }
 
 /* ------------------------------------------------------- the spec sheet */
@@ -491,25 +515,6 @@ function bump() {
   if (!bar) return;
   bar.hidden = false;
   bar.querySelector("b").textContent = staged + (staged === 1 ? " correction" : " corrections");
-}
-
-/* The rail's open/closed state. Persisted because navigation here is real
-   page loads, so anything held in memory would spring back open on every
-   click. Wrapped, because localStorage throws outright in some privacy
-   modes and a dead toggle is better than a dead page. */
-function railToggle() {
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest("[data-rail-toggle]")) return;
-    const root = document.documentElement;
-    const next = root.dataset.rail === "closed" ? "open" : "closed";
-    root.dataset.rail = next;
-    try {
-      localStorage.setItem("rail", next);
-    } catch (err) {
-      /* nothing to do: the toggle still works for this page */
-    }
-    rail();
-  });
 }
 
 rail();

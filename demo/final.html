@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Final inspection · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-team="final">
+      <div class="wrap">
+
+        <header>
+          <div class="page-title">
+            <h1>2365 · Lot 4,800</h1>
+            <span class="pill error">rejected</span>
+            <span class="spacer"></span>
+            <button class="btn secondary sm" data-need="download.vendor">Inspection report</button>
+            <button class="btn sm" data-need="release">Send to the buyer</button>
+          </div>
+          <p class="page-meta">
+            21 September 2026 · Unit 4, Gurugram · <b>POPLIN SHIRT DRESS</b> ·
+            PO 4471822 · ship 02 Nov
+          </p>
+        </header>
+
+        <!-- One word, and it ships or it does not. The AQL table below is the
+             whole argument for that word, which is why it sits directly under
+             the verdict rather than at the bottom. -->
+        <section style="margin-top: 24px">
+          <div class="verdict fail">
+            <span class="glyph" aria-hidden="true">×</span>
+            <div>
+              <span class="eyebrow">Result</span>
+              <h2>Rejected — 11 major defects against a reject number of 11</h2>
+              <p>
+                200 pieces drawn from 48 cartons under a Level II, 2.5 AQL plan, which accepts at
+                10 and rejects at 11. One over the line is still over the line: the plan is agreed
+                with the buyer before the inspection, so the number is not a judgement call made
+                on the day.
+              </p>
+              <div class="row">
+                <button class="btn on-color" data-need="release">Confirm the rejection</button>
+                <button class="btn on-color" data-need="audit.edit">Book a re-inspection</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <dl class="readout">
+            <div><dt>Lot size</dt><dd>4,800</dd></div>
+            <div><dt>Cartons drawn</dt><dd>48</dd></div>
+            <div><dt>Sample size</dt><dd>200</dd></div>
+            <div><dt>Level</dt><dd class="sizes">GII</dd></div>
+            <div class="clear"><dt>Critical</dt><dd>0</dd></div>
+            <div class="hot"><dt>Major</dt><dd>11</dd></div>
+            <div class="warm"><dt>Minor</dt><dd>9</dd></div>
+          </dl>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Against the AQL plan</h2>
+            <span class="pill error">major fails</span>
+          </div>
+          <p class="lede">
+            ISO 2859-1, general inspection level II, single sampling, normal severity. Accept and
+            reject numbers come from the table for a sample of 200 — they are not set here.
+          </p>
+          <div class="tablewrap">
+            <table class="data" id="aql"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Defects found</h2>
+            <span class="pill">20</span>
+          </div>
+          <div class="tablewrap">
+            <table class="data" id="defects"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Measurement sample</h2>
+            <span class="pill">8 pieces · 6 points</span>
+          </div>
+          <p class="lede">
+            Eight pieces measured on the points most likely to have moved in bulk, against the same
+            graded sheet the size set was checked on. A measurement outside tolerance counts as a
+            major defect in the table above.
+          </p>
+          <div class="tablewrap">
+            <table class="data" id="poms"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>Also checked</h2></div>
+          <div class="tablewrap">
+            <table class="data" id="checks"></table>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+/* app.js has already run gate(), so standing in another stage this panel is
+   now a "wrong stage" notice and none of the tables below exist. */
+if (currentTeam() === "final") {
+const AQL = [
+  ["Critical", "0.0", 0, 0, 1, true],
+  ["Major", "2.5", 11, 10, 11, true],
+  ["Minor", "4.0", 9, 14, 15, false],
+];
+
+/* Accept and reject are read off the sampling table for n = 200. The row
+   fails when found reaches the reject number — or, for critical, at all. */
+document.querySelector("#aql").innerHTML =
+  `<thead><tr><th>Class</th><th class="num">AQL</th><th class="num">Found</th>
+     <th class="num">Accept</th><th class="num">Reject</th><th>Result</th></tr></thead><tbody>` +
+  AQL.map(([cls, aql, found, acc, rej]) => {
+    const failed = found > acc;
+    return `
+    <tr>
+      <td><b>${cls}</b></td>
+      <td class="num">${aql}</td>
+      <td class="num" style="${failed ? "color:#b3261e;font-weight:700" : ""}">${found}</td>
+      <td class="num dim">${acc}</td>
+      <td class="num dim">${rej}</td>
+      <td>${
+        failed
+          ? '<span class="pill error">over the limit</span>'
+          : '<span class="pill success">within</span>'
+      }</td>
+    </tr>`;
+  }).join("") +
+  "</tbody>";
+
+const DEFECTS = [
+  ["Bottom opening 1 1/8\" under spec", "Measurement", "major", 6, "cartons 7, 12, 12, 19, 31, 44"],
+  ["Shade variation panel to panel", "Fabric", "major", 5, "cartons 7, 12, 22, 22, 35"],
+  ["Skipped stitch, CF placket", "Stitching", "minor", 4, "cartons 3, 9, 19, 44"],
+  ["Loose thread at sleeve hem", "Finishing", "minor", 3, "cartons 5, 16, 28"],
+  ["Care label folded under", "Trims", "minor", 2, "cartons 11, 38"],
+];
+
+document.querySelector("#defects").innerHTML =
+  `<thead><tr><th>Defect</th><th>Category</th><th>Class</th><th class="num">Count</th>
+     <th>Where</th></tr></thead><tbody>` +
+  DEFECTS.map(
+    ([what, cat, cls, n, where]) => `
+    <tr>
+      <td><b>${what}</b></td>
+      <td class="why">${cat}</td>
+      <td>${
+        cls === "major"
+          ? '<span class="pill error">major</span>'
+          : '<span class="pill warning">minor</span>'
+      }</td>
+      <td class="num">${n}</td>
+      <td class="why">${where}</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+const POMS = [
+  ["4.22A", "BOTTOM OPENING RELAXED", "33", "3/4", "31 7/8", 6],
+  ["1.28A", "CHEST 1\" BELOW ARMHOLE", "32", "3/4", "31 3/4", 0],
+  ["1.01A", "FRONT LENGTH FROM HPS TO CF", "21 1/2", "3/8", "21 1/2", 0],
+  ["1.20A", "ACROSS SHOULDER SEAM TO SEAM", "13", "3/8", "12 7/8", 0],
+  ["3.01A", "SLEEVE LENGTH FROM C.B", "26", "3/8", "26", 0],
+  ["2.05C", "NECK WIDTH SEAM TO SEAM", "8 1/2", "1/4", "8 1/2", 0],
+];
+
+document.querySelector("#poms").innerHTML =
+  `<thead><tr><th>POM</th><th>Point of measure</th><th class="num">Spec</th>
+     <th class="num">Tol ±</th><th class="num">Worst found</th>
+     <th class="num">Out of tol</th><th>State</th></tr></thead><tbody>` +
+  POMS.map(
+    ([pom, desc, spec, tol, worst, out]) => `
+    <tr>
+      <td class="pom">${pom}</td>
+      <td>${desc}</td>
+      <td class="num">${spec}</td>
+      <td class="num dim">${tol}</td>
+      <td class="num">${worst}</td>
+      <td class="num" style="${out ? "color:#b3261e;font-weight:700" : ""}">${out || "—"}</td>
+      <td>${
+        out
+          ? '<span class="pill error">' + out + " of 8 pieces</span>"
+          : '<span class="pill success">all in tol</span>'
+      }</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+const CHECKS = [
+  ["Carton drawing", "48 of 240 cartons, square root plus one, spread across the pallet", "pass"],
+  ["Packing and assortment", "Ratio per PO, polybag warning printed", "pass"],
+  ["Carton markings", "Shipping marks against the buyer's artwork", "pass"],
+  ["Barcode scan", "40 pieces scanned, all resolved", "pass"],
+  ["Needle detection", "Certificate current to 30 Sep", "pass"],
+  ["Weight and dimensions", "Carton 12.4 kg against a 13 kg limit", "pass"],
+  ["Workmanship", "Against the approved sealed sample", "fail"],
+];
+
+document.querySelector("#checks").innerHTML =
+  `<thead><tr><th>Check</th><th>What was done</th><th>Result</th></tr></thead><tbody>` +
+  CHECKS.map(
+    ([what, how, result]) => `
+    <tr>
+      <td><b>${what}</b></td>
+      <td class="why">${how}</td>
+      <td>${
+        result === "pass"
+          ? '<span class="pill success">pass</span>'
+          : '<span class="pill error">fail</span>'
+      }</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+gate();
+}
+</script>
+</body>
+</html>

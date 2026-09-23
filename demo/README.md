@@ -15,6 +15,11 @@ React component, route, stylesheet or backend file was modified, and nothing in
 
 | File | Screen | What it shows |
 |---|---|---|
+| `logs.html` | **Activity** | Every stage has one — append-only, attributed, filterable by kind and person |
+| `teams.html` | **Teams** | The four stages, your role on each, and who else is on them |
+| `ppm.html` | **PPM** | Pre-production meeting — approvals, open points, the room |
+| `interim.html` | **Line audit** | Interim — defect rate, defects by category, critical measurements |
+| `final.html` | **Final inspection** | AQL plan, defect classification, accept or reject |
 | `dashboard.html` | **Dashboard** | What is blocking a report from going out today — different hero, counts and queue per role |
 | `index.html` | **Inspection report** | The main working screen: intake, verdict, the three review tables, extracted counts, report header, downloads |
 | `audit.html` | **Graded sheet** | The centrepiece — every point of measure × every size, click a cell to correct it, playback per reading, staged corrections |
@@ -42,6 +47,48 @@ play/stop button and the modal's Escape key all work.
 
 Nothing is saved anywhere. There is no audio file, so the play button only
 shows the state change the real one makes.
+
+## Teams — one per stage
+
+Triburg checks a garment four times and they are not the same job done four
+times, so each stage is a team and **the features belong to the stage**:
+
+| Stage | What it is | What the workspace carries |
+|---|---|---|
+| **Size set** | One garment per size, every point of measure against the graded sheet | Recording, graded sheet, spec library, the report. **Nothing is released to a vendor here** — an approver signs the sheet off and the shipment is released at Final |
+| **PPM** | The pre-production meeting, before bulk is cut | Approvals with owners and dates, open points, attendees |
+| **Interim** | An audit of the line while bulk runs | Defect log by category, defect rate against a threshold, six critical measurements |
+| **Final** | Final random inspection against an AQL plan | Sampling plan, critical/major/minor against accept and reject numbers, one word |
+
+**Each stage keeps its own log.** `logs.html` is in every stage's nav and
+shows only that stage's entries: a correction made on size set has no business
+in a final inspector's trail, and an approver signing a lot off is not a
+size-set event. Filter by kind (recording, correction, approval, defect,
+decision, release, access) or by person, and the *By person* table underneath
+answers the question a log is usually opened for — who to ask about an entry.
+
+The kind filters are built from the log rather than hard-coded, so a stage
+with no releases does not offer a Releases tab that returns nothing. The
+dashboard's activity panel now reads the newest five lines of the same log
+instead of keeping a second list that could disagree with it.
+
+Switching stage switches the whole workspace — the nav, the work list in the
+rail and the role under your name. Opening a size-set screen while standing in
+Final is not a permission error, it is the wrong stage, so it gets its own
+answer and a button back rather than a refusal.
+
+**Roles are held per stage** (administrators excepted — see above).
+`s.iqbal` is a QA reviewer on size set and interim but only an inspector on
+final; `k.tanaka` is an approver on final and nothing anywhere else. A stage
+you hold no role on does not open at all. This
+is the part worth arguing with — collapsing it into one global role per person
+is what forces a factory to keep two logins.
+
+The `members.html` editor gives every member a role select per stage, with
+*— not on this stage —* as a real option, and the roster still refuses to
+strand itself: the last administrator **on the floor** cannot have the flag taken away or be
+removed, and a member with neither the flag nor a stage is refused rather than
+created.
 
 ## The dashboard
 
@@ -71,11 +118,29 @@ came out incomplete is not a good day.
 
 ## Roles and access
 
-**Signing in takes an id and a password.** The id is looked up against the real
-roster, so a typo fails and an *invited* account is refused until a password is
-set; any password is accepted, because there is nothing to check one against.
-The ids are listed as chips under the form — click one to fill the field. Your
-role comes from your account, never from a picker at the door.
+**Signing in takes an id and a password, and both are checked.**
+
+| | id | password | reaches |
+|---|---|---|---|
+| **Administrator** | `admin` | `admin123` | every stage, every feature |
+| Second administrator | `d.bhardwaj` | `demo123` | every stage |
+| QA reviewer | `a.bhatt` | `demo123` | Size set, PPM |
+| Reviewer / inspector | `s.iqbal` | `demo123` | Size set, Interim, Final |
+| Approver | `p.grewal` | `demo123` | Size set, PPM, Final |
+| Inspector | `r.menon` | `demo123` | Size set, Interim |
+| Invited, cannot sign in | `k.tanaka` | — | Final, once a password is set |
+
+`admin` / `admin123` is the one to start with. A wrong password, an unknown id
+and an account that is still only *invited* each fail with their own message.
+The accounts are listed as chips under the form — clicking one fills both
+fields. Your role comes from your account, never from a picker at the door.
+
+**An administrator is on every stage by definition.** Not "a role on four
+teams" — a flag, because a list of four goes stale the first time a fifth
+stage is added, and a floor whose administrator cannot see a stage is a floor
+with a stage nobody can fix. The members editor offers it as a single
+checkbox that replaces the per-stage selects rather than sitting beside them
+inviting a contradiction.
 
 Four roles, in `auth.js`. To see the product as another role, sign out and
 sign in as somebody who holds it — the rail shows your role but never lets you
@@ -88,7 +153,7 @@ change it, because in the product it comes from your account.
 | Correct readings and save | – | ✓ | – | ✓ |
 | Download working files (CSV, JSON) | – | ✓ | ✓ | ✓ |
 | Download vendor documents (PDF) | – | – | ✓ | ✓ |
-| Release a report to the vendor | – | – | ✓ | ✓ |
+| Sign off / release | – | – | ✓ | ✓ |
 | View the style set library | ✓ | ✓ | ✓ | ✓ |
 | Manage the style set library | – | – | – | ✓ |
 | Manage people and roles | – | – | – | ✓ |
@@ -171,10 +236,12 @@ dead-ends.
 ```
 demo/
   index.html  audit.html  record.html  processing.html  states.html
-  signin.html library.html members.html
+  signin.html teams.html members.html library.html
+  ppm.html    interim.html final.html
   app.css     the product layer — everything visual
   app.js      mock data + the few interactions worth having
   auth.js     roles, capabilities, the session, and the gating helper
+  teams.js    the four stages, their screens, and which one you are in
   clay/       the Clay design system, copied in verbatim (tokens)
 ```
 

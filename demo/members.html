@@ -27,9 +27,9 @@
           </div>
           <p class="page-meta">
             An id is what somebody signs in with and what the audit trail records against every
-            correction. A role decides who can correct a reading and who can release a report —
-            and deliberately never the same person. Changes take effect the next time they load
-            a screen.
+            correction. A role is held <b>per stage</b>: the same person is routinely a reviewer on
+            size set and an approver on final, and a stage they hold no role on does not open at
+            all. Changes take effect the next time they load a screen.
           </p>
         </header>
 
@@ -62,9 +62,19 @@
       <span>Name<em>as it appears in the audit trail</em></span>
       <input type="text" id="md-name" placeholder="e.g. J. Rao" />
     </div>
-    <div class="fld">
-      <span>Role</span>
-      <select id="md-role"></select>
+    <label class="fld">
+      <span>Administrator<em>every stage, present and future</em></span>
+      <div>
+        <label class="check">
+          <input type="checkbox" id="md-admin" />
+          <span>Can open and manage every stage</span>
+        </label>
+      </div>
+    </label>
+
+    <div class="fld" style="align-items: start" id="md-stagerow">
+      <span>Stages<em>a role per stage, or none</em></span>
+      <div id="md-teams" class="teamroles"></div>
     </div>
     <div class="fld" id="md-state-row">
       <span>Status</span>
@@ -73,7 +83,7 @@
         <option value="invited">Invited — no password yet</option>
       </select>
     </div>
-    <p class="lede" id="md-blurb" style="margin: 4px 0 0"></p>
+
 
     <div class="dialog-foot">
       <button class="btn sm" id="md-save">Save</button>
@@ -84,6 +94,7 @@
   </div>
 </div>
 
+<script src="teams.js"></script>
 <script src="auth.js"></script>
 <script src="app.js"></script>
 <script>
@@ -108,7 +119,7 @@ function draw() {
 
   document.querySelector("#members").innerHTML =
     `<thead><tr>
-       <th>Id</th><th>Name</th><th>Role</th><th>Status</th><th>Last active</th><th></th>
+       <th>Id</th><th>Name</th><th>Stages and roles</th><th>Status</th><th>Last active</th><th></th>
      </tr></thead><tbody>` +
     list
       .map(
@@ -121,12 +132,19 @@ function draw() {
           </div>
         </td>
         <td>
-          <select data-role-for="${m.id}"
-                  style="height:34px;width:auto;min-width:150px;font:var(--text-caption)">
-            ${Object.entries(ROLES)
-              .map(([id, r]) => `<option value="${id}"${id === m.role ? " selected" : ""}>${r.label}</option>`)
-              .join("")}
-          </select>
+          <div class="teamchips">
+            ${
+              m.admin
+                ? '<span class="teamchip admin"><b>Administrator</b> every stage</span>'
+                : myTeams(m)
+                    .map(
+                      (t) =>
+                        `<span class="teamchip"><i class="tile ${TEAMS[t].fill}">${TEAMS[t].tag}</i>
+                           ${TEAMS[t].name}<b>${ROLES[m.teams[t]].label}</b></span>`,
+                    )
+                    .join("") || '<span class="dim">no stage</span>'
+            }
+          </div>
         </td>
         <td>${
           m.state === "invited"
@@ -155,20 +173,44 @@ function openMember(id) {
   document.querySelector("#md-id").value = who ? who.id : "";
   document.querySelector("#md-id").disabled = Boolean(who);
   document.querySelector("#md-name").value = who ? who.name : "";
-  document.querySelector("#md-role").innerHTML = Object.entries(ROLES)
-    .map(([rid, r]) => `<option value="${rid}"${who && who.role === rid ? " selected" : ""}>${r.label}</option>`)
-    .join("");
+  document.querySelector("#md-admin").checked = Boolean(who && who.admin);
+  document.querySelector("#md-teams").innerHTML = TEAM_IDS.map((t) => {
+    const held = who && who.teams ? who.teams[t] : "";
+    return `
+      <label class="teamrole">
+        <i class="tile ${TEAMS[t].fill}">${TEAMS[t].tag}</i>
+        <span>${TEAMS[t].name}</span>
+        <select data-team-role="${t}">
+          <option value="">— not on this stage —</option>
+          ${Object.entries(ROLES)
+            .map(([rid, r]) => `<option value="${rid}"${held === rid ? " selected" : ""}>${r.label}</option>`)
+            .join("")}
+        </select>
+      </label>`;
+  }).join("");
   document.querySelector("#md-state").value = who ? who.state : "invited";
   document.querySelector("#md-state-row").hidden = !who;
   document.querySelector("#md-remove").hidden = !who;
   document.querySelector("#md-error").hidden = true;
-  blurb();
+  adminToggle();
   scrim.hidden = false;
 }
 
-function blurb() {
-  const role = document.querySelector("#md-role").value;
-  document.querySelector("#md-blurb").textContent = ROLES[role] ? ROLES[role].blurb : "";
+/* The stage map as the dialog currently has it. An empty select means the
+   stage is left out entirely, which is what "no access" is here. */
+function draftTeams() {
+  const out = {};
+  document.querySelectorAll("[data-team-role]").forEach((sel) => {
+    if (sel.value) out[sel.dataset.teamRole] = sel.value;
+  });
+  return out;
+}
+
+/* Administrator is not four roles, so the per-stage row goes away entirely
+   rather than sitting there greyed out inviting a contradiction. */
+function adminToggle() {
+  const on = document.querySelector("#md-admin").checked;
+  document.querySelector("#md-stagerow").hidden = on;
 }
 
 function fail(text) {
@@ -183,27 +225,35 @@ if (can("manage.people")) wireMembers();
 
 function wireMembers() {
 document.querySelector("#add").addEventListener("click", () => openMember(null));
-document.querySelector("#md-role").addEventListener("change", blurb);
+document.querySelector("#md-admin").addEventListener("change", adminToggle);
 
 document.querySelector("#md-save").addEventListener("click", () => {
   const name = document.querySelector("#md-name").value;
-  const role = document.querySelector("#md-role").value;
+  const admin = document.querySelector("#md-admin").checked;
+  const teams = admin ? {} : draftTeams();
+  const where = admin
+    ? "an administrator on every stage"
+    : Object.keys(teams)
+        .map((t) => TEAMS[t].name + " as " + ROLES[teams[t]].label.toLowerCase())
+        .join(", ");
   if (editing) {
     const problem = updateMember(editing, {
       name,
-      role,
+      admin,
+      teams,
       state: document.querySelector("#md-state").value,
     });
     if (problem) return fail(problem);
-    say("info", `<b>${name}</b> updated.`);
+    say("info", `<b>${name}</b> updated — ${where}.`);
   } else {
     const id = document.querySelector("#md-id").value;
-    const problem = addMember({ id, name, role });
+    const problem = addMember({ id, name, admin, teams });
     if (problem) return fail(problem);
     say(
       "info",
-      `<b>${name}</b> invited as ${ROLES[role].label.toLowerCase()}. They can sign in as
-       <code>${id.trim().toLowerCase()}</code> once a password is set.`,
+      `<b>${name}</b> invited as ${where}. They sign in as
+       <code>${id.trim().toLowerCase()}</code> with the starting password
+       <code>demo123</code>.`,
     );
   }
   scrim.hidden = true;
@@ -231,21 +281,6 @@ document.querySelector("#members").addEventListener("click", (event) => {
     say("warn", `<b>${who.name}</b> removed. Corrections already attributed to them are unchanged.`);
     draw();
   }
-});
-
-// Changing a role straight from the table — the common edit, so it should
-// not need a dialog.
-document.querySelector("#members").addEventListener("change", (event) => {
-  const picker = event.target.closest("[data-roleFor], [data-role-for]");
-  if (!picker) return;
-  const id = picker.dataset.roleFor;
-  const problem = updateMember(id, { role: picker.value });
-  if (problem) {
-    say("bad", "<b>" + problem + "</b>");
-  } else {
-    say("info", `<b>${member(id).name}</b> is now ${ROLES[picker.value].label.toLowerCase()}.`);
-  }
-  draw();
 });
 
 document.querySelector("#reset").addEventListener("click", () => {

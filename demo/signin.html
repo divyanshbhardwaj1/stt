@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Sign in · Size Set</title>
+<title>Sign in · Triburg QA</title>
 <link rel="stylesheet" href="app.css" />
 </head>
 <body class="plain">
 
 <nav class="topbar">
-  <a class="mark" href="index.html">Size&nbsp;Set</a>
+  <a class="mark" href="dashboard.html">Triburg&nbsp;QA</a>
   <span class="spacer"></span>
   <span class="muted" style="font: var(--text-caption)">Shivalika QA · Gurugram</span>
 </nav>
@@ -21,7 +21,8 @@
     <h1 class="display-md">Sign in</h1>
     <p class="lede" style="margin: 16px 0 28px">
       Inspections you record and reports you sign off are recorded against this id — it is the
-      name that appears in the audit trail.
+      name that appears in the audit trail. Which stages you can open, and what you can do on
+      each, comes from your account.
     </p>
 
     <div class="notice bad" id="authfail" hidden style="margin-bottom: 20px"></div>
@@ -29,12 +30,12 @@
     <form id="signin">
       <div class="field" style="margin-bottom: 16px">
         <label class="lbl" for="userid">Id</label>
-        <input type="text" id="userid" value="a.bhatt" autocomplete="username"
+        <input type="text" id="userid" value="admin" autocomplete="username"
                autocapitalize="off" spellcheck="false" />
       </div>
       <div class="field" style="margin-bottom: 8px">
         <label class="lbl" for="password">Password</label>
-        <input type="password" id="password" value="············" autocomplete="current-password" />
+        <input type="password" id="password" value="admin123" autocomplete="current-password" />
       </div>
       <p style="margin-bottom: 24px">
         <a class="link" href="#">Forgotten your password?</a>
@@ -45,9 +46,10 @@
     <!-- Demo affordance: the roster is mock, so the ids have to be findable.
          Your role comes from your account, not from a picker at the door. -->
     <div class="card cream" style="margin-top: 28px">
-      <span class="eyebrow">Prototype</span>
+      <span class="eyebrow">Prototype accounts</span>
       <p class="lede" style="margin: 8px 0 12px">
-        Any password works. Sign in as any of these to see what that role can and cannot do.
+        Passwords are checked, so a wrong one fails. Each account sits on different stages with a
+        different role on each — click one to fill the form and see what that person can reach.
       </p>
       <div class="idlist" id="ids"></div>
     </div>
@@ -80,6 +82,7 @@
 
 </div>
 
+<script src="teams.js"></script>
 <script src="auth.js"></script>
 <script>
   const fail = document.querySelector("#authfail");
@@ -91,21 +94,35 @@
       document.querySelector("#password").value,
     );
     if (problem) {
-      fail.innerHTML = `<b>${problem}</b> Check the id, or ask an administrator to reset it —
-        passwords are not recoverable.`;
+      // Only a credentials failure gets the credentials advice. "You are not
+      // on a team" is not fixed by resetting a password.
+      const credentials = /password|account with that id/i.test(problem);
+      fail.innerHTML =
+        `<b>${problem}</b>` +
+        (credentials
+          ? " Check the id, or ask an administrator to reset it — passwords are not recoverable."
+          : "");
       fail.hidden = false;
       return;
     }
-    location.href = "index.html";
+    location.href = TEAMS[currentTeam()].home;
   });
 
   // The roster, so the ids are findable. Clicking one fills the field.
   document.querySelector("#ids").innerHTML = roster()
     .map(
       (m) => `
-      <button class="idchip" data-id="${m.id}"${m.state === "invited" ? " data-invited" : ""}>
+      <button class="idchip${m.admin ? " admin" : ""}" data-id="${m.id}"
+              data-pass="${m.pass || "demo123"}"${m.state === "invited" ? " data-invited" : ""}>
         <b>${m.id}</b>
-        <span>${ROLES[m.role].label}${m.state === "invited" ? " · invited" : ""}</span>
+        <span>${
+          m.admin
+            ? "Administrator · every stage"
+            : myTeams(m)
+                .map((t) => TEAMS[t].name + " · " + ROLES[m.teams[t]].label.toLowerCase())
+                .join(" — ") || "no stage"
+        }${m.state === "invited" ? " · invited" : ""}</span>
+        <i>${m.pass || "demo123"}</i>
       </button>`,
     )
     .join("");
@@ -114,6 +131,7 @@
     const chip = event.target.closest("[data-id]");
     if (!chip) return;
     document.querySelector("#userid").value = chip.dataset.id;
+    document.querySelector("#password").value = chip.dataset.pass;
     fail.hidden = true;
   });
 </script>

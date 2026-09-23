@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Line audit · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-team="interim">
+      <div class="wrap">
+
+        <header>
+          <div class="page-title">
+            <h1>7122 · Line 4</h1>
+            <span class="pill warning">audit running</span>
+            <span class="spacer"></span>
+            <button class="btn secondary sm" data-need="download.working">Export the log</button>
+            <button class="btn sm" data-need="audit.edit">Log a defect</button>
+          </div>
+          <p class="page-meta">
+            21 September 2026, 13:20 · Unit 4 · <b>SMOCKED BUTTON THROUGH</b> ·
+            2,140 of 12,400 sewn · third audit today
+          </p>
+        </header>
+
+        <!-- Interim is a rate, not a verdict. The decision it feeds is whether
+             the line keeps running. -->
+        <section style="margin-top: 24px">
+          <div class="verdict fail">
+            <span class="glyph" aria-hidden="true">!</span>
+            <div>
+              <span class="eyebrow">Decision</span>
+              <h2>4.2% defect rate — above the 2.5% line threshold</h2>
+              <p>
+                Eleven of the fourteen defects are the same fault: the smocking last row running
+                narrow at the side seam, all from stations 6 to 9. That is a setting, not bad luck.
+                Stopping the line now costs an hour; finding it at final costs the shipment.
+              </p>
+              <div class="row">
+                <button class="btn on-color" data-need="release">Stop the line</button>
+                <button class="btn on-color" data-need="audit.edit">Re-audit in 30 min</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <dl class="readout">
+            <div><dt>Pieces checked</dt><dd>330</dd></div>
+            <div class="warm"><dt>Defects</dt><dd>14</dd></div>
+            <div class="hot"><dt>Defect rate</dt><dd>4.2%</dd></div>
+            <div><dt>Threshold</dt><dd>2.5%</dd></div>
+            <div class="clear"><dt>Critical</dt><dd>0</dd></div>
+            <div><dt>Stations</dt><dd class="sizes">6 — 9</dd></div>
+          </dl>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Defects by category</h2>
+            <span class="pill error">14</span>
+          </div>
+          <p class="lede">
+            Grouped because a rate on its own tells you nothing to act on. One category carrying
+            eleven of fourteen is a machine to go and look at.
+          </p>
+          <div class="tablewrap">
+            <table class="data" id="cats"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Critical measurements</h2>
+            <span class="pill">6 of 92 points</span>
+          </div>
+          <p class="lede">
+            Not the full graded sheet — that is the size-set team's job and it was done before bulk
+            was cut. Interim checks the handful that drift once a line is running, against the same
+            spec and the same tolerance.
+          </p>
+          <div class="tablewrap">
+            <table class="data" id="poms"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>Today's audits</h2></div>
+          <ul class="feed" id="audits"></ul>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+/* app.js has already run gate(), so standing in another stage this panel is
+   now a "wrong stage" notice and none of the tables below exist. */
+if (currentTeam() === "interim") {
+const CATS = [
+  ["Measurement", "Smocking last row narrow at side seam", 11, "stations 6–9", "major"],
+  ["Stitching", "Skipped stitch, CF placket", 2, "station 3", "minor"],
+  ["Finishing", "Loose thread, sleeve hem", 1, "pressing", "minor"],
+  ["Fabric", "—", 0, "—", ""],
+  ["Trims", "—", 0, "—", ""],
+];
+
+document.querySelector("#cats").innerHTML =
+  `<thead><tr><th>Category</th><th>Most common fault</th><th class="num">Found</th>
+     <th>Where</th><th>Class</th></tr></thead><tbody>` +
+  CATS.map(
+    ([cat, fault, n, where, cls]) => `
+    <tr>
+      <td><b>${cat}</b></td>
+      <td class="why">${fault}</td>
+      <td class="num" style="${n > 5 ? "color:#b3261e;font-weight:700" : ""}">${n}</td>
+      <td class="why">${where}</td>
+      <td>${
+        cls === "major"
+          ? '<span class="pill error">major</span>'
+          : cls === "minor"
+          ? '<span class="pill warning">minor</span>'
+          : '<span class="dim">—</span>'
+      }</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+/* The six that drift once a line is running. Spec and tolerance come off the
+   same graded sheet the size-set team works from. */
+const POMS = [
+  ["4.22A", "BOTTOM OPENING RELAXED — LAST SMOCKING ROW", "33", "-3/4", "3/4", "31 7/8", "-1 1/8", true],
+  ["1.28A", "CHEST 1\" BELOW ARMHOLE — RELAXED", "32", "-3/4", "3/4", "31 3/4", "-1/4", false],
+  ["1.20A", "ACROSS SHOULDER SEAM TO SEAM", "13", "-3/8", "3/8", "13", "0", false],
+  ["3.01A", "SLEEVE LENGTH FROM C.B", "26", "-3/8", "3/8", "25 7/8", "-1/8", false],
+  ["3.19B", "SLEEVE OPENING — RELAXED", "9", "-1/4", "1/4", "9", "0", false],
+  ["1.01A", "FRONT LENGTH FROM HPS TO CF", "21 1/2", "-3/8", "3/8", "21 3/8", "-1/8", false],
+];
+
+document.querySelector("#poms").innerHTML =
+  `<thead><tr><th>POM</th><th>Point of measure</th><th class="num">Spec</th>
+     <th class="num">Tol−</th><th class="num">Tol+</th><th class="num">Found</th>
+     <th class="num">Deviation</th><th>State</th></tr></thead><tbody>` +
+  POMS.map(
+    ([pom, desc, spec, tm, tp, found, dev, bad]) => `
+    <tr>
+      <td class="pom">${pom}</td>
+      <td>${desc}</td>
+      <td class="num">${spec}</td>
+      <td class="num dim">${tm}</td>
+      <td class="num dim">${tp}</td>
+      <td class="num">${found}</td>
+      <td class="num" style="${bad ? "color:#b3261e;font-weight:600" : ""}">${dev === "0" ? "OK" : dev}</td>
+      <td>${bad ? '<span class="pill error">out of tol</span>' : '<span class="pill success">in tol</span>'}</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+const AUDITS = [
+  ["13:20", "S. Iqbal", "Third audit — 330 pieces, 14 defects, 4.2%", "Line 4"],
+  ["11:05", "S. Iqbal", "Second audit — 300 pieces, 6 defects, 2.0%", "Line 4"],
+  ["09:30", "R. Menon", "First audit — 240 pieces, 3 defects, 1.3%", "Line 4"],
+  ["08:50", "R. Menon", "Line start check — settings and first-off approved", "Line 4"],
+];
+
+document.querySelector("#audits").innerHTML = AUDITS.map(
+  ([time, who, what, where]) => `
+  <li>
+    <span class="avatar">${who.slice(0, 1)}</span>
+    <div class="grow"><b>${who}</b><p>${what}</p></div>
+    <div class="when">${time}<span class="pom">${where}</span></div>
+  </li>`,
+).join("");
+
+gate();
+}
+</script>
+</body>
+</html>

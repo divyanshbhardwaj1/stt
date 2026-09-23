@@ -69,33 +69,81 @@ const REASONS = {
    with a member's id and you get that member's role. Held in localStorage so
    an administrator's edits survive a page navigation; seeded from this list
    the first time the prototype is opened. */
+/* A role per team, not one role for the floor. The same person is routinely a
+   reviewer on size set and an approver on final, and collapsing that into a
+   single global role is what makes a factory keep two logins. A team missing
+   from the map means no access to that stage at all. */
+/* `admin: true` is not a role on four teams, it is the absence of the
+   question. An administrator holds every stage by definition — adding them
+   to each one by hand is a list that goes stale the first time a fifth stage
+   is added, and a floor with an administrator who cannot see a stage is a
+   floor with a stage nobody can fix. */
 const DEFAULT_MEMBERS = [
-  { id: "r.menon", name: "R. Menon", role: "inspector", seen: "2 minutes ago", state: "active" },
-  { id: "a.bhatt", name: "A. Bhattacharya", role: "reviewer", seen: "18 minutes ago", state: "active" },
-  { id: "s.iqbal", name: "S. Iqbal", role: "reviewer", seen: "Yesterday", state: "active" },
-  { id: "p.grewal", name: "P. Grewal", role: "approver", seen: "3 hours ago", state: "active" },
-  { id: "d.bhardwaj", name: "D. Bhardwaj", role: "admin", seen: "Now", state: "active" },
-  { id: "k.tanaka", name: "K. Tanaka", role: "approver", seen: "6 days ago", state: "invited" },
+  {
+    id: "admin", name: "Triburg Admin", pass: "admin123",
+    seen: "Now", state: "active", admin: true,
+  },
+  {
+    id: "d.bhardwaj", name: "D. Bhardwaj", pass: "demo123",
+    seen: "Now", state: "active", admin: true,
+  },
+  {
+    id: "r.menon", name: "R. Menon", pass: "demo123", seen: "2 minutes ago", state: "active",
+    teams: { sizeset: "inspector", interim: "inspector" },
+  },
+  {
+    id: "a.bhatt", name: "A. Bhattacharya", pass: "demo123", seen: "18 minutes ago", state: "active",
+    teams: { sizeset: "reviewer", ppm: "reviewer" },
+  },
+  {
+    id: "s.iqbal", name: "S. Iqbal", pass: "demo123", seen: "Yesterday", state: "active",
+    teams: { sizeset: "reviewer", interim: "reviewer", final: "inspector" },
+  },
+  {
+    id: "p.grewal", name: "P. Grewal", pass: "demo123", seen: "3 hours ago", state: "active",
+    teams: { sizeset: "approver", ppm: "approver", final: "approver" },
+  },
+  {
+    id: "k.tanaka", name: "K. Tanaka", pass: "demo123", seen: "6 days ago", state: "invited",
+    teams: { final: "approver" },
+  },
 ];
 
+const DEFAULT_PASSWORD = "demo123";
+
 const ROSTER_KEY = "members";
+
+/* Bump this whenever the shape of a member changes.
+   The roster outlives the code that wrote it — it is in the operator's
+   browser, and a demo opened today can be carrying a roster saved weeks ago.
+   When members grew per-stage roles, every stored roster still held a single
+   global `role`, so `myTeams` found nothing and an administrator was told
+   they were "not on any team yet". A version stamp turns that into a reseed
+   instead of a lockout. */
+const ROSTER_VERSION = 2;
 
 function roster() {
   try {
     const raw = localStorage.getItem(ROSTER_KEY);
     if (raw) {
-      const list = JSON.parse(raw);
-      if (Array.isArray(list) && list.length) return list;
+      const saved = JSON.parse(raw);
+      const list = Array.isArray(saved) ? null : saved && saved.list;
+      if (saved && saved.v === ROSTER_VERSION && Array.isArray(list) && list.length) {
+        return list;
+      }
+      // Anything else was written by an older build. Drop it rather than
+      // trying to migrate a shape nobody has a record of.
+      localStorage.removeItem(ROSTER_KEY);
     }
   } catch (err) {
     /* fall through to the seed */
   }
-  return DEFAULT_MEMBERS.slice();
+  return DEFAULT_MEMBERS.map((m) => ({ ...m }));
 }
 
 function saveRoster(list) {
   try {
-    localStorage.setItem(ROSTER_KEY, JSON.stringify(list));
+    localStorage.setItem(ROSTER_KEY, JSON.stringify({ v: ROSTER_VERSION, list }));
   } catch (err) {
     /* the edit still shows for this page */
   }
@@ -123,12 +171,16 @@ function addMember(draft) {
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(id)) return "Ids are lower case letters, digits, dot, dash and underscore.";
   if (member(id)) return `“${id}” is already taken.`;
   if (!String(draft.name || "").trim()) return "A member needs a name — it is what the audit trail records.";
-  if (!ROLES[draft.role]) return "Pick a role.";
+  if (!draft.admin && !Object.keys(draft.teams || {}).length) {
+    return "Give them a role on at least one stage, or make them an administrator.";
+  }
   const list = roster();
   list.push({
     id,
     name: draft.name.trim(),
-    role: draft.role,
+    admin: Boolean(draft.admin),
+    teams: draft.admin ? {} : draft.teams || {},
+    pass: DEFAULT_PASSWORD,
     seen: "Never",
     state: "invited",
   });
@@ -140,26 +192,35 @@ function updateMember(id, patch) {
   const list = roster();
   const found = list.find((m) => m.id === id);
   if (!found) return "That member is no longer on the roster.";
-  if (patch.role && patch.role !== found.role && lastAdmin(id)) {
-    return "This is the last administrator. Promote somebody else first, or nobody can manage the roster.";
-  }
   if (patch.name !== undefined && !String(patch.name).trim()) return "A member needs a name.";
+  if (patch.teams || patch.admin !== undefined) {
+    const stillAdmin = patch.admin !== undefined ? patch.admin : found.admin;
+    if (!stillAdmin && lastAdmin(id)) {
+      return "This is the last administrator on the floor. Promote somebody else first, or nobody can manage the roster.";
+    }
+    if (!stillAdmin && !Object.keys(patch.teams || {}).length) {
+      return "Give them a role on at least one stage, or make them an administrator.";
+    }
+  }
   Object.assign(found, patch);
+  if (found.admin) found.teams = {};
   saveRoster(list);
   return null;
 }
 
 function removeMember(id) {
   if (lastAdmin(id)) {
-    return "This is the last administrator. Promote somebody else first, or nobody can manage the roster.";
+    return "This is the last administrator on the floor. Promote somebody else first, or nobody can manage the roster.";
   }
   if (id === session().id) return "You cannot remove the account you are signed in with.";
   saveRoster(roster().filter((m) => m.id !== id));
   return null;
 }
 
+/* An administrator holds every stage, so the lockout to guard against is the
+   last one on the whole floor. */
 function lastAdmin(id) {
-  const admins = roster().filter((m) => m.role === "admin");
+  const admins = roster().filter((m) => m.admin);
   return admins.length === 1 && admins[0].id === id;
 }
 
@@ -188,7 +249,29 @@ function writeSession(session) {
    Every page seeds a reviewer session if there is none, and sign-out sends
    you to the real screen. */
 function session() {
-  return readSession() || { id: "a.bhatt", name: "A. Bhattacharya", role: "reviewer" };
+  return readSession() || { id: "a.bhatt", name: "A. Bhattacharya" };
+}
+
+/* A role is always a role IN something. Everything below asks this question
+   about the team the operator is currently standing in. */
+function roleIn(team, who) {
+  const person = who || member(session().id);
+  if (!person) return null;
+  if (person.admin) return "admin";
+  return (person.teams && person.teams[team]) || null;
+}
+
+function isAdmin(who) {
+  const person = who || member(session().id);
+  return Boolean(person && person.admin);
+}
+
+function myRole() {
+  return roleIn(currentTeam());
+}
+
+function inTeam(team) {
+  return Boolean(roleIn(team || currentTeam()));
 }
 
 /* Sign in. No password check — there is nothing to check it against — but the
@@ -199,12 +282,23 @@ function signIn(id, password) {
   if (!password) return "Enter your password.";
   if (!who) return "No account with that id.";
   if (who.state === "invited") return `“${who.id}” has been invited but has not set a password yet.`;
-  writeSession({ id: who.id, name: who.name, role: who.role });
+  // A string compare in the browser, which is not authentication — it is the
+  // shape of it, so a wrong password fails the way it would in the product.
+  if (password !== (who.pass || DEFAULT_PASSWORD)) return "That password does not match.";
+  const teams = myTeams(who);
+  if (!teams.length) return `“${who.id}” is not on any team yet. An administrator has to add them.`;
+  writeSession({ id: who.id, name: who.name });
+  // Land in a team they are actually on, not whichever one was last open.
+  try {
+    if (!teams.includes(currentTeam())) localStorage.setItem("team", teams[0]);
+  } catch (err) {
+    /* the default team still resolves */
+  }
   return null;
 }
 
 function can(capability) {
-  const role = ROLES[session().role];
+  const role = ROLES[myRole()];
   return Boolean(role && role.can.includes(capability));
 }
 
@@ -217,14 +311,19 @@ function signOut() {
   location.href = "signin.html";
 }
 
-/* Only the sign-in screen calls this now — it is how an id becomes a session
-   in the prototype. Nothing in the product chrome switches roles. */
-function setRole(role, next) {
-  const list = roster();
-  const person = list.find((p) => p.role === role && p.state === "active") || list[0];
-  writeSession({ id: person.id, name: person.name, role });
-  if (next) location.href = next;
-  else location.reload();
+/* Only the sign-in screen calls this — it is how an id becomes a session in
+   the prototype. Nothing in the product chrome switches roles. */
+function signInAs(id, next) {
+  const person = member(id);
+  if (!person) return;
+  writeSession({ id: person.id, name: person.name });
+  const teams = myTeams(person);
+  try {
+    if (teams.length) localStorage.setItem("team", teams[0]);
+  } catch (err) {
+    /* the default team still resolves */
+  }
+  location.href = next || "dashboard.html";
 }
 
 /* ------------------------------------------------------------- gating */
@@ -250,6 +349,37 @@ function gate(scope = document) {
     }, true);
   });
 
+  /* A screen that belongs to one stage. Size-set screens opened while
+     standing in Final are not a permission problem — they are the wrong
+     stage — so they get their own answer and a way back. */
+  scope.querySelectorAll("[data-need-team]").forEach((el) => {
+    const want = el.dataset.needTeam;
+    if (currentTeam() === want) return;
+    const here = TEAMS[currentTeam()];
+    const there = TEAMS[want];
+    const joined = inTeam(want);
+    el.innerHTML = `
+      <div class="blank">
+        <div>
+          <span class="tile ${there.fill}" aria-hidden="true"
+                style="margin: 0 auto 16px">${there.tag}</span>
+          <h2>This screen belongs to ${there.name}</h2>
+          <p>
+            ${there.blurb} You are standing in <b>${here.name}</b>.
+            ${joined ? "" : "You are not on that team — an administrator has to add you."}
+          </p>
+          <div class="files" style="justify-content: center">
+            ${
+              joined
+                ? `<button class="lead" data-goto-team="${want}">Switch to ${there.name}</button>`
+                : `<a class="lead" href="teams.html">See your teams</a>`
+            }
+            <a href="${here.home}">Stay in ${here.name}</a>
+          </div>
+        </div>
+      </div>`;
+  });
+
   // Whole panels that swap for a denial notice.
   scope.querySelectorAll("[data-need-panel]").forEach((el) => {
     const need = el.dataset.needPanel;
@@ -259,15 +389,35 @@ function gate(scope = document) {
 }
 
 function denial(need) {
-  const role = ROLES[session().role];
+  const team = TEAMS[currentTeam()];
+  const role = ROLES[myRole()];
+
+  // Not on the team at all is a different answer from not holding the right
+  // role on it, and sends you somewhere different.
+  if (!role) {
+    return `
+      <div class="blank">
+        <div>
+          <div class="art" aria-hidden="true"><i></i><i></i><i></i></div>
+          <h2>You are not on the ${team.name} team</h2>
+          <p>
+            ${team.blurb} Ask an administrator to add you, or switch to a team you are on.
+          </p>
+          <div class="files" style="justify-content: center">
+            <a class="lead" href="teams.html">See your teams</a>
+          </div>
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="blank">
       <div>
         <div class="art" aria-hidden="true"><i></i><i></i><i></i></div>
-        <h2>Not available to ${role.label.toLowerCase()}s</h2>
+        <h2>Not available to ${role.label.toLowerCase()}s on ${team.name}</h2>
         <p>${REASONS[need] || "You do not have access to this."}</p>
         <div class="files" style="justify-content: center">
-          <a class="lead" href="index.html">Back to the inspection</a>
+          <a class="lead" href="${team.home}">Back to ${team.name}</a>
         </div>
       </div>
     </div>`;
@@ -279,12 +429,13 @@ function denial(need) {
    and sign in as somebody who holds it. */
 function whoami() {
   const me = session();
+  const role = ROLES[myRole()];
   return `
     <div class="me">
       <span class="avatar" aria-hidden="true">${me.name.slice(0, 1)}</span>
       <div class="grow">
         <b>${me.name}</b>
-        <span>${ROLES[me.role].label}</span>
+        <span>${role ? role.label + " · " + TEAMS[currentTeam()].name : "Not on this team"}</span>
       </div>
       <button class="rail-toggle" data-signout title="Sign out" aria-label="Sign out">⏻</button>
     </div>`;
@@ -293,5 +444,7 @@ function whoami() {
 function wireAuth() {
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-signout]")) signOut();
+    const jump = event.target.closest("[data-goto-team]");
+    if (jump) setTeam(jump.dataset.gotoTeam);
   });
 }

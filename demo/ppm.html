@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PPM · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div data-need-team="ppm">
+      <div class="wrap">
+
+        <header>
+          <div class="page-title">
+            <h1>7122 · Pre-production meeting</h1>
+            <span class="pill warning">open</span>
+            <span class="spacer"></span>
+            <button class="btn secondary sm" data-need="download.working">Minutes PDF</button>
+            <button class="btn sm" data-need="release">Clear for bulk</button>
+          </div>
+          <p class="page-meta">
+            21 September 2026 · Unit 4, Gurugram · <b>SMOCKED BUTTON THROUGH</b> ·
+            order 12,400 pcs · ship 14 Nov
+          </p>
+        </header>
+
+        <!-- Nothing is measured at this stage. The only question is whether
+             the factory may start cutting, so that is the verdict. -->
+        <section style="margin-top: 24px">
+          <div class="verdict open">
+            <span class="glyph" aria-hidden="true">4</span>
+            <div>
+              <span class="eyebrow">Decision</span>
+              <h2>Bulk is not cleared — 4 points are still open</h2>
+              <p>
+                Eight of twelve approvals are signed off. Two are waiting on the buyer, two on the
+                factory. Cutting before the wash standard is approved is the one that cannot be
+                undone — the fabric is consumed either way.
+              </p>
+              <div class="row">
+                <button class="btn on-tint" data-need="audit.edit">Record a decision</button>
+                <button class="btn on-tint" data-need="record">Add an action point</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <dl class="readout">
+            <div><dt>Approvals</dt><dd>12</dd></div>
+            <div class="clear"><dt>Signed off</dt><dd>8</dd></div>
+            <div class="warm"><dt>Open</dt><dd>4</dd></div>
+            <div class="hot"><dt>Overdue</dt><dd>1</dd></div>
+            <div><dt>Attendees</dt><dd>7</dd></div>
+            <div><dt>Days to cut</dt><dd>3</dd></div>
+          </dl>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Approvals</h2>
+            <span class="pill warning">4 open</span>
+          </div>
+          <p class="lede">
+            Each line is a thing that has to exist and be signed before bulk starts. An owner and a
+            date, because "open" with neither is how a meeting becomes a formality.
+          </p>
+          <div class="tablewrap">
+            <table class="data" id="approvals"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>Open points</h2>
+            <span class="pill error">1 overdue</span>
+          </div>
+          <div class="tablewrap">
+            <table class="data" id="points"></table>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head"><h2>In the room</h2></div>
+          <p class="lede">
+            Recorded because a decision taken at a PPM is only as good as the people who were
+            there to take it.
+          </p>
+          <ul class="feed" id="people"></ul>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+/* app.js has already run gate(), so standing in another stage this panel is
+   now a "wrong stage" notice and none of the tables below exist. */
+if (currentTeam() === "ppm") {
+const APPROVALS = [
+  ["Fabric", "Shell 100% cotton poplin, 120 GSM", "approved", "Buyer", "12 Sep"],
+  ["Lab dips", "3 colourways, all within ΔE 1.0", "approved", "Buyer", "14 Sep"],
+  ["Trims — buttons", "18L corozo, 4-hole, dyed to match", "approved", "Factory", "15 Sep"],
+  ["Trims — labels", "Main, care, size — Triburg spec", "approved", "Factory", "15 Sep"],
+  ["Embroidery strike-off", "CF placket, 2 threads", "open", "Buyer", "20 Sep"],
+  ["Smocking sample", "Last row at 33\" relaxed", "approved", "Factory", "16 Sep"],
+  ["Wash standard", "Enzyme, 1 approved swatch on file", "overdue", "Factory", "18 Sep"],
+  ["Care label wording", "Country of origin, fibre content", "approved", "Buyer", "17 Sep"],
+  ["Size set sample", "Graded sheet checked, 3 verdicts open", "open", "Triburg", "21 Sep"],
+  ["Packing — polybag", "Recycled, printed warning", "approved", "Factory", "17 Sep"],
+  ["Packing — carton", "5-ply, assortment per PO", "approved", "Factory", "17 Sep"],
+  ["Needle policy", "Detector certificate current", "open", "Factory", "22 Sep"],
+];
+
+const STATE = {
+  approved: '<span class="pill success">approved</span>',
+  open: '<span class="pill warning">open</span>',
+  overdue: '<span class="pill error">overdue</span>',
+};
+
+document.querySelector("#approvals").innerHTML =
+  `<thead><tr><th>Item</th><th>Standard</th><th>State</th><th>Owner</th><th class="num">Due</th></tr></thead><tbody>` +
+  APPROVALS.map(
+    ([item, standard, state, owner, due]) => `
+    <tr>
+      <td><b>${item}</b></td>
+      <td class="why">${standard}</td>
+      <td>${STATE[state]}</td>
+      <td>${owner}</td>
+      <td class="num ${state === "overdue" ? "" : "why"}">${due}</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+const POINTS = [
+  ["Wash standard not approved", "Factory to send 2 more swatches; buyer to sign one by 22 Sep. Cutting cannot start without it.", "P. Grewal", "18 Sep", true],
+  ["Embroidery strike-off pending", "Thread 2 reads warmer than the lab dip. Awaiting buyer comment.", "A. Bhattacharya", "23 Sep", false],
+  ["Size set carries 3 open verdicts", "Three points of measure the recording never ruled on. Size set team to settle before this meeting closes.", "A. Bhattacharya", "22 Sep", false],
+  ["Needle detector certificate expires 30 Sep", "Renew before bulk finishing starts.", "Factory QA", "25 Sep", false],
+];
+
+document.querySelector("#points").innerHTML =
+  `<thead><tr><th>Point</th><th>What happens next</th><th>Owner</th><th class="num">Due</th></tr></thead><tbody>` +
+  POINTS.map(
+    ([title, next, owner, due, late]) => `
+    <tr>
+      <td><b>${title}</b>${late ? ' <span class="pill error">overdue</span>' : ""}</td>
+      <td class="why">${next}</td>
+      <td>${owner}</td>
+      <td class="num">${due}</td>
+    </tr>`,
+  ).join("") +
+  "</tbody>";
+
+const ROOM = [
+  ["P. Grewal", "Triburg", "Approver — chaired the meeting"],
+  ["A. Bhattacharya", "Triburg", "QA reviewer — size set status"],
+  ["K. Tanaka", "American Eagle", "Buyer — joined by call"],
+  ["Factory QA", "Unit 4", "Head of quality"],
+  ["Cutting", "Unit 4", "Line manager"],
+  ["Merchandising", "Unit 4", "Order owner"],
+  ["Washing", "Unit 4", "Subcontractor, by call"],
+];
+
+document.querySelector("#people").innerHTML = ROOM.map(
+  ([name, org, role]) => `
+  <li>
+    <span class="avatar">${name.slice(0, 1)}</span>
+    <div class="grow"><b>${name}</b><p>${role}</p></div>
+    <div class="when">${org}</div>
+  </li>`,
+).join("");
+
+gate();
+}
+</script>
+</body>
+</html>

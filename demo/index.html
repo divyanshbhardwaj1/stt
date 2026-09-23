@@ -12,7 +12,8 @@
   <aside class="rail"></aside>
 
   <main>
-    <div class="wrap">
+    <div data-need-team="sizeset">
+      <div class="wrap">
 
       <!-- Intake. In the real app this sits at the top of the work pane and
            takes over the whole pane while recording. -->
@@ -230,7 +231,8 @@
         <div class="section-head"><h2>Downloads</h2></div>
         <p class="notice warn" style="margin-bottom: 16px">
           The report and graded sheet mark the 3 unanswered points of measure in violet. Fill those
-          in before this goes to a vendor — a missing verdict is not a pass.
+          in before this is signed off — a missing verdict is not a pass. Nothing is sent to the
+          vendor from this stage; the shipment is released at <b>Final</b>.
         </p>
         <div class="files">
           <a class="lead" href="#" data-need="download.vendor">Report PDF</a>
@@ -240,24 +242,13 @@
           <a href="#" data-need="download.working">Graded sheet CSV</a>
           <a href="#" data-need="download.working">JSON</a>
         </div>
-
-        <!-- The irreversible one. Separate from the downloads on purpose:
-             sending a stamped document to a buyer is not a file operation. -->
-        <div class="card" style="margin-top: 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
-          <div style="flex: 1 1 320px">
-            <b>Release to the vendor</b>
-            <p class="lede" style="margin: 4px 0 0">
-              Sends the stamped report to American Eagle Outfitters and locks the sheet.
-              Three readings still have no verdict.
-            </p>
-          </div>
-          <button class="btn" data-need="release">Release</button>
-        </div>
       </section>
 
     </div>
+    </div>
   </main>
 </div>
+<script src="teams.js"></script>
 <script src="auth.js"></script>
 <script src="app.js"></script>
 </body>

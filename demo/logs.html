@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Activity · Triburg QA</title>
+<link rel="stylesheet" href="app.css" />
+<script>try{document.documentElement.dataset.rail=localStorage.getItem("rail")||"open"}catch(e){}</script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+
+  <main>
+    <div class="wrap">
+
+      <header>
+        <div class="page-title">
+          <h1 id="title"></h1>
+          <span class="pill" id="count"></span>
+          <span class="spacer"></span>
+          <button class="btn secondary sm" data-need="download.working">Export the log</button>
+        </div>
+        <p class="page-meta" id="sub"></p>
+      </header>
+
+      <!-- The log belongs to the stage. A correction made on size set has no
+           business appearing in a final inspector's trail, and an approver
+           signing a lot off is not a size-set event. -->
+      <div class="notice info" style="margin-top: 20px">
+        <b>This is the <span id="teamname"></span> log.</b>
+        Each stage keeps its own — switch stage in the rail to see another. Entries are written
+        when the action happens and are never edited or removed, which is what makes them worth
+        anything when a vendor disputes a measurement months later.
+      </div>
+
+      <div class="toolbar">
+        <div class="tabs" id="kinds"></div>
+        <span class="spacer"></span>
+        <select id="person" style="max-width: 220px"></select>
+        <input type="text" id="search" placeholder="Search the log" style="max-width: 260px" />
+      </div>
+
+      <div class="tablewrap">
+        <table class="data" id="log"></table>
+      </div>
+
+      <div class="blank" id="nothing" hidden>
+        <div>
+          <div class="art" aria-hidden="true"><i></i><i></i><i></i></div>
+          <h2>Nothing matches that</h2>
+          <p>No entry in this stage's log matches the filters you have set.</p>
+          <div class="files" style="justify-content: center">
+            <button class="btn secondary" id="clear">Clear the filters</button>
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <div class="section-head"><h2>By person</h2></div>
+        <p class="lede">
+          Who has touched this stage, and how much. Not a productivity table — a way to find the
+          person to ask when an entry needs explaining.
+        </p>
+        <div class="tablewrap">
+          <table class="data" id="bywho"></table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+/* One log per stage, read straight off the team. */
+const team = TEAMS[currentTeam()];
+const LOG = team.log || [];
+
+/* What kind of thing happened. Worth separating because the questions asked
+   of a log are different: "who changed a measurement" is an audit question,
+   "who opened the sheet" is an access one. */
+const KINDS = {
+  record: ["Recording", "pill"],
+  correction: ["Correction", "pill lavender"],
+  approval: ["Approval", "pill success"],
+  defect: ["Defect", "pill warning"],
+  decision: ["Decision", "pill ochre"],
+  release: ["Release", "pill error"],
+  access: ["Access", "pill"],
+};
+
+let kind = "all";
+let person = "all";
+let query = "";
+
+document.querySelector("#title").textContent = team.name + " activity";
+document.querySelector("#teamname").textContent = team.name;
+document.querySelector("#sub").innerHTML =
+  team.blurb + " Append-only, attributed, and scoped to this stage.";
+
+/* The filters are built from the log rather than hard-coded, so a stage with
+   no releases does not offer a Releases tab that returns nothing. */
+const present = [...new Set(LOG.map((e) => e[3]))];
+document.querySelector("#kinds").innerHTML =
+  `<button data-kind="all" aria-selected="true">All</button>` +
+  present.map((k) => `<button data-kind="${k}" aria-selected="false">${KINDS[k][0]}</button>`).join("");
+
+const actors = [...new Set(LOG.map((e) => e[2]))];
+document.querySelector("#person").innerHTML =
+  `<option value="all">Everyone</option>` +
+  actors
+    .map((id) => {
+      const who = member(id);
+      return `<option value="${id}">${who ? who.name : id}</option>`;
+    })
+    .join("");
+
+function label(id) {
+  const who = member(id);
+  if (!who) return id;
+  if (who.admin) return "Administrator";
+  const r = roleIn(currentTeam(), who);
+  return r ? ROLES[r].label : "—";
+}
+
+function matches(entry) {
+  const [day, time, id, k, what, where] = entry;
+  if (kind !== "all" && k !== kind) return false;
+  if (person !== "all" && id !== person) return false;
+  if (!query) return true;
+  const who = member(id);
+  return (what + " " + where + " " + (who ? who.name : id) + " " + day)
+    .toLowerCase()
+    .includes(query);
+}
+
+function draw() {
+  const shown = LOG.filter(matches);
+  document.querySelector("#count").textContent =
+    shown.length === LOG.length
+      ? LOG.length + " entries"
+      : shown.length + " of " + LOG.length;
+  document.querySelector("#nothing").hidden = shown.length > 0;
+  document.querySelector(".tablewrap").hidden = shown.length === 0;
+
+  document.querySelector("#log").innerHTML =
+    `<thead><tr><th>When</th><th>Who</th><th>Role</th><th>What</th>
+       <th>Kind</th><th>Where</th></tr></thead><tbody>` +
+    shown
+      .map(([day, time, id, k, what, where]) => {
+        const who = member(id);
+        return `
+        <tr>
+          <td class="num why" style="white-space:nowrap">${day}<div class="dim">${time}</div></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px">
+              <span class="avatar">${(who ? who.name : id).slice(0, 1)}</span>
+              <b>${who ? who.name : id}</b>
+            </div>
+          </td>
+          <td class="why">${label(id)}</td>
+          <td>${what}</td>
+          <td><span class="${KINDS[k][1]}">${KINDS[k][0]}</span></td>
+          <td class="pom">${where}</td>
+        </tr>`;
+      })
+      .join("") +
+    "</tbody>";
+
+  byWho();
+}
+
+function byWho() {
+  const tally = {};
+  LOG.forEach(([day, time, id, k]) => {
+    tally[id] = tally[id] || { n: 0, kinds: {}, last: day + " " + time };
+    tally[id].n += 1;
+    tally[id].kinds[k] = (tally[id].kinds[k] || 0) + 1;
+  });
+
+  document.querySelector("#bywho").innerHTML =
+    `<thead><tr><th>Person</th><th>Role on this stage</th><th class="num">Entries</th>
+       <th>What they did</th><th class="num">Last seen</th></tr></thead><tbody>` +
+    Object.entries(tally)
+      .sort((a, b) => b[1].n - a[1].n)
+      .map(([id, t]) => {
+        const who = member(id);
+        return `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px">
+              <span class="avatar">${(who ? who.name : id).slice(0, 1)}</span>
+              <div><b>${who ? who.name : id}</b>
+                <div class="dim pom" style="font-size:11.5px">${id}</div></div>
+            </div>
+          </td>
+          <td class="why">${label(id)}</td>
+          <td class="num">${t.n}</td>
+          <td>
+            <div class="teamchips">
+              ${Object.entries(t.kinds)
+                .map(([k, n]) => `<span class="${KINDS[k][1]}">${KINDS[k][0]} ${n}</span>`)
+                .join("")}
+            </div>
+          </td>
+          <td class="num why">${t.last}</td>
+        </tr>`;
+      })
+      .join("") +
+    "</tbody>";
+}
+
+/* -------------------------------------------------------- interactions */
+document.querySelector("#kinds").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-kind]");
+  if (!button) return;
+  kind = button.dataset.kind;
+  document.querySelectorAll("#kinds button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b === button)),
+  );
+  draw();
+});
+
+document.querySelector("#person").addEventListener("change", (event) => {
+  person = event.target.value;
+  draw();
+});
+
+document.querySelector("#search").addEventListener("input", (event) => {
+  query = event.target.value.trim().toLowerCase();
+  draw();
+});
+
+document.querySelector("#clear").addEventListener("click", () => {
+  kind = "all";
+  person = "all";
+  query = "";
+  document.querySelector("#search").value = "";
+  document.querySelector("#person").value = "all";
+  document.querySelectorAll("#kinds button").forEach((b) =>
+    b.setAttribute("aria-selected", String(b.dataset.kind === "all")),
+  );
+  draw();
+});
+
+draw();
+gate();
+</script>
+</body>
+</html>
