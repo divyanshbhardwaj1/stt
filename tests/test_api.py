@@ -3,7 +3,6 @@
 from dataclasses import replace
 
 import pytest
-from fastapi.testclient import TestClient
 
 import pipeline
 from api import app as api
@@ -11,33 +10,6 @@ from api.jobs import DONE, FAILED, JobStore, process
 from services.csv_filler import InspectionSheet
 
 from .conftest import SHEET_PAYLOAD
-
-
-@pytest.fixture
-def client(settings, monkeypatch):
-    """A test client whose uploads land in the throwaway data directory."""
-    api.app.dependency_overrides[api.settings_dependency] = lambda: settings
-    monkeypatch.setattr(api, "store", JobStore())
-    with TestClient(api.app) as test_client:
-        yield test_client
-    api.app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def stub_pipeline(monkeypatch):
-    """Replace the two API-backed stages so uploads process offline."""
-    monkeypatch.setattr(
-        pipeline.inspection_pipeline,
-        "transcribe_recording",
-        lambda recording, settings, client=None, on_delta=None, announce=None: "text",
-    )
-    monkeypatch.setattr(
-        pipeline.inspection_pipeline,
-        "extract_inspection",
-        lambda transcript, settings, template, client=None: InspectionSheet.from_payload(
-            SHEET_PAYLOAD
-        ),
-    )
 
 
 def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=None):
@@ -164,10 +136,17 @@ def test_no_style_chosen_falls_back_to_the_recording(client, template, stub_pipe
 
 
 def test_index_serves_the_page(client):
+    """The app shell, whichever one is on disk.
+
+    A checkout that has never run `npm run build` gets the legacy single-file
+    page; one that has gets the React shell. Both are the product, so this
+    asserts on the mount point they share rather than on a title that belongs
+    to the design and is free to change.
+    """
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "Size Set Inspection Reports" in response.text
+    assert 'id="root"' in response.text or "Size Set Inspection" in response.text
 
 
 def test_index_is_not_cached(client):

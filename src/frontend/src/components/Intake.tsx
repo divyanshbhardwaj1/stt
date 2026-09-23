@@ -31,7 +31,6 @@ interface Props {
    * so the transcript can take the pane over while a recording is in progress,
    * which is where there is room for it to run top to bottom.
    */
-  children: React.ReactNode;
 }
 
 /**
@@ -40,7 +39,7 @@ interface Props {
  * Sticky, because it is the primary action and because a running waveform
  * should stay visible while a reviewer scrolls the report underneath it.
  */
-export function Intake({ onQueued, children }: Props) {
+export function Intake({ onQueued }: Props) {
   const [take, setTake] = useState<Take | null>(null);
   /**
    * What the monitor heard for the take in hand.
@@ -238,14 +237,10 @@ export function Intake({ onQueued, children }: Props) {
   };
 
   const error = uploadError || recorder.error || styleError;
-  // The transcript owns the pane while recording, and stays afterwards for as
-  // long as the take it belongs to is still in hand.
-  const showTranscript = live || heard.length > 0;
 
   return (
-    <>
     <div
-      className={`intake${dragging ? " dragging" : ""}${live ? " live" : ""}`}
+      className="recscreen"
       onDragEnter={(e) => {
         e.preventDefault();
         if (!live) setDragging(true);
@@ -260,46 +255,70 @@ export function Intake({ onQueued, children }: Props) {
       }}
       onDrop={onDrop}
     >
-      <div className="inner">
-        {/* Anything the server has never accepted. Shown only with the intake
-            idle, so it cannot be mistaken for the take already in hand. */}
-        {!live && !pending && stored.length > 0 && (
-          <div className="msg recover" role="status">
-            <b>
-              {stored.length === 1
-                ? "A recording on this device has not been processed"
-                : `${stored.length} recordings on this device have not been processed`}
-            </b>
-            <ul>
-              {stored.map((session) => (
-                <li key={session.id}>
-                  <span>
-                    <b>{session.filename}</b>
-                    {session.ms ? <> &middot; {hms(session.ms)}</> : null}
-                    {session.status === "recording" ? (
-                      <em> &middot; the tab closed while this was still recording</em>
-                    ) : null}
-                  </span>
-                  <span className="row tight">
-                    <button onClick={() => void recover(session)} disabled={recovering}>
-                      {recovering ? "Rebuilding…" : "Recover"}
-                    </button>
-                    <button
-                      className="danger"
-                      onClick={() => void forget(session.id)}
-                      disabled={recovering}
-                    >
-                      Delete
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      <header>
+        <div className="page-title">
+          <h1>New inspection</h1>
+          {live ? (
+            <span className={`pill ${recorder.state === "paused" ? "warning" : "error"}`}>
+              {recorder.state === "paused" ? "paused" : "recording"}
+            </span>
+          ) : pending ? (
+            <span className="pill warning">ready to process</span>
+          ) : null}
+        </div>
+        <p className="page-meta">
+          {live
+            ? "Capturing locally — the network is not in this path"
+            : "Record on the floor, or drop a recording you already have. Both go through the same intake."}
+        </p>
+      </header>
 
-        {live ? (
-          <>
+      {/* A take left behind by a tab that died. Each second of audio is written
+          to IndexedDB as it is captured, so this is the recovery path, not a
+          warning. Shown only with the intake idle, or it could be mistaken for
+          the take already in hand. */}
+      {!live && !pending && stored.length > 0 && (
+        <div className="notice recover" style={{ marginTop: 24 }} role="status">
+          <b>
+            {stored.length === 1
+              ? "A recording on this device was left unprocessed."
+              : `${stored.length} recordings on this device were left unprocessed.`}
+          </b>{" "}
+          Rebuild one and it goes through the ordinary intake, where you pick the style and
+          press Process.
+          {stored.map((session) => (
+            <div className="row" key={session.id} style={{ marginTop: 10 }}>
+              <span className="grow">
+                <b>{session.filename}</b>
+                {session.ms ? <> &middot; {hms(session.ms)}</> : null}
+                {session.status === "recording" ? (
+                  <em> &middot; the tab closed while this was still recording</em>
+                ) : null}
+              </span>
+              <button
+                className="btn sm"
+                onClick={() => void recover(session)}
+                disabled={recovering}
+              >
+                {recovering ? "Rebuilding…" : "Recover"}
+              </button>
+              <button
+                className="btn danger sm"
+                onClick={() => void forget(session.id)}
+                disabled={recovering}
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {live ? (
+        /* The recorder. Deep teal, one of the six brand fills: this is the
+           loudest state the product has, and it should look like it. */
+        <section style={{ marginTop: 24 }}>
+          <div className="recorder">
             <div className="row">
               <span
                 className={`recdot${recorder.state === "paused" ? " held" : ""}`}
@@ -308,132 +327,224 @@ export function Intake({ onQueued, children }: Props) {
               <span className="clock" role="timer">
                 {hms(recorder.ms)}
               </span>
-              <span className={`state ${recorder.state === "paused" ? "held" : "on"}`}>
-                {recorder.state === "paused" ? "Paused" : "Recording"}
+              <span className="state">
+                {recorder.state === "paused" ? "paused" : "recording"}
               </span>
               <span className="spacer" />
-              <div className="row tight">
-                {recorder.state === "paused" ? (
-                  <button className="ghost" onClick={recorder.resume}>
-                    Resume
+              {recorder.state === "paused" ? (
+                <button className="btn on-color sm" onClick={recorder.resume}>
+                  Resume
+                </button>
+              ) : (
+                <button className="btn on-color sm" onClick={recorder.pause}>
+                  Pause
+                </button>
+              )}
+              <button className="btn on-color sm" onClick={recorder.finish}>
+                Done
+              </button>
+              <button className="btn on-dark sm" onClick={recorder.discard}>
+                Discard
+              </button>
+            </div>
+
+            <Waveform levels={recorder.levels} sample={recorder.sample} />
+
+            <div className="transcript">
+              <LiveTranscript
+                status={transcript.status}
+                error={transcript.error}
+                utterances={transcript.utterances}
+                partial={transcript.partial}
+                live
+                events={transcript.events}
+              />
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section style={{ marginTop: 24 }}>
+          <div className={`intake${dragging ? " dragging" : ""}`}>
+            {take ? (
+              <>
+                <div className="row">
+                  <div className="grow">
+                    <div className="hint" style={{ marginBottom: 6 }}>
+                      <b>{take.file.name}</b> &middot; {hms(take.ms)} &middot;{" "}
+                      {megabytes(take.file.size)}
+                    </div>
+                    <audio controls preload="none" src={previewUrl} />
+                  </div>
+                  <button
+                    className="btn"
+                    onClick={() => void process()}
+                    disabled={progress >= 0}
+                  >
+                    Process this recording
                   </button>
-                ) : (
-                  <button className="ghost" onClick={recorder.pause}>
-                    Pause
+                  <button className="btn danger" onClick={clear} disabled={progress >= 0}>
+                    Discard
                   </button>
-                )}
-                <button onClick={recorder.finish}>Done</button>
-                <button className="danger" onClick={recorder.discard}>
-                  Discard
+                </div>
+                <span className="hint">
+                  Play it back before processing &mdash; transcription takes several minutes,
+                  and a recording nobody can hear costs all of it.
+                </span>
+              </>
+            ) : picked ? (
+              <div className="row">
+                <span className="grow hint">
+                  <b>{picked.name}</b> &middot; {megabytes(picked.size)} &middot; ready to
+                  process
+                </span>
+                <button
+                  className="btn"
+                  onClick={() => void process()}
+                  disabled={progress >= 0}
+                >
+                  Process this recording
+                </button>
+                <button className="btn danger" onClick={clear} disabled={progress >= 0}>
+                  Clear
                 </button>
               </div>
-            </div>
-            <Waveform levels={recorder.levels} sample={recorder.sample} />
-            {recorder.silent && (
-              <div className="silence" role="status">
-                <b>No sound detected.</b>
-                <span>
-                  Nothing has reached the microphone for a few seconds. Check that the right input
-                  is selected and that it is not muted.
+            ) : (
+              <div className="row">
+                <button
+                  className="btn"
+                  onClick={() => void recorder.start()}
+                  disabled={!recorder.supported}
+                  title={recorder.supported ? undefined : recorder.blockedReason}
+                >
+                  {recorder.supported ? "Record inspection" : "Recording unavailable here"}
+                </button>
+                <span className="hint">
+                  {recorder.supported ? (
+                    <>
+                      or{" "}
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() => fileInput.current?.click()}
+                      >
+                        choose a recording
+                      </button>{" "}
+                      &mdash; drop one anywhere here
+                    </>
+                  ) : (
+                    <>
+                      Open the app on <b>127.0.0.1</b> to record, or drop a file.
+                    </>
+                  )}
                 </span>
               </div>
             )}
-          </>
-        ) : take ? (
-          <>
-            <div className="row">
-              <div className="spacer">
-                <div className="hint" style={{ marginBottom: 6 }}>
-                  <b>{take.file.name}</b> &middot; {hms(take.ms)} &middot;{" "}
-                  {megabytes(take.file.size)}
-                </div>
-                <audio controls preload="none" src={previewUrl} />
-              </div>
-              <div className="row tight">
-                <button onClick={() => void process()} disabled={progress >= 0}>
-                  Process this recording
-                </button>
-                <button className="danger" onClick={clear} disabled={progress >= 0}>
-                  Discard
-                </button>
-              </div>
-            </div>
-            <p className="hint" style={{ margin: "9px 0 0" }}>
-              Play it back before processing &mdash; transcription takes several minutes, and a
-              recording nobody can hear costs all of it.
-            </p>
-          </>
-        ) : picked ? (
-          <div className="row">
-            <div className="spacer hint">
-              <b>{picked.name}</b> &middot; {megabytes(picked.size)} &middot; ready to process
-            </div>
-            <div className="row tight">
-              <button onClick={() => void process()} disabled={progress >= 0}>
-                Process this recording
-              </button>
-              <button className="danger" onClick={clear} disabled={progress >= 0}>
-                Clear
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="row">
-            <button
-              onClick={() => void recorder.start()}
-              disabled={!recorder.supported}
-              title={recorder.supported ? undefined : recorder.blockedReason}
-            >
-              {recorder.supported ? "Record inspection" : "Recording unavailable here"}
-            </button>
-            <span className="hint">
-              {recorder.supported ? (
-                <>
-                  or{" "}
-                  <span className="pickfile" onClick={() => fileInput.current?.click()}>
-                    choose a recording
-                  </span>{" "}
-                  &mdash; drop one anywhere here
-                </>
-              ) : (
-                <>
-                  Open the app on <b>127.0.0.1</b> to record, or drop a file.
-                </>
-              )}
-            </span>
-          </div>
-        )}
 
-        {!live && (
-          <div className="opts" style={{ marginTop: 11 }}>
-            <label htmlFor="style">Check against</label>
-            <select id="style" value={styleNo} onChange={(e) => setStyleNo(e.target.value)}>
-              <option value="">Style announced in the recording</option>
-              {styleSets?.length === 0 && (
-                <option value="" disabled>
-                  {styleError || "No sheets in data/StyleSets"}
-                </option>
-              )}
-              {styleSets?.map((style) => (
-                <option key={style} value={style}>
-                  Style {style}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+            <div className="opts">
+              <label htmlFor="style">Check against</label>
+              <select
+                id="style"
+                value={styleNo}
+                onChange={(e) => setStyleNo(e.target.value)}
+              >
+                <option value="">Style announced in the recording</option>
+                {styleSets?.length === 0 && (
+                  <option value="" disabled>
+                    {styleError || "No sheets in data/StyleSets"}
+                  </option>
+                )}
+                {styleSets?.map((style) => (
+                  <option key={style} value={style}>
+                    Style {style}
+                  </option>
+                ))}
+              </select>
+              <span className="hint">
+                {styleSets?.length
+                  ? `${styleSets.length} sheet${styleSets.length === 1 ? "" : "s"} in the library`
+                  : "The library is empty"}
+              </span>
+            </div>
 
-        {progress >= 0 && (
-          <div className="bar">
-            <i style={{ width: `${progress * 100}%` }} />
+            {progress >= 0 && (
+              <div className="bar" style={{ marginTop: 12 }}>
+                <i style={{ width: `${progress * 100}%` }} />
+              </div>
+            )}
           </div>
-        )}
-        {error && (
-          <div className="msg bad" role="alert">
-            {error}
+        </section>
+      )}
+
+      {live && (
+        <section>
+          <div className="section-head">
+            <h2>While this runs</h2>
           </div>
-        )}
-      </div>
+          <p className="lede">
+            Recording is local. Losing the network costs you the live monitor above and nothing
+            else — the take is written to this device a second at a time, so a crash or a
+            closed tab is recoverable up to the moment it happened.
+          </p>
+          <dl className="readout">
+            <div>
+              <dt>Captured</dt>
+              <dd>{hms(recorder.ms)}</dd>
+            </div>
+            <div>
+              <dt>Sound level</dt>
+              <dd>{recorder.silent ? "silent" : "ok"}</dd>
+            </div>
+            <div>
+              <dt>Live monitor</dt>
+              <dd className="sizes">
+                {transcript.status === "live"
+                  ? "on"
+                  : transcript.status === "connecting"
+                    ? "connecting"
+                    : transcript.status === "error"
+                      ? "off"
+                      : "off"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
+      {live && recorder.silent && (
+        <section>
+          <div className="section-head">
+            <h2>If the room goes quiet</h2>
+          </div>
+          <div className="notice warn">
+            <b>No sound detected.</b> The microphone is open but nothing has come through for
+            several seconds. Check the headset before carrying on — a silent take cannot be
+            graded, and you will not know until the transcript comes back empty.
+          </div>
+        </section>
+      )}
+
+      {/* What the monitor heard for the take in hand, kept after the stream
+          ends so it can be read before pressing Process. */}
+      {!live && heard.length > 0 && (
+        <section>
+          <div className="transcript" style={{ marginTop: 0 }}>
+            <LiveTranscript
+              status="off"
+              error=""
+              utterances={heard}
+              partial=""
+              live={false}
+              events={transcript.events}
+            />
+          </div>
+        </section>
+      )}
+
+      {error && (
+        <div className="notice bad" role="alert" style={{ marginTop: 20 }}>
+          <b>{error}</b>
+        </div>
+      )}
 
       <input
         ref={fileInput}
@@ -442,21 +553,5 @@ export function Intake({ onQueued, children }: Props) {
         onChange={(e) => choose(e.target.files?.[0])}
       />
     </div>
-
-    <div className="pane">
-      {showTranscript ? (
-        <LiveTranscript
-          status={transcript.status}
-          error={transcript.error}
-          utterances={live ? transcript.utterances : heard}
-          partial={live ? transcript.partial : ""}
-          live={live}
-          events={transcript.events}
-        />
-      ) : (
-        children
-      )}
-    </div>
-    </>
   );
 }

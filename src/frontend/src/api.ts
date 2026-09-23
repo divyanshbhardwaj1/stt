@@ -17,6 +17,15 @@ export async function fetchJobs(): Promise<Job[]> {
 export const downloadUrl = (jobId: string, kind: DownloadKind) =>
   `/api/jobs/${jobId}/download/${kind}`;
 
+/**
+ * The vendor-facing documents, mirroring VENDOR_DOWNLOADS in src/api/app.py.
+ *
+ * These are the PDFs stamped "Subject to Legal Action if Disclosed Without
+ * Authorization from AEO"; the rest are working files for the QA team. The
+ * two lists have to agree, and the server is the one that decides.
+ */
+export const VENDOR_DOWNLOADS: DownloadKind[] = ["report", "graded"];
+
 export const DOWNLOAD_TITLES: Record<DownloadKind, string> = {
   report: "Report PDF",
   graded: "Graded sheet PDF",
@@ -136,3 +145,78 @@ export async function fetchCues(jobId: string): Promise<PlaybackCues> {
   if (!response.ok) throw new Error(await detail(response, "Could not locate the readings."));
   return response.json();
 }
+
+/* ------------------------------------------------------------------ roster */
+
+/** One user, mirroring `_user()` in src/api/app.py. */
+export interface User {
+  /** A uuid: the stable identity. Never shown, always used to address them. */
+  id: string;
+  /** The credential, and what a person recognises on a roster. */
+  email: string;
+  name: string;
+  admin: boolean;
+  state: string;
+  roles: Record<string, string>;
+  stages: string[];
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+
+export interface Roster {
+  users: User[];
+  stages: string[];
+  roles: { id: string; label: string; can: string[] }[];
+  capabilities: { id: string; label: string }[];
+}
+
+/**
+ * The server's error wording, not ours.
+ *
+ * Every refusal in services/auth.py is phrased for the person reading it —
+ * "give them a role on at least one stage", "this is the last administrator".
+ * Replacing those with a generic failure here would throw away the only part
+ * that tells somebody what to do next.
+ */
+async function ask<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.detail || `${url} returned ${response.status}`);
+  return body as T;
+}
+
+const asJson = (body: unknown): RequestInit => ({
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export const fetchRoster = () => ask<Roster>("/api/users");
+
+export const addUser = (draft: {
+  email: string;
+  name: string;
+  roles: Record<string, string>;
+  admin: boolean;
+  password: string;
+}) => ask<User>("/api/users", { method: "POST", ...asJson(draft) });
+
+export const patchUser = (
+  id: string,
+  patch: Partial<{
+    email: string;
+    name: string;
+    roles: Record<string, string>;
+    admin: boolean;
+    state: string;
+    password: string;
+  }>,
+) => ask<User>(`/api/users/${encodeURIComponent(id)}`, { method: "PATCH", ...asJson(patch) });
+
+export const removeUser = (id: string) =>
+  ask<{ detail: string }>(`/api/users/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const changePassword = (current: string, password: string) =>
+  ask<{ detail: string; sessions_ended: number }>("/api/me/password", {
+    method: "POST",
+    ...asJson({ current, password }),
+  });

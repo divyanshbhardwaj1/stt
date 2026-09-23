@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioUrl, fetchCues, fetchSheet, regradeSize, settleCells } from "../api";
+import { useCan } from "../session";
 import type { CellEdit, GradedSheet, Job, PlaybackCues, SheetCell, SheetRow } from "../types";
 
 interface Props {
@@ -79,6 +80,10 @@ function changes(before: Draft, after: Draft): Omit<CellEdit, "sheet_index" | "s
  * vendor-facing report, so edits collect as a pending set and go in one call.
  */
 export function AuditSheet({ job, onClose, onSettled }: Props) {
+  // An approver opens this sheet to read it and deliberately cannot change
+  // it first — see services/auth.py. The cells stay clickable either way;
+  // what disappears is the way to commit.
+  const mayEdit = useCan("audit.edit");
   const [sheet, setSheet] = useState<GradedSheet | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<{ row: SheetRow; size: string } | null>(null);
@@ -250,7 +255,7 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
       <div className="wrap">
         <div className="title">
           <h2>Graded sheet</h2>
-          <button className="ghost" onClick={onClose}>
+          <button className="btn secondary sm" onClick={onClose}>
             Back to the report
           </button>
         </div>
@@ -281,10 +286,23 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
   return (
     <div className="audit">
       <div className="audit-head">
-        <div className="title">
-          <h2>
-            Graded sheet <span className="dim">style {sheet.style_no}</span>
-          </h2>
+        {/* `page-title` is the flex row in app.css — the verdict, the ⓘ and
+            the way back all sit on one line, with the spacer below pushing
+            "Back to the report" to the right edge. This said `title`, which is
+            this app's old class and which app.css does not style, so the row
+            was not a flex and the spacer did nothing. */}
+        <div className="page-title">
+          <h1
+            style={{
+              font: "var(--text-title-lg)",
+              letterSpacing: "var(--tracking-title-lg)",
+            }}
+          >
+            Graded sheet{" "}
+            <span className="dim" style={{ fontWeight: 400 }}>
+              style {sheet.style_no}
+            </span>
+          </h1>
           {/* The verdict's own state, not the job's. Styling this off
               `job.status` painted "FAIL CONDITIONALLY" in the pass green,
               which is the one thing a verdict must never do. */}
@@ -341,7 +359,7 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
             </div>
           </details>
           <span className="spacer" />
-          <button className="ghost" onClick={onClose}>
+          <button className="btn secondary sm" onClick={onClose}>
             Back to the report
           </button>
         </div>
@@ -362,23 +380,40 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
               <b>{check.assigned}</b>. If that is right, every measurement on this sheet is being
               judged against the wrong grade.
               <div className="row tight" style={{ marginTop: 11 }}>
-                <button onClick={() => void regrade(check.assigned, check.best)} disabled={resizing}>
+                <button className="btn sm" onClick={() => void regrade(check.assigned, check.best)} disabled={resizing}>
                   {resizing ? "Regrading…" : `Regrade as ${check.best}`}
                 </button>
               </div>
             </div>
           ))}
         {pending.length > 0 && (
-          <div className="audit-bar" role="status">
-            <b>
-              {pending.length} change{pending.length === 1 ? "" : "s"} not saved
-            </b>
+          <div className="audit-foot" role="status">
+            <span className="pill peach">
+              <b>
+                {pending.length} correction{pending.length === 1 ? "" : "s"}
+              </b>
+            </span>
+            <span className="hint muted" style={{ font: "var(--text-caption)" }}>
+              staged, not written
+            </span>
             <span className="spacer" />
-            <button className="ghost" onClick={() => setPending([])} disabled={saving}>
-              Discard changes
+            <button className="btn secondary sm" onClick={() => setPending([])} disabled={saving}>
+              Discard
             </button>
-            <button onClick={() => void save()} disabled={saving}>
-              {saving ? "Saving…" : "Save and rebuild the report"}
+            {/* Dead rather than absent, with the reason on it. A control that
+                vanishes teaches nobody why, and support tickets are made of
+                that. */}
+            <button
+              className="btn sm"
+              onClick={() => void save()}
+              disabled={saving || !mayEdit}
+              title={
+                mayEdit
+                  ? undefined
+                  : "Corrections are made by QA reviewers. Approvers sign off on the sheet as it stands — that separation is deliberate."
+              }
+            >
+              {saving ? "Saving…" : "Save corrections"}
             </button>
           </div>
         )}
@@ -468,10 +503,36 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
             )}
           </tbody>
         </table>
+
+        {/* The key, from demo/audit.html. Blue is confidence, lavender is no
+            verdict, red is out of tolerance — the same four the graded PDF
+            prints, so screen and paper say the same thing. */}
+        <div className="gridkey">
+          {/* One entry per fill, reading the same tokens the cells do. Two
+              blue entries used to sit here for two blue bands; there is one
+              blue now, so there is one entry. */}
+          <span>
+            <i className="sw" style={{ background: "var(--cell-uncertain)" }} />
+            Heard below 100% — listen before releasing
+          </span>
+          <span>
+            <i className="sw" style={{ background: "var(--cell-open)" }} />
+            No verdict
+          </span>
+          <span>
+            <i className="sw" style={{ background: "var(--cell-fail)" }} />
+            Out of tolerance
+          </span>
+          <span className="spacer" />
+          <span>
+            Sizes marked <b>*</b> were never dictated — spec only. Base size{" "}
+            <b>{sheet.base_size || "—"}</b>.
+          </span>
+        </div>
       </div>
 
       {sheet.unmatched.length > 0 && (
-        <div className="audit-foot">
+        <section className="unplaced">
           <h3>
             Heard but not placed <span className="count open">{sheet.unmatched.length}</span>
           </h3>
@@ -501,7 +562,7 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       )}
 
       {open && (
@@ -548,9 +609,12 @@ function Cell({
   return (
     <td
       data-cell={at}
+      // The confidence bands are `conf-mid` and `conf-low` in demo/app.css.
+      // This used to say `uncertain` and `shaky`, which nothing styled — which
+      // is why the blue tints and every state glyph rendered colourless.
       className={`cell ${state}${staged ? " staged" : ""}${cell?.edited ? " settled" : ""}${
         cell?.disputed ? " disputed" : ""
-      }${cell?.below_full ? " uncertain" : ""}${cell?.low_confidence ? " shaky" : ""}`}
+      }${cell?.below_full ? " conf-mid" : ""}${cell?.low_confidence ? " conf-low" : ""}`}
     >
       <button type="button" onClick={onOpen} aria-label={`${label}: ${state}`}>
         {state === "empty" ? (
@@ -575,7 +639,7 @@ function Cell({
         )}
         {/* The mark carries the state as well as the colour does, so the grid
             survives a greyscale print and a colour-blind reviewer. */}
-        <span className="mark-glyph" aria-hidden="true">
+        <span className="mark" aria-hidden="true">
           {staged ? "•" : STATE_MARK[state]}
         </span>
         {cell?.disputed && !staged ? (
@@ -619,114 +683,79 @@ function CellEditor({
 }) {
   const cell = row.cells?.[size];
   const fresh = !cell || cell.state === "empty";
+  const stated = cell?.stated?.value || "";
   return (
-    <div
-      className="sheetdlg"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${row.pom} ${size}`}
-      onKeyDown={(event) => event.key === "Escape" && onCancel()}
-    >
-      <div className="sheetdlg-box">
-        <h3>
-          {row.pom} <span className="dim">{size}</span>
-        </h3>
-        <p className="lede">{row.description}</p>
+    <div className="scrim" onKeyDown={(event) => event.key === "Escape" && onCancel()}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${row.pom} ${size}`}
+      >
+        <h2>
+          {row.pom} · {size}
+        </h2>
+        <p className="sub">{row.description}</p>
 
         <dl className="kv">
-          <div style={{ display: "contents" }}>
-            <dt>Spec</dt>
-            <dd>
-              <b>{cell?.spec || "—"}</b>{" "}
-              <span className="dim">
-                off the style sheet &middot; tolerance {row.tol_minus} / {row.tol_plus}
-              </span>
-            </dd>
-          </div>
+          <dt>Spec</dt>
+          <dd>
+            <b>{cell?.spec || "—"}</b>{" "}
+            <span className="dim">
+              off the style sheet · tolerance {row.tol_minus} / {row.tol_plus}
+            </span>
+          </dd>
           {!fresh && (
             <>
-              <div style={{ display: "contents" }}>
-                <dt>Heard as</dt>
-                <dd>
-                  {cell?.spoken || "—"}
-                  {typeof cell?.confidence === "number" ? (
-                    <span className="dim"> · confidence {Math.round(cell.confidence * 100)}%</span>
-                  ) : null}
-                </dd>
-              </div>
-              {/* Read-only, and below the spec on purpose. The absolute is what
-                  transcription mangles, so it decides nothing here - it is kept
-                  so a reviewer can tell a misheard number from a real deviation. */}
-              <div style={{ display: "contents" }}>
-                <dt>Read aloud</dt>
-                <dd className={cell?.disputed ? "disputed-note" : "dim"}>
-                  {cell?.stated?.value || "—"}
-                  {cell?.disputed ? (
-                    <>
-                      {" "}
-                      &mdash; neither the spec nor this measurement. The two numbers the inspector
-                      said do not agree; listen back before releasing it.
-                    </>
-                  ) : cell?.stated?.value && cell.stated.value === cell.spec ? (
-                    <> &mdash; the spec, read off the sheet</>
-                  ) : cell?.stated?.value && cell.stated.value === cell.measured ? (
-                    <> &mdash; the measurement, called off the tape</>
-                  ) : null}
-                </dd>
-              </div>
+              <dt>Heard as</dt>
+              <dd>
+                {cell?.spoken || "—"}
+                {typeof cell?.confidence === "number" ? (
+                  <span className="dim"> · confidence {Math.round(cell.confidence * 100)}%</span>
+                ) : null}
+              </dd>
+            </>
+          )}
+          {/* Read-only, and below the spec on purpose. The absolute is what
+              transcription mangles, so it decides nothing here — it is kept so
+              a reviewer can tell a misheard number from a real deviation. */}
+          {!fresh && stated && (
+            <>
+              <dt>Read aloud</dt>
+              <dd className="dim">
+                {stated}
+                {stated === cell?.spec ? (
+                  <> — the spec, read off the sheet</>
+                ) : stated === cell?.measured ? (
+                  <> — the measurement, called off the tape</>
+                ) : null}
+              </dd>
             </>
           )}
         </dl>
 
-        {fresh && (
-          <p className="caution">
-            The recording never covered this point of measure. Anything entered here is your reading,
-            not the inspector&apos;s — it is recorded as settled by hand.
+        {cell?.disputed && (
+          <p className="notice bad" style={{ marginBottom: 16 }}>
+            The absolute read aloud is neither the spec nor this measurement. The two numbers the
+            inspector said do not agree — listen back before releasing it.
           </p>
         )}
 
-        <label className="fld">
-          <span>Verdict</span>
-          <select value={draft.verdict} onChange={(e) => setDraft({ ...draft, verdict: e.target.value })}>
-            {VERDICTS.map((verdict) => (
-              <option key={verdict.id} value={verdict.id}>
-                {verdict.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="fld">
-          <span>
-            Deviation
-            <em>what the inspector called</em>
-          </span>
-          <input
-            value={draft.deviation}
-            placeholder="e.g. -1/8"
-            onChange={(e) => setDraft({ ...draft, deviation: e.target.value })}
-          />
-        </label>
-        {/* The result, not a field. The style sheet is the only source for the
-            measurement, so there is nothing here to type into. */}
-        <div className="fld result">
-          <span>
-            Measured
-            <em>spec + deviation</em>
-          </span>
-          <output>{cell?.measured || "—"}</output>
-        </div>
-        <p className="hint">
-          The style sheet is the only source for the measurement: the spec of{" "}
-          <b>{cell?.spec || "—"}</b> plus the deviation above. Change the deviation to move it.
-        </p>
-        <div className="fld listen-row">
+        {fresh && (
+          <p className="notice info" style={{ marginBottom: 16 }}>
+            The recording never covered this point of measure. Anything entered here is your
+            reading, not the inspector&apos;s — it is recorded as settled by hand.
+          </p>
+        )}
+
+        <div className="fld">
           <span>
             Recording
             <em>hear what was said</em>
           </span>
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <button
-              className="ghost"
+              className="btn secondary sm"
               disabled={locating || cell?.row == null}
               onClick={() => {
                 if (playing) return onStop();
@@ -736,7 +765,7 @@ function CellEditor({
               {locating ? "Locating…" : playing ? "■ Stop" : "▶ Play this reading"}
             </button>
             {approximate && (
-              <span className="hint">
+              <span className="dim" style={{ font: "var(--text-caption)" }}>
                 Placed between its neighbours, so this is approximate.
               </span>
             )}
@@ -749,16 +778,59 @@ function CellEditor({
         </div>
 
         <label className="fld">
-          <span>Note</span>
+          <span>Verdict</span>
+          <select
+            value={draft.verdict}
+            onChange={(e) => setDraft({ ...draft, verdict: e.target.value })}
+          >
+            {VERDICTS.map((verdict) => (
+              <option key={verdict.id} value={verdict.id}>
+                {verdict.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="fld">
+          <span>
+            Deviation
+            <em>what the inspector called</em>
+          </span>
+          <input
+            value={draft.deviation}
+            placeholder="e.g. -1/8"
+            onChange={(e) => setDraft({ ...draft, deviation: e.target.value })}
+          />
+        </label>
+
+        <label className="fld">
+          <span>
+            Note
+            <em>why it was settled by hand</em>
+          </span>
           <input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
         </label>
 
-        <div className="row tight" style={{ marginTop: 14 }}>
-          <span className="spacer" />
-          <button className="ghost" onClick={onCancel}>
+        {/* The result, not a field. The style sheet is the only source for the
+            measurement, so there is nothing here to type into. */}
+        <div className="fld result">
+          <span>Measurement</span>
+          <div>
+            {cell?.measured || "—"}
+            <small>
+              the spec of {cell?.spec || "—"} plus the deviation above — change the deviation to
+              move it
+            </small>
+          </div>
+        </div>
+
+        <div className="dialog-foot">
+          <button className="btn sm" onClick={onStage}>
+            Stage this correction
+          </button>
+          <button className="btn secondary sm" onClick={onCancel}>
             Cancel
           </button>
-          <button onClick={onStage}>Stage this change</button>
         </div>
       </div>
     </div>

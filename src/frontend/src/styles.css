@@ -1,61 +1,102 @@
 /* ============================================================
-   Tokens
+   Tokens — the Clay Design System, carried into product UI.
 
-   Light-first, deliberately. The screen is read twice: standing on a lit
-   factory floor to run a recording, then at a desk to decide whether a
-   report is safe to send. Dark surfaces lose on the first of those, and the
-   thing under review is a printed white document, so the page is ink on
-   paper. A dark theme follows for late desk work, not as the default.
+   `demo/clay/tokens/` is the system as published. Its values are inlined
+   here rather than @imported: the prototype is a separate artefact that can
+   be deleted, and a build that breaks when it is would be a poor trade for
+   four files of custom properties. The names below carry the Clay value and
+   the Clay name in a comment, so the two can be diffed by eye.
 
-   Semantic hues are keyed to graded_report.py, which prints the same four
-   states into the PDF: fail is orange (#c2410c), no-verdict is violet
-   (#6d28d9), low confidence is blue (#1d4ed8). Screen and paper must say the
-   same thing in the same colour or a reviewer relearns the language halfway
-   through the job.
+   What Clay dictates, and what it gets:
+     · cream canvas (#fffaf0) on EVERY surface, including the rail. Clay has
+       no dark chrome anywhere and a dark rail is the commonest way a product
+       breaks it — so the rail that used to be ink is now cream.
+     · near-black primary CTA (#0a0a0a), 12px radius, sentence case.
+     · 1px hairlines instead of shadows. Depth comes from colour, not
+       elevation.
+     · pill badges and tabs.
+     · Inter 500 with negative tracking for display, Inter 400/600 for body —
+       Clay's own documented substitute for Plain Black, which is not licensed.
 
-   So the palette is split by job. The four state hues are reserved for
-   findings and mean exactly what they mean on the printout. Everything the
-   operator can act on - buttons, the selected row, focus, table structure -
-   wears the brand teal instead, which appears nowhere in the PDF. The
-   original accent (#2563eb) sat a hair from the low-confidence blue, so "you
-   can click this" and "this measurement was misheard" rendered nearly
-   identically; teal cannot be confused with any of them.
+   ONE THING CLAY DOES NOT GET TO DECIDE. The four state hues below are keyed
+   to `graded_report.py`, which prints the same four states into the PDF: fail
+   orange, no-verdict violet, low-confidence blue, pass green. Screen and paper
+   have to say the same thing in the same colour, or a reviewer relearns the
+   language halfway through the job. The prototype flagged this as its own
+   third deviation — semantic colour doing real work in the grid — and it is
+   the one place the system yields to the document.
+
+   The brand, by contrast, is now near-black rather than teal. Teal existed to
+   be unmistakable against those four hues; near-black is further from all of
+   them still, and it is what Clay specifies for anything actionable.
    ============================================================ */
+
+/* Inter, Clay's body face and its Plain Black substitute. Loaded from Google
+   with a full system fallback: the floor tablet may have no route to the
+   internet, and the app has to look ordinary rather than broken when it does
+   not. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 :root {
   color-scheme: light;
 
-  /* Neutrals, tinted a touch toward the brand hue rather than toward warm. */
-  --paper:    oklch(0.975 0.004 210);  /* app background */
-  --surface:  oklch(1     0     0);    /* panels: white, like the report */
-  --rail:     oklch(0.955 0.010 210);  /* sidebar: second neutral layer */
-  --sunken:   oklch(0.966 0.007 210);  /* wells, table heads */
+  /* ---- Clay, by its own names. New rules should reach for these. ---- */
+  --color-primary: #0a0a0a;
+  --color-primary-active: #1f1f1f;
+  --color-ink: #0a0a0a;
+  --color-body-strong: #1a1a1a;
+  --color-body: #3a3a3a;
+  --color-muted: #6a6a6a;
+  --color-muted-soft: #9a9a9a;
+  --color-hairline: #e5e5e5;
+  --color-hairline-soft: #f0f0f0;
+  --color-canvas: #fffaf0;
+  --color-surface-soft: #faf5e8;
+  --color-surface-card: #f5f0e0;
+  --color-surface-strong: #ebe6d6;
+  --color-surface-dark: #0a1a1a;
+  --color-surface-dark-elevated: #1a2a2a;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #ffffff;
+  --color-on-dark-soft: #a0a0a0;
 
-  --ink:      oklch(0.24  0.014 240);  /* body text */
-  --ink-soft: oklch(0.42  0.014 240);  /* secondary text */
-  --ink-mute: oklch(0.52  0.012 240);  /* labels, captions (AA on surface) */
-  --line:     oklch(0.905 0.008 210);  /* hairlines: separation only */
-  /* Control borders are measured against --rail, the darkest ground any
-     control sits on, so the same token clears 3:1 everywhere it is used. */
-  --line-firm:oklch(0.634 0.014 210);  /* control borders, >=3:1 (1.4.11) */
+  /* The six-colour feature cycle. Used for stage tiles and avatars, never
+     for a finding: a finding's colour is the PDF's colour. */
+  --color-brand-pink: #ff4d8b;
+  --color-brand-teal: #1a3a3a;
+  --color-brand-lavender: #b8a4ed;
+  --color-brand-peach: #ffb084;
+  --color-brand-ochre: #e8b94a;
+  --color-brand-mint: #a4d4c5;
 
-  /* Brand. Deliberately teal: it has to be unmistakable against all four
-     state hues, because the one thing this interface must never do is let
-     "you can click this" read as "something is wrong with this measurement".
-     Hue 205 sits clear of low-confidence blue (264), no-verdict violet (296),
-     pass green (152) and fail orange (43). It carries identity and actions
-     only - never a finding. */
-  --brand:      oklch(0.48 0.105 205);
-  --brand-lift: oklch(0.55 0.105 205);  /* hover */
-  --brand-tint: oklch(0.955 0.030 205); /* selected rows, table heads */
-  --brand-edge: oklch(0.630 0.050 205); /* brand borders, >=3:1 */
-  /* Brand as a FILL, with white on it. Deliberately not derived from
-     --brand: that token has to lighten on a dark ground to stay legible as
-     text, and a fill that lightens with it puts white on pale teal (1.93:1,
-     which is what the dark theme did). One fill, every theme, 5.5:1. */
-  --brand-fill:      oklch(0.495 0.110 205);
-  --brand-fill-lift: oklch(0.540 0.110 205);
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-body: var(--font-display);
 
-  /* State. Each pairs an ink (text/glyph) with a tint (fill). */
+  /* ---- The names the components already use, pointed at Clay. ---- */
+  --paper:    var(--color-canvas);        /* the page */
+  --surface:  var(--color-surface-soft);  /* panels and cards */
+  --rail:     var(--color-surface-soft);  /* the rail — cream now, not ink */
+  --sunken:   var(--color-surface-card);  /* wells, table heads */
+
+  --ink:      var(--color-ink);
+  --ink-soft: var(--color-body);
+  --ink-mute: var(--color-muted);
+  --line:     var(--color-hairline);
+  /* Control borders have to clear 3:1 against the darkest cream a control
+     sits on (#f5f0e0). Clay's --color-muted-soft is 2.9:1 there, which is a
+     miss, so this one value is a shade off the published palette and says so. */
+  --line-firm: #8a8a8a;
+
+  /* Actionable, and only actionable. Near-black, per Clay. */
+  --brand:      var(--color-primary);
+  --brand-lift: var(--color-primary-active);
+  --brand-tint: var(--color-surface-card);   /* selected rows */
+  --brand-edge: var(--color-primary);
+  --brand-fill:      var(--color-primary);
+  --brand-fill-lift: var(--color-primary-active);
+
+  /* ---- The document's four states. Keyed to graded_report.py. ---- */
   --pass:      oklch(0.47 0.115 152);
   --pass-tint: oklch(0.965 0.030 152);
   --fail:      oklch(0.505 0.165 43);
@@ -67,13 +108,22 @@
   --work:      oklch(0.52  0.125 68);    /* in progress */
   --work-tint: oklch(0.972 0.035 68);
 
-  /* Brand, not violet: a focus ring in the no-verdict hue makes "this control
-     has focus" look like "this measurement was never ruled on". */
-  --focus: oklch(0.50 0.115 205);
+  /* Near-black, offset outside the control, so it reads on cream and on a
+     near-black button alike. Never violet: a focus ring in the no-verdict hue
+     makes "this control has focus" look like "this was never ruled on". */
+  --focus: var(--color-primary);
 
-  --r-panel: 10px;
-  --r-ctl: 7px;
-  --r-chip: 5px;
+  /* Clay's radii. 12px is the system's CTA and card corner. */
+  --r-panel: 12px;   /* --radius-md */
+  --r-ctl:   12px;   /* --radius-md */
+  --r-chip:  9999px; /* --radius-pill: badges are pills */
+  --r-card:  16px;   /* --radius-lg */
+
+  /* Clay's section rhythm is 96px, an editorial band on a long-scroll page.
+     At that spacing an inspection report is four screens of scrolling to
+     answer "did it pass?". The prototype cut it to 40px and flagged it as its
+     first deviation; this is the same number for the same reason. */
+  --rhythm: 40px;
 
   /* Semantic layers; never a bare 999. */
   --z-sticky: 10;
@@ -87,25 +137,40 @@
   --med: 220ms;
 }
 
+/* ============================================================
+   Dark
+
+   Clay is a cream system and specifies no dark theme, but it does publish two
+   dark SURFACE tokens for its dark cards. This theme is built out of those
+   rather than out of a second palette invented here, so a late-evening desk
+   session stays inside the system instead of beside it.
+
+   The state hues lift for a dark ground and keep their hues, because the
+   rail's status dots must go on meaning what the PDF's colours mean.
+   ============================================================ */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --paper:    oklch(0.185 0.012 225);
-    --surface:  oklch(0.228 0.014 225);
-    --rail:     oklch(0.205 0.016 220);
-    --sunken:   oklch(0.262 0.014 225);
+    --paper:    var(--color-surface-dark);
+    --surface:  var(--color-surface-dark-elevated);
+    --rail:     var(--color-surface-dark);
+    --sunken:   #142424;
 
-    --ink:      oklch(0.945 0.008 220);
-    --ink-soft: oklch(0.795 0.012 220);
-    --ink-mute: oklch(0.685 0.014 220);
-    --line:     oklch(0.325 0.014 220);
-    --line-firm:oklch(0.545 0.020 215);
+    --ink:      var(--color-on-dark);
+    --ink-soft: #cfd6d6;
+    --ink-mute: var(--color-on-dark-soft);
+    --line:     #24393a;
+    --line-firm:#6d8384;
 
-    --brand:      oklch(0.78 0.105 205);
-    --brand-lift: oklch(0.85 0.105 205);
-    --brand-tint: oklch(0.305 0.045 205);
-    --brand-edge: oklch(0.545 0.058 205);
+    /* A near-black CTA is invisible on a near-black ground, so the primary
+       inverts: cream fill, dark ink. Same contrast, same hierarchy. */
+    --brand:      #ffffff;
+    --brand-lift: #f0eadd;
+    --brand-tint: #1a2a2a;
+    --brand-edge: #f5f0e0;
+    --brand-fill:      #f5f0e0;
+    --brand-fill-lift: #ffffff;
 
     --pass:      oklch(0.78 0.145 152);
     --pass-tint: oklch(0.295 0.055 152);
@@ -118,57 +183,48 @@
     --work:      oklch(0.80 0.130 72);
     --work-tint: oklch(0.305 0.055 68);
 
-    --focus: oklch(0.80 0.110 205);
+    --focus: #ffffff;
   }
 }
 
 /* ============================================================
-   Dark chrome
+   The one dark surface
 
-   Dark, in exactly three places: the job rail, the recorder while it is
-   running, and table heads. Everything else stays paper.
+   The rail and the table heads used to be ink. They are cream now — Clay has
+   no dark chrome and that was the single biggest thing separating this app
+   from the system.
 
-   The split is chrome vs document. A report is a white page and the operator
-   is deciding whether to send it, so the report itself can never go dark -
-   PRODUCT.md rules out the terminal-neon reflex for good reasons, and the
-   floor tablet reads it in daylight. But navigation, the transport controls
-   and column labels are not the document. Sinking them into ink does three
-   jobs at once: the report reads as the sheet of paper it is, the running
-   recorder is unmistakable from across a room, and a waveform finally has a
-   ground dark enough to be legible.
-
-   Implemented as one scoped palette rather than a parallel set of rules.
-   Custom properties inherit, so re-pointing the tokens on these three
-   selectors re-themes everything inside them with no rule rewritten and no
-   second code path to keep in step.
+   The running recorder stays dark, and is the exception worth keeping. Two
+   reasons, neither cosmetic: a waveform needs a ground dark enough to be
+   legible, and a recording in progress has to be unmistakable from across a
+   room. Clay publishes dark surface tokens for exactly this kind of panel, so
+   it is built from those rather than from a palette of its own.
    ============================================================ */
-aside,
-.intake.live,
-thead {
-  /* Not only tokens: `color` is computed on <body> against the root palette,
-     so anything inheriting it - the clock, a job's filename - would stay dark
-     ink on the dark ground. Re-declaring it here re-resolves the subtree. */
+.intake.live {
+  /* `color` is computed on <body> against the root palette, so anything
+     inheriting it would stay dark ink on the dark ground. Re-declaring it
+     re-resolves the subtree. */
   color: var(--ink);
 
-  --paper:    oklch(0.212 0.024 235);  /* masthead, wells */
-  --rail:     oklch(0.262 0.026 235);  /* the chrome ground itself */
-  --surface:  oklch(0.325 0.030 235);  /* hover, raised items */
-  --sunken:   oklch(0.212 0.024 235);
+  --paper:    var(--color-surface-dark);
+  --rail:     var(--color-surface-dark-elevated);
+  --surface:  #223333;
+  --sunken:   var(--color-surface-dark);
 
-  --ink:      oklch(0.968 0.006 235);  /* 14.0:1 */
-  --ink-soft: oklch(0.812 0.014 235);  /*  8.6:1 */
-  --ink-mute: oklch(0.706 0.016 235);  /*  5.9:1 */
-  --line:     oklch(0.372 0.026 235);
-  --line-firm:oklch(0.550 0.030 235);  /*  3.2:1, clears 1.4.11 */
+  --ink:      var(--color-on-dark);
+  --ink-soft: #cfd6d6;
+  --ink-mute: var(--color-on-dark-soft);
+  --line:     #24393a;
+  --line-firm:#6d8384;
 
-  --brand:      oklch(0.815 0.095 202);
-  --brand-lift: oklch(0.885 0.085 202);
-  --brand-tint: oklch(0.352 0.052 205);
-  --brand-edge: oklch(0.640 0.060 205);
-  --focus:      oklch(0.860 0.090 202);
+  --brand:      #ffffff;
+  --brand-lift: #f0eadd;
+  --brand-tint: #1a2a2a;
+  --brand-edge: #f5f0e0;
+  --brand-fill:      #f5f0e0;
+  --brand-fill-lift: #ffffff;
+  --focus:      #ffffff;
 
-  /* State hues lifted for a dark ground. Same hues as the printed report:
-     the rail's status dots must mean what the PDF's colours mean. */
   --pass:      oklch(0.800 0.145 152);
   --pass-tint: oklch(0.330 0.070 152);
   --fail:      oklch(0.795 0.140 45);
@@ -180,16 +236,6 @@ thead {
   --work:      oklch(0.825 0.135 74);
   --work-tint: oklch(0.335 0.065 68);
 }
-@media (prefers-color-scheme: dark) {
-  /* The page is already dark; the chrome only has to sit a step deeper than
-     it, the same way --rail sits a step off --paper in the light theme. */
-  aside, .intake.live, thead {
-    --paper:   oklch(0.125 0.016 235);
-    --rail:    oklch(0.158 0.018 235);
-    --surface: oklch(0.238 0.022 235);
-    --sunken:  oklch(0.125 0.016 235);
-  }
-}
 
 /* ============================================================
    Base
@@ -200,27 +246,49 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Clay's --text-body-sm. */
+  font: 400 14px/1.55 var(--font-body);
   -webkit-font-smoothing: antialiased;
   /* Every measurement on this page is a fraction in a column of fractions. */
   font-variant-numeric: tabular-nums;
 }
-h1, h2, h3 { margin: 0; font-weight: 620; letter-spacing: -0.011em; text-wrap: balance; }
+/* Clay's title scale. Never heavier than 600 for a title and never heavier
+   than 500 for display type — the system is explicit that 700 "reads as
+   bombastic". */
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.3px; text-wrap: balance; }
+h1 { font-size: 24px; line-height: 1.3; }
+h2 { font-size: 18px; line-height: 1.4; }
+h3 { font-size: 16px; line-height: 1.4; }
+
+/* Clay's display type: Inter 500 with negative tracking, its own documented
+   substitute for Plain Black. */
+.display-sm { font: 500 32px/1.15 var(--font-display); letter-spacing: -0.5px; }
+.eyebrow {
+  font: 600 12px/1.4 var(--font-body);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 3px;
 }
-.shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100vh; }
+/* 264px is the prototype's rail. The collapsed width is set on the element,
+   not here, so the transition has something to animate between. */
+.shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); height: 100vh; }
+.shell.tight { grid-template-columns: 62px minmax(0, 1fr); }
 
 /* ============================================================
    Controls
    ============================================================ */
 button {
   font: inherit;
-  font-size: 13px;
-  font-weight: 580;
-  padding: 9px 14px;
+  /* Clay's --text-button, and sentence case throughout: the system never
+     shouts in caps on a control. */
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
   border: 1px solid transparent;
   border-radius: var(--r-ctl);
   background: var(--brand-fill);
@@ -231,16 +299,16 @@ button {
               color var(--fast) var(--ease);
 }
 button:hover:not(:disabled) { background: var(--brand-fill-lift); }
-button:active:not(:disabled) { background: color-mix(in oklch, var(--brand-fill) 88%, black); }
+button:active:not(:disabled) { background: color-mix(in srgb, var(--brand-fill) 88%, white); }
 button:disabled { opacity: .38; cursor: not-allowed; }
 
-button.ghost { background: var(--surface); color: var(--ink); border-color: var(--line-firm); }
+button.ghost { background: transparent; color: var(--ink); border-color: var(--line-firm); }
 button.ghost:hover:not(:disabled) {
-  background: var(--brand-tint);
+  background: var(--color-surface-card);
   border-color: var(--brand-edge);
   color: var(--brand);
 }
-button.danger { background: var(--surface); color: var(--fail); border-color: var(--line-firm); }
+button.danger { background: transparent; color: var(--fail); border-color: var(--line-firm); }
 button.danger:hover:not(:disabled) { background: var(--fail-tint); border-color: var(--fail); }
 
 select {
@@ -256,72 +324,382 @@ select {
 input[type=file] { display: none; }
 
 /* ============================================================
-   Sidebar: navigation only. Intake moved to the top of the work pane, where
-   a waveform has the width to be worth drawing.
+   The rail
+
+   Navigation, cream, collapsible. Collapsed it keeps its icons rather than
+   disappearing: a rail that vanishes takes its screens with it, and the
+   graded sheet is the one screen wide enough to want the 200px back.
    ============================================================ */
-aside {
+aside.rail {
   background: var(--rail);
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-x: hidden;   /* the labels are clipped, not wrapped, while collapsing */
 }
+
 .brand {
-  padding: 17px 18px 15px;
-  background: var(--paper);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid var(--line);
 }
-.brand h1 { font-size: 14.5px; color: var(--brand); }
-.brand p { margin: 2px 0 0; font-size: 12px; color: var(--ink-mute); }
-
-.listhead {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: 15px 18px 6px;
-  font-size: 12px; font-weight: 580; color: var(--ink-soft);
+.brand .mark {
+  width: 30px; height: 30px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--r-panel);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 11px; font-weight: 700; letter-spacing: -0.02em;
 }
-.listhead span {
-  font-size: 11px; font-weight: 620;
-  color: var(--brand);
-  background: var(--brand-tint);
-  border: 1px solid color-mix(in oklch, var(--brand-edge) 55%, var(--brand-tint));
-  border-radius: var(--r-chip);
-  padding: 0 6px;
-}
-.listhead span:empty { display: none; }
-.list { flex: 1; overflow-y: auto; padding: 0 9px 14px; min-height: 0; }
+.brand .grow { min-width: 0; }
+.brand b { display: block; font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+.brand span { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; }
 
-.item {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 8px;
+aside.rail nav { flex: 1; padding: 10px 10px 0; min-height: 0; overflow-y: auto; }
+
+.navlink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 9px 10px;
   margin-bottom: 2px;
-  font: inherit;
-  font-weight: 400;
-  color: inherit;
-  white-space: normal;
+  border-radius: var(--r-panel);
+  font: 500 14px/1.4 var(--font-body);   /* Clay's --text-nav-link */
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background var(--fast) ease-in-out, color var(--fast) ease-in-out;
 }
-.item:hover { background: var(--surface); border-color: var(--brand-edge); }
-.item[aria-current="true"] {
-  background: var(--brand-tint);
-  border-color: var(--brand-edge);
-  box-shadow: inset 2px 0 0 var(--brand);
+.navlink:hover { background: var(--color-surface-card); color: var(--ink); }
+.navlink[aria-current="page"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
-.item[aria-current="true"] .n { color: var(--brand); }
-.item .n { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 540; }
-.item .n em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item .s { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; padding-left: 16px; }
-.item .s.flag { color: var(--open); font-weight: 560; }
+.navlink .ico { flex: none; }
 
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+/* The collapse control sits between the nav and the account block, so it is
+   the last thing above the fold rather than lost at the top. */
+button.collapse {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 10px 8px;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  color: var(--ink-mute);
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: var(--r-panel);
+}
+button.collapse:hover:not(:disabled) { background: var(--color-surface-card); color: var(--ink); }
+button.collapse .ico { transition: transform var(--med) ease-in-out; }
+.shell.tight button.collapse .ico { transform: rotate(180deg); }
+
+/* Who is signed in. Below the scrolling nav, never inside it. */
+.rail .me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+.rail .who {
+  display: flex; align-items: center; gap: 9px;
+  flex: 1; min-width: 0;
+  text-decoration: none;
+  border-radius: var(--r-panel);
+  padding: 2px;
+}
+.avatar {
+  width: 28px; height: 28px; flex: none;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--color-brand-mint);
+  color: var(--color-brand-teal);
+  font-size: 12px; font-weight: 700;
+}
+.rail .me .grow { flex: 1; min-width: 0; }
+.rail .me b {
+  display: block; font-size: 12.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rail .me span { font-size: 11px; color: var(--ink-mute); white-space: nowrap; }
+.rail .me button.signout { padding: 5px 9px; font-size: 11.5px; }
+.tightonly { display: none; }
+
+/* ---------- collapsed ---------- */
+.shell.tight .brand { padding: 16px 0 14px; justify-content: center; }
+.shell.tight .brand .grow,
+.shell.tight .navlink .lbl,
+.shell.tight button.collapse .lbl,
+.shell.tight .rail .me .grow,
+.shell.tight .rail .me button.signout .lbl { display: none; }
+.shell.tight .navlink,
+.shell.tight button.collapse { justify-content: center; padding-inline: 0; }
+/* Stacked, not side by side: an avatar and a button will not fit in 62px, and
+   a rail that overflows its own column is worse than one without a label. */
+.shell.tight .rail .me { flex-direction: column; gap: 6px; padding: 10px 6px; }
+.shell.tight .rail .who { flex: none; padding: 0; }
+.shell.tight .tightonly { display: inline; }
+.shell.tight .rail .me button.signout { padding: 4px 8px; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; display: inline-block; }
 .dot.queued  { background: var(--ink-mute); }
 .dot.running { background: var(--work); animation: pulse 1.2s var(--ease) infinite; }
 .dot.done    { background: var(--pass); }
 .dot.failed  { background: var(--fail); }
 @keyframes pulse { 50% { opacity: .2; } }
-.empty { padding: 11px 11px; font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+.empty { padding: 11px; font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+
+/* ============================================================
+   Screens
+
+   One content column, 1120px, with the graded sheet allowed to run full
+   width. Clay's container is 1280px; a table of measurements is the one thing
+   here that earns it.
+   ============================================================ */
+main { overflow-y: auto; min-height: 0; }
+
+.screen {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 28px 64px;
+}
+.screen.narrow { max-width: 720px; }
+.screen.wide { max-width: none; padding-inline: 20px; }
+
+.screenhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.screenhead h1 { font-size: 26px; letter-spacing: -0.5px; }
+.screenhead p { margin: 6px 0 0; font-size: 13.5px; max-width: 62ch; }
+
+.muted { color: var(--ink-mute); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.94em; }
+.right { text-align: right; }
+td.right { white-space: nowrap; }
+.note {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-mute);
+  line-height: 1.55;
+  max-width: 68ch;
+}
+.hint { margin: 4px 0 10px; font-size: 12px; color: var(--ink-mute); line-height: 1.5; }
+.label { display: block; font-size: 12.5px; font-weight: 600; margin: 14px 0 6px; }
+
+/* A link that is the primary action of a screen. `.files a.lead` already
+   styles the download row; this is the same shape for a call to action that
+   is not in one — the header's Record inspection, the empty state's way out. */
+a.lead {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: var(--r-ctl);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: 1px solid var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.lead:hover { background: var(--color-primary-active); border-color: var(--color-primary-active); }
+
+.msg.good { color: var(--pass); }
+
+/* ---------- pill tabs, Clay's own shape ---------- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 2px;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tab:hover { background: var(--color-surface-card); color: var(--ink); }
+.tab[aria-selected="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.tab .count {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: .7;
+  font-variant-numeric: tabular-nums;
+}
+.tab.locked { opacity: .45; cursor: not-allowed; }
+
+/* ---------- pill badges ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  margin-right: 5px;
+  border-radius: var(--r-chip);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill.quiet { background: var(--color-surface-card); color: var(--ink-soft); border-color: var(--line); }
+.pill.dark  { background: var(--color-primary); color: var(--color-on-primary); }
+.pill.pass  { background: var(--pass-tint); color: var(--pass); border-color: color-mix(in oklch, var(--pass) 30%, transparent); }
+.pill.fail  { background: var(--fail-tint); color: var(--fail); border-color: color-mix(in oklch, var(--fail) 30%, transparent); }
+.pill.open  { background: var(--open-tint); color: var(--open); border-color: color-mix(in oklch, var(--open) 30%, transparent); }
+.pill.work  { background: var(--work-tint); color: var(--work); border-color: color-mix(in oklch, var(--work) 30%, transparent); }
+
+/* ---------- a row that opens something ---------- */
+tr.rowlink { cursor: pointer; }
+tr.rowlink:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* ---------- nothing here ---------- */
+.blank {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: 44px 28px;
+  text-align: center;
+}
+.blank h2 { font-size: 17px; }
+.blank p { margin: 8px auto 16px; max-width: 46ch; font-size: 13.5px; }
+
+/* ---------- content cards, 16px per Clay ---------- */
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card h2 { font-size: 16px; margin-bottom: 6px; }
+.card p { font-size: 13px; margin-bottom: 12px; }
+
+.who.big { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.who.big .avatar { width: 44px; height: 44px; font-size: 17px; }
+.who.big b { display: block; font-size: 16px; font-weight: 600; }
+.who.big span { font-size: 12.5px; }
+
+.pairs { display: flex; flex-wrap: wrap; gap: 26px; margin-bottom: 12px; }
+.pairs dt { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink-mute); font-weight: 600; }
+.pairs dd { margin: 3px 0 0; font-size: 14px; font-weight: 500; }
+
+.caps { display: grid; gap: 4px; }
+.caps li { display: flex; gap: 9px; font-size: 13px; align-items: baseline; }
+.caps li.yes span { color: var(--pass); font-weight: 700; }
+.caps li.no { color: var(--ink-mute); }
+
+.stack { display: flex; flex-direction: column; gap: 4px; }
+.stack label, .dialog label {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.stack input, .dialog input, .dialog select {
+  font: inherit;
+  font-size: 13.5px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-firm);
+  border-radius: var(--r-ctl);
+  background: var(--paper);
+  color: inherit;
+  width: 100%;
+}
+.dialog label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  margin-top: 14px;
+}
+.dialog label.check input { width: auto; }
+
+.roles { display: grid; gap: 8px; }
+.rolerow { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; }
+.rolerow span { font-size: 13px; color: var(--ink-soft); }
+.rolerow select { width: 100%; }
+
+/* ---------- the one scrim Clay does not have ---------- */
+/* The system specifies almost no elevation, but a dialog over a data table
+   has to detach from it or the table reads as still-editable behind it. The
+   prototype flagged the same deviation. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: oklch(0.2 0 0 / 0.38);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: var(--z-toast);
+}
+.dialog {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 22px;
+  width: min(480px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px oklch(0.2 0 0 / 0.18);
+}
+.dialog h2 { font-size: 17px; margin-bottom: 12px; }
+.dialog .files { margin-top: 20px; }
+.files.right { justify-content: flex-end; }
+
+/* ---------- stages ---------- */
+.stagegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.stagecard {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: 20px;
+}
+.stagecard.out { opacity: .62; }
+.stagecard h2 { font-size: 16px; margin: 12px 0 5px; }
+.stagecard p { font-size: 12.5px; margin-bottom: 12px; }
+.stagecard .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.tile {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: var(--r-panel);
+  font-size: 15px; font-weight: 700;
+  color: var(--color-brand-teal);
+}
+.tile.mint { background: var(--color-brand-mint); }
+.tile.peach { background: var(--color-brand-peach); }
+.tile.lavender { background: var(--color-brand-lavender); }
+.tile.ochre { background: var(--color-brand-ochre); }
 
 /* ============================================================
    Intake: the recorder, top of the work pane.
@@ -341,7 +719,8 @@ main { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   padding: 13px 32px;
   /* It does not scroll and the report does, so it needs to read as the
      layer above rather than as the first thing in the page. */
-  box-shadow: 0 1px 2px oklch(0.24 0.014 240 / 0.05);
+  /* Clay: 1px hairlines instead of shadows. */
+  border: 1px solid var(--line);
 }
 .intake.dragging { background: var(--sunken); border-bottom-color: var(--ink); }
 .intake.live { background: var(--rail); border-bottom-color: var(--paper); }
@@ -439,27 +818,22 @@ audio { width: 100%; max-width: 420px; height: 34px; }
    Report
    ============================================================ */
 .wrap { max-width: 940px; padding: 22px 32px 72px; }
+/* The report sits inside a screen that already has a gutter. One of them
+   owns the inline padding, and it is the one that also sets the column. */
+.screen.wide > .wrap { padding-inline: 12px; }
 
 .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .title h2 { font-size: 19px; overflow-wrap: anywhere; }
 .meta { color: var(--ink-mute); font-size: 12.5px; margin: 4px 0 22px; }
 .meta b { font-weight: 560; color: var(--ink-soft); }
 
-.pill {
-  font-size: 11px; font-weight: 620; letter-spacing: .01em;
-  padding: 2px 8px; border-radius: var(--r-chip);
-  border: 1px solid;
-}
+/* The job-status pills. The base `.pill` is the Clay one above; only the four
+   states are here, because they are the document's colours and not the
+   system's. */
 .pill.queued  { background: var(--sunken);    color: var(--ink-soft); border-color: var(--line-firm); }
 .pill.running { background: var(--work-tint); color: var(--work);     border-color: var(--work); }
 .pill.done    { background: var(--pass-tint); color: var(--pass);     border-color: var(--pass); }
 .pill.failed  { background: var(--fail-tint); color: var(--fail);     border-color: var(--fail); }
-
-/* Blank slate teaches the two ways in rather than saying "nothing here". */
-.blank { display: grid; place-content: center; min-height: 52vh; padding: 30px; }
-.blank div { max-width: 400px; text-align: center; }
-.blank > div > b { display: block; font-size: 16px; margin-bottom: 6px; }
-.blank p { margin: 0; color: var(--ink-mute); font-size: 13px; line-height: 1.6; }
 
 /* ---------- verdict ----------
    The answer to the only question that matters on this screen: is this report
@@ -656,15 +1030,23 @@ details[open] summary { margin-bottom: 9px; }
 }
 
 /* ============================================================
-   Responsive: structural, not fluid type. The sidebar becomes a top block on
-   a tablet in portrait, where recording is the whole job.
+   Responsive: structural, not fluid type. The rail becomes a strip of icons
+   on a tablet in portrait, where recording is the whole job and the screen is
+   worth more than the labels.
    ============================================================ */
 @media (max-width: 880px) {
-  .shell { grid-template-columns: 1fr; height: auto; }
-  aside { border-right: 0; border-bottom: 1px solid var(--line); order: 2; }
-  main { order: 1; overflow: visible; }
-  .pane { overflow: visible; }
-  .list { max-height: 40vh; }
+  .shell, .shell.tight { grid-template-columns: 62px minmax(0, 1fr); }
+  .shell .brand .grow,
+  .shell .navlink .lbl,
+  .shell button.collapse .lbl,
+  .shell .rail .me .grow,
+  .shell .rail .me button.signout .lbl { display: none; }
+  .shell .navlink, .shell button.collapse { justify-content: center; padding-inline: 0; }
+  .shell .brand { padding: 16px 0 14px; justify-content: center; }
+  .shell .rail .me { flex-direction: column; gap: 6px; padding: 10px 6px; }
+  .shell .rail .who { flex: none; padding: 0; }
+  .shell .tightonly { display: inline; }
+  .screen { padding: 20px 16px 56px; }
   .intake { padding: 13px 18px; }
   .wrap { padding: 20px 18px 56px; }
   .clock { font-size: 18px; }
@@ -673,7 +1055,8 @@ details[open] summary { margin-bottom: 9px; }
 @media (pointer: coarse) {
   button { padding: 12px 16px; font-size: 14px; }
   select { padding: 11px 10px; font-size: 14px; }
-  .item { padding: 12px 11px; }
+  .navlink { padding: 12px 11px; }
+  .tab { padding: 10px 16px; }
   .files a { padding: 11px 16px; }
   .wave { height: 58px; }
 }
@@ -692,8 +1075,9 @@ details[open] summary { margin-bottom: 9px; }
 }
 
 @media print {
-  aside, .intake, .files { display: none; }
-  .shell { display: block; }
+  aside, .intake, .files, .tabs { display: none; }
+  .shell, .shell.tight { display: block; }
+  .screen { max-width: none; padding: 0; }
 }
 
 /* ============================================================
@@ -1035,3 +1419,147 @@ td.cell.shaky > button { box-shadow: inset 0 -2px 0 var(--heard); }
 .fld.listen-row > div { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
 .fld.listen-row .hint { margin: 0; }
 .fld.listen-row .msg.bad { font-size: 12.5px; line-height: 1.45; }
+
+/* ============================================================
+   Sign in
+
+   Its own layout: no rail, nothing to navigate to yet. Two columns — the form,
+   and what this account reaches. The second is not decoration: what is behind
+   this door is client audio and documents stamped "Subject to Legal Action if
+   Disclosed Without Authorization from AEO", and this is the only screen
+   everybody sees.
+   ============================================================ */
+.auth {
+  min-height: 100vh;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.authbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--line);
+}
+.authbar .mark {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.authbar .spacer { flex: 1; }
+.authbar .muted { font-size: 12.5px; }
+
+.auth-split {
+  flex: 1;
+  display: grid;
+  /* The form leads; the panel beside it is context, so it gets less. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+  gap: 48px;
+  align-items: start;
+  max-width: 1040px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 56px 28px 72px;
+}
+
+.auth-form h1 { margin: 0; }
+.auth-form .lede {
+  margin: 16px 0 28px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 46ch;
+}
+.auth-form form { display: flex; flex-direction: column; }
+.auth-form .note {
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: var(--ink-mute);
+  line-height: 1.55;
+  max-width: 46ch;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field label { font-size: 12.5px; font-weight: 600; }
+.field input {
+  font: inherit;
+  font-size: 14.5px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-firm);
+  border-radius: var(--r-ctl);
+  background: var(--surface);
+  color: inherit;
+  width: 100%;
+}
+.field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.field input:disabled { opacity: .6; }
+
+/* Clay's large CTA: full width at the foot of a form, near-black, 12px. */
+button.lg { padding: 13px 20px; font-size: 15px; width: 100%; margin-top: 4px; }
+
+/* A message that is the reason something did not happen. Tinted rather than
+   bare red text: it has to be findable by somebody who has just pressed a
+   button and is looking at the button. */
+.notice {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  padding: 12px 14px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 46ch;
+}
+.notice b { display: inline; font-weight: 600; }
+.notice.bad {
+  background: var(--fail-tint);
+  border-color: color-mix(in oklch, var(--fail) 40%, transparent);
+  color: var(--fail);
+}
+
+/* ---------- what this account reaches ---------- */
+.auth-aside {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--color-surface-card);
+  padding: 26px;
+}
+.auth-aside h2 {
+  margin: 16px 0 20px;
+  font: 500 24px/1.25 var(--font-display);
+  letter-spacing: -0.5px;
+  text-wrap: pretty;
+}
+.auth-aside .lede {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.auth-aside .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
+
+.kv { margin: 0 0 24px; display: grid; gap: 10px; }
+.kv > div {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.kv > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.kv dt { font-size: 12.5px; font-weight: 600; }
+.kv dd { margin: 0; font-size: 12.5px; color: var(--ink-mute); }
+
+/* One column on a tablet in portrait, with the panel below the form: the form
+   is the job, and nobody should scroll past a paragraph to reach it. */
+@media (max-width: 860px) {
+  .auth-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    padding: 36px 20px 56px;
+    max-width: 520px;
+  }
+  .authbar { padding: 14px 20px; }
+  .authbar .muted { display: none; }
+}

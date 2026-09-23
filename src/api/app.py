@@ -3,20 +3,35 @@
 from __future__ import annotations
 
 import logging
+import uuid
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from pipeline import resize_inspection, settle_inspection
+from services import auth, storage
 from services.audit import SettleError, audit_grid
-from services.config import ConfigError, Settings
+from services.config import ConfigError, Settings, load_env_file
 from services.csv_filler import load_json
-from services.playback import cues, playable_copy
+from services.db import session
+from services.db.models import Stage, User, UserState
+from services.playback import cues, playable_copy, playable_path_for
 from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
 from services.timing import TimingError, word_index
 from services.transcript import (
@@ -28,8 +43,31 @@ from services.transcript import (
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
 
 from .jobs import DONE, DOWNLOADS, JobStore, apply_result, process, process_transcript
+from .security import (
+    SESSION_COOKIE,
+    EditsAudit,
+    ManagesPeople,
+    Records,
+    SignedIn,
+    ViewsAudit,
+    clear_cookie,
+    set_cookie,
+)
 
 log = logging.getLogger(__name__)
+
+# Read `.env` here rather than relying on whoever started the process having
+# done it. `python src/main.py serve` happened to work only because
+# `Settings.load()` loads the file and uvicorn inherits the environment; a
+# plain `uvicorn api.app:app` did not, and failed at startup with no database.
+# The same reasoning as `migrations/env.py`: a module that needs configuration
+# should fetch it, not hope.
+#
+# Safe in every environment. `load_env_file` uses setdefault, so a real
+# environment variable always wins and a deployment with no .env is unaffected
+# — which is also why the test suite can blank DATABASE_URL and have it stay
+# blank (tests/conftest.py, and the test that proves it).
+load_env_file()
 
 # The React app, built by `npm run build` in src/frontend. Gitignored, so a
 # checkout that has never run npm serves the legacy single-file page instead
@@ -45,8 +83,48 @@ CHUNK = 1024 * 1024
 # lands well under it even at phone-default quality.
 MAX_RECORDING_BYTES = 500 * 1024 * 1024
 
-app = FastAPI(title="Size Set Inspection Reports", docs_url="/api/docs")
-store = JobStore()
+# The one roster rule that is not about permissions.
+LAST_ADMIN = (
+    "This is the last administrator. Promote somebody else first, or nobody can "
+    "manage the roster."
+)
+
+# Replaced at startup, once the database is known to be there. Module level
+# only so that importing this module never opens a connection — which is what
+# let the test suite reach a real database in §31.4.
+store: JobStore = JobStore()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Open the job registry, and refuse to serve without a database.
+
+    This is the hard failure `services/db/session.py` said would eventually be
+    right. Users, sessions and permissions live in the database now, so a
+    web app without one cannot authenticate anybody — and an app that cannot
+    authenticate anybody must not fall back to serving everybody.
+
+    The CLI pipeline is untouched: `python src/main.py run` needs no database
+    and never did.
+    """
+    global store
+    from services.db import DatabaseJobStore, enabled
+
+    if not enabled():
+        raise RuntimeError(
+            "DATABASE_URL is not set, and the web app needs one: users, sessions "
+            "and permissions live in the database. Set it in .env and run "
+            "`alembic upgrade head`. The CLI (`python src/main.py run`) still works "
+            "without a database."
+        )
+    store = DatabaseJobStore()
+    log.info("jobs are persisted; %d recovered", len(store.all()))
+    yield
+
+
+app = FastAPI(
+    title="Size Set Inspection Reports", docs_url="/api/docs", lifespan=lifespan
+)
 
 # Vite emits hashed bundles under dist/assets and references them absolutely.
 # Mounted at import, so a build made while the server is running needs a
@@ -91,7 +169,7 @@ def index() -> HTMLResponse:
 
 
 @app.get("/api/style-sets")
-def list_style_sets(settings: SettingsDep) -> list[str]:
+def list_style_sets(settings: SettingsDep, user: SignedIn) -> list[str]:
     """Style numbers with a spec sheet on disk, for the upload dropdown."""
     return list_style_numbers(settings.style_sets_dir)
 
@@ -142,7 +220,7 @@ LIVE_PROMPT = DOMAIN_PROMPT + " Write English words in English spelling."
 
 
 @app.post("/api/realtime-token")
-def realtime_token(settings: SettingsDep) -> dict[str, object]:
+def realtime_token(settings: SettingsDep, user: Records) -> dict[str, object]:
     """Mint a short-lived credential for live transcription in the browser.
 
     The account key never leaves this process. The browser gets a scoped,
@@ -194,12 +272,12 @@ def realtime_token(settings: SettingsDep) -> dict[str, object]:
 
 
 @app.get("/api/jobs")
-def list_jobs() -> list[dict[str, object]]:
+def list_jobs(user: ViewsAudit) -> list[dict[str, object]]:
     return [job.as_dict() for job in store.all()]
 
 
 @app.get("/api/jobs/{job_id}")
-def read_job(job_id: str) -> dict[str, object]:
+def read_job(job_id: str, user: ViewsAudit) -> dict[str, object]:
     job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
@@ -211,6 +289,7 @@ async def create_job(
     background: BackgroundTasks,
     recording: UploadFile,
     settings: SettingsDep,
+    user: Records,
     style_no: Annotated[str, Form()] = "",
     live_transcript: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
@@ -285,6 +364,7 @@ def create_job_from_transcript(
     background: BackgroundTasks,
     request: TranscriptJobRequest,
     settings: SettingsDep,
+    user: Records,
 ) -> dict[str, object]:
     """Queue an inspection from transcript text instead of a recording.
 
@@ -324,6 +404,21 @@ def _safe_name(name: str) -> str:
     return (cleaned or "inspection")[:80]
 
 
+def _local_recording(job, settings: Settings) -> Path:
+    """The inspection audio, on this machine.
+
+    Pulled from the bucket when this machine has never seen it, which is the
+    normal case for any server that did not run the pipeline — a replaced
+    container, a second instance, or a worker split off from the web process.
+    """
+    path = settings.recordings_dir / job.filename
+    if not storage.ensure_local(storage.recording_key(job.filename), path):
+        raise HTTPException(
+            status_code=410, detail=f"{job.filename} is no longer in the recordings folder"
+        )
+    return path
+
+
 def _graded_sheet(job, settings: Settings):
     """The saved extraction and the style set it was judged against."""
     if job.status != DONE:
@@ -337,7 +432,9 @@ def _graded_sheet(job, settings: Settings):
             ),
         )
     saved = settings.output_dir / f"{job.name}.json"
-    if not saved.is_file():
+    # The extraction is what every output is rebuilt from, so this is the one
+    # file the audit view cannot do without. Worth a round trip to the bucket.
+    if not storage.ensure_local(storage.output_key(job.name, saved.name), saved):
         raise HTTPException(status_code=410, detail=f"{saved.name} is no longer on disk")
     sheet = load_json(saved)
     try:
@@ -348,7 +445,7 @@ def _graded_sheet(job, settings: Settings):
 
 
 @app.get("/api/jobs/{job_id}/sheet")
-def graded_sheet(job_id: str, settings: SettingsDep) -> dict[str, object]:
+def graded_sheet(job_id: str, settings: SettingsDep, user: ViewsAudit) -> dict[str, object]:
     """The whole graded sheet as a grid, for the audit view.
 
     Every point of measure the client's sheet prints, one cell per size - the
@@ -362,7 +459,9 @@ def graded_sheet(job_id: str, settings: SettingsDep) -> dict[str, object]:
 
 
 @app.post("/api/jobs/{job_id}/sheet")
-def settle_sheet(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]:
+def settle_sheet(
+    job_id: str, body: dict, settings: SettingsDep, user: EditsAudit
+) -> dict[str, object]:
     """Apply an operator's corrections and rebuild every output from them.
 
     No transcription and no model call: the extraction is the source of truth
@@ -405,7 +504,9 @@ def settle_sheet(job_id: str, body: dict, settings: SettingsDep) -> dict[str, ob
 
 
 @app.post("/api/jobs/{job_id}/size")
-def regrade(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]:
+def regrade(
+    job_id: str, body: dict, settings: SettingsDep, user: EditsAudit
+) -> dict[str, object]:
     """Re-file this inspection's readings against a different size column.
 
     The one correction that changes every row at once. Offered because the
@@ -434,26 +535,27 @@ def regrade(job_id: str, body: dict, settings: SettingsDep) -> dict[str, object]
 
 
 @app.get("/api/jobs/{job_id}/audio")
-def recording_audio(job_id: str, settings: SettingsDep) -> FileResponse:
+def recording_audio(job_id: str, settings: SettingsDep, user: ViewsAudit) -> Response:
     """The inspection recording itself, so a reading can be listened back to.
 
-    Served whole rather than sliced: Starlette answers Range requests, so the
-    browser fetches only the seconds it plays. Cutting clips server-side would
-    mean writing and cleaning up a file per cell for no gain.
+    Served whole rather than sliced: both Starlette and S3 answer Range
+    requests, so the browser fetches only the seconds it plays. Cutting clips
+    server-side would mean writing and cleaning up a file per cell for no gain.
+
+    With a bucket configured this redirects to a signed URL instead of piping
+    the bytes. A half-hour recording is tens of megabytes and an operator
+    working through a sheet seeks it dozens of times; there is no reason for an
+    app worker to sit in the middle of that.
     """
     job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
-    path = settings.recordings_dir / job.filename
-    if not path.is_file():
-        raise HTTPException(
-            status_code=410, detail=f"{job.filename} is no longer in the recordings folder"
-        )
-    # A seekable re-encode, not the upload itself. Phone MP3s are variable
-    # bitrate with no seek header and browser WebM carries no duration, and in
-    # both cases the browser maps a cue's second onto the wrong byte - which
-    # lands every reading in the same stretch of audio. See playable_copy.
-    served = playable_copy(path, settings)
+    path = _local_recording(job, settings)
+    served = _seekable(job, path, settings)
+    if storage.enabled():
+        key = storage.playback_key(job.filename)
+        if storage.mirror_once(key, served):
+            return RedirectResponse(storage.presign(key, filename=path.name), status_code=307)
     return FileResponse(
         served,
         media_type="audio/mpeg" if served.suffix == ".mp3" else None,
@@ -463,8 +565,26 @@ def recording_audio(job_id: str, settings: SettingsDep) -> FileResponse:
     )
 
 
+def _seekable(job, recording: Path, settings: Settings) -> Path:
+    """A copy of the recording the browser can seek accurately.
+
+    A seekable re-encode, not the upload itself. Phone MP3s are variable
+    bitrate with no seek header and browser WebM carries no duration, and in
+    both cases the browser maps a cue's second onto the wrong byte - which
+    lands every reading in the same stretch of audio. See playable_copy.
+
+    Built on first ask, here or on whichever machine was asked first: most
+    inspections are never listened back to, and re-encoding every one of them
+    up front would be paying ffmpeg for a feature nobody used.
+    """
+    cached = playable_path_for(recording, settings)
+    if not cached.is_file():
+        storage.fetch(storage.playback_key(job.filename), cached)
+    return playable_copy(recording, settings)
+
+
 @app.get("/api/jobs/{job_id}/cues")
-def playback_cues(job_id: str, settings: SettingsDep) -> dict[str, object]:
+def playback_cues(job_id: str, settings: SettingsDep, user: ViewsAudit) -> dict[str, object]:
     """Where each reading sits in the recording.
 
     Built on first ask and cached beside the transcripts, because most
@@ -475,7 +595,7 @@ def playback_cues(job_id: str, settings: SettingsDep) -> dict[str, object]:
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
     sheet, style = _graded_sheet(job, settings)
-    recording = settings.recordings_dir / job.filename
+    recording = _local_recording(job, settings)
     try:
         index = word_index(recording, settings)
     except TimingError as exc:
@@ -497,8 +617,15 @@ def playback_cues(job_id: str, settings: SettingsDep) -> dict[str, object]:
     }
 
 
+# Which capability each download needs. The PDFs are the vendor-facing
+# documents — the ones stamped "Subject to Legal Action if Disclosed Without
+# Authorization from AEO" — and releasing one is an approver's act. The CSVs
+# and the JSON are working files the QA team reads while settling a sheet.
+VENDOR_DOWNLOADS = {"report", "graded"}
+
+
 @app.get("/api/jobs/{job_id}/download/{kind}")
-def download(job_id: str, kind: str) -> FileResponse:
+def download(job_id: str, kind: str, user: SignedIn) -> Response:
     job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
@@ -507,7 +634,19 @@ def download(job_id: str, kind: str) -> FileResponse:
     if kind not in DOWNLOADS or kind not in job.files:
         raise HTTPException(status_code=404, detail=f"no {kind!r} output for this job")
 
+    needed = "download.vendor" if kind in VENDOR_DOWNLOADS else "download.working"
+    if not auth.can(user, needed):
+        raise HTTPException(status_code=403, detail=auth.REASONS[needed])
+
     path = job.files[kind]
+    key = storage.output_key(job.name, path.name)
+    # The bucket first when there is one, because it is the copy that is
+    # current on every machine. Signed rather than proxied, and marked as an
+    # attachment so the filename survives the redirect.
+    if storage.mirror_once(key, path) or storage.exists(key):
+        return RedirectResponse(
+            storage.presign(key, filename=path.name, download=True), status_code=307
+        )
     if not path.is_file():
         raise HTTPException(status_code=410, detail=f"{path.name} is no longer on disk")
     return FileResponse(path, media_type=DOWNLOADS[kind][1], filename=path.name)
@@ -540,3 +679,259 @@ def _free_path(directory: Path, name: str) -> Path:
         candidate = directory / f"{stem}({version}){suffix}"
         version += 1
     return candidate
+
+
+# ---------------------------------------------------------------- sessions
+class Credentials(BaseModel):
+    email: str
+    password: str
+
+
+class PasswordChange(BaseModel):
+    current: str = ""
+    password: str
+
+
+@app.post("/api/session")
+def open_session(
+    credentials: Credentials, request: Request, response: Response
+) -> dict[str, object]:
+    """Sign in. Sets an httpOnly cookie and describes who you are.
+
+    Every failure is the same 401 with the same wording — see `auth.sign_in`
+    for why: a message that distinguishes "no such address" from "wrong
+    password" tells an anonymous caller which of your colleagues have accounts.
+    """
+    with session() as db:
+        try:
+            user, token = auth.sign_in(
+                db,
+                credentials.email,
+                credentials.password,
+                user_agent=request.headers.get("user-agent", ""),
+            )
+        except auth.AuthError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        described = auth.describe(user)
+    set_cookie(response, request, token)
+    return described
+
+
+@app.delete("/api/session")
+def close_session(request: Request, response: Response) -> dict[str, str]:
+    """Sign out. Ends this session only, not the others on other devices."""
+    with session() as db:
+        auth.sign_out(db, request.cookies.get(SESSION_COOKIE, ""))
+    clear_cookie(response)
+    return {"detail": "signed out"}
+
+
+@app.get("/api/me")
+def whoami(user: SignedIn) -> dict[str, object]:
+    """Who is signed in and what they may do.
+
+    The browser uses this to decide what to draw. It is a description of the
+    rules, not the rules themselves — every one of them is enforced again on
+    the way into each endpoint, because anything sent to a browser is a
+    suggestion.
+    """
+    return auth.describe(user)
+
+
+@app.post("/api/me/password")
+def change_password(
+    body: PasswordChange, user: SignedIn, response: Response
+) -> dict[str, object]:
+    """Change your own password, and sign every session out.
+
+    Including this one. A password change usually means somebody may have the
+    old one, and leaving the existing sessions alive means the change has not
+    actually locked anybody out.
+    """
+    with session() as db:
+        me = db.get(User, user.id)
+        if me is None:
+            raise HTTPException(status_code=401, detail="Sign in to continue.")
+        if not auth.verify_password(body.current, me.password_hash):
+            raise HTTPException(status_code=403, detail="That is not your current password.")
+        try:
+            me.password_hash = auth.hash_password(body.password)
+        except auth.AuthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        ended = auth.sign_out_everywhere(db, me.id)
+    clear_cookie(response)
+    return {"detail": "password changed, sign in again", "sessions_ended": ended}
+
+
+# ----------------------------------------------------------------- members
+class NewUser(BaseModel):
+    email: str
+    name: str
+    roles: dict[str, str] = {}
+    admin: bool = False
+    password: str = ""
+
+
+class UserPatch(BaseModel):
+    email: str | None = None
+    name: str | None = None
+    roles: dict[str, str] | None = None
+    admin: bool | None = None
+    state: str | None = None
+    password: str | None = None
+
+
+def _user(person: User) -> dict[str, object]:
+    return {
+        # The id is a UUID and crosses JSON as a string; the email is the
+        # credential and is what a person recognises on a roster.
+        "id": str(person.id),
+        "email": person.email,
+        "name": person.name,
+        "admin": person.is_admin,
+        "state": person.state,
+        "roles": {member.stage: member.role for member in person.memberships},
+        "stages": auth.stages_of(person),
+        "created_at": person.created_at.isoformat() if person.created_at else None,
+        "last_seen_at": person.last_seen_at.isoformat() if person.last_seen_at else None,
+    }
+
+
+@app.get("/api/users")
+def list_users(user: ManagesPeople) -> dict[str, object]:
+    """The roster, plus what the screen needs to render a role picker.
+
+    The role table is sent rather than hardcoded in the browser so that adding
+    a capability is a server change only — the prototype's copy of this list
+    going stale is exactly the drift this replaces.
+    """
+    with session() as db:
+        people = db.scalars(select(User).order_by(User.name)).all()
+        return {
+            "users": [_user(person) for person in people],
+            "stages": [stage.value for stage in Stage],
+            "roles": [
+                {"id": role, "label": auth.ROLE_LABELS[role], "can": sorted(allowed)}
+                for role, allowed in auth.ROLES.items()
+            ],
+            "capabilities": [
+                {"id": name, "label": label} for name, label in auth.CAPABILITIES
+            ],
+        }
+
+
+@app.post("/api/users", status_code=201)
+def add_user(body: NewUser, user: ManagesPeople) -> dict[str, object]:
+    with session() as db:
+        try:
+            created = auth.create_user(
+                db,
+                body.email,
+                body.name,
+                password=body.password,
+                roles=body.roles,
+                is_admin=body.admin,
+            )
+        except auth.AuthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        db.flush()
+        return _user(created)
+
+
+@app.patch("/api/users/{user_id}")
+def update_user(user_id: str, body: UserPatch, user: ManagesPeople) -> dict[str, object]:
+    """Rename, re-role, promote, disable or reset a password.
+
+    The one rule here that is not about permissions: the last administrator
+    cannot be demoted or disabled. That is how a floor locks itself out of its
+    own roster with nobody left who can fix it.
+    """
+    with session() as db:
+        person = _find(db, user_id)
+        if person is None:
+            raise HTTPException(status_code=404, detail="That user is not on the roster.")
+
+        losing_admin = body.admin is False and person.is_admin
+        being_disabled = (
+            body.state == UserState.disabled.value
+            and person.state != UserState.disabled.value
+        )
+        if (losing_admin or being_disabled) and auth.last_admin(db, person.id):
+            raise HTTPException(status_code=409, detail=LAST_ADMIN)
+
+        try:
+            if body.email is not None:
+                fresh = auth.check_email(body.email)
+                if fresh != person.email and db.scalar(
+                    select(User).where(User.email == fresh)
+                ):
+                    raise auth.AuthError(f"“{fresh}” already has an account.")
+                person.email = fresh
+            if body.name is not None:
+                if not body.name.strip():
+                    raise auth.AuthError("A user needs a name.")
+                person.name = body.name.strip()
+            if body.admin is not None:
+                person.is_admin = body.admin
+            if body.roles is not None or body.admin is not None:
+                # An administrator holds every stage by the flag, so their
+                # membership rows are cleared rather than kept in step.
+                auth.set_roles(db, person, {} if person.is_admin else (body.roles or {}))
+            if not person.is_admin and not person.memberships:
+                raise auth.AuthError(
+                    "Give them a role on at least one stage, or make them an administrator."
+                )
+            if body.state is not None:
+                if body.state not in {state.value for state in UserState}:
+                    raise auth.AuthError(f"{body.state!r} is not an account state.")
+                person.state = body.state
+            if body.password:
+                person.password_hash = auth.hash_password(body.password)
+                person.state = UserState.active.value
+        except auth.AuthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        # Anything that narrows what somebody may do takes effect now, not
+        # whenever the token they are holding happens to run out.
+        narrowed = bool(
+            body.password or losing_admin or body.roles is not None or being_disabled
+        )
+        if narrowed:
+            auth.sign_out_everywhere(db, person.id)
+        db.flush()
+        return _user(person)
+
+
+@app.delete("/api/users/{user_id}")
+def remove_user(user_id: str, user: ManagesPeople) -> dict[str, str]:
+    """Remove an account.
+
+    Its sessions go with it, by the foreign key. An account that has already
+    touched an inspection should be disabled instead, so the record keeps
+    pointing at somebody — the audit trail of phase 5 is what will make that a
+    rule the server enforces rather than a convention.
+    """
+    if user_id == str(user.id):
+        raise HTTPException(
+            status_code=409, detail="You cannot remove the account you are signed in with."
+        )
+    with session() as db:
+        person = _find(db, user_id)
+        if person is None:
+            raise HTTPException(status_code=404, detail="That user is not on the roster.")
+        if auth.last_admin(db, person.id):
+            raise HTTPException(status_code=409, detail=LAST_ADMIN)
+        gone = person.email
+        db.delete(person)
+    return {"detail": f"{gone} removed"}
+
+
+def _find(db, user_id: str) -> User | None:
+    """One user by id. A malformed uuid is "not here", not a 500.
+
+    The id reaches this from a URL, so it is whatever somebody typed.
+    """
+    try:
+        return db.get(User, uuid.UUID(user_id))
+    except (ValueError, AttributeError, TypeError):
+        return None

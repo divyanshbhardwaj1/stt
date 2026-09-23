@@ -689,6 +689,8 @@ The 7 new frontend tests cover `assembleChunks` — in-order join, shuffled inpu
 
 ## 28. Open items — current
 
+> Superseded by **§33**, which carries the current state of every row below.
+
 | Item | State |
 |---|---|
 | **Recording recovery never exercised in a real browser** | **Open, and it gates the feature.** The logic is tested; the round trip — record, kill the tab, reload, Recover, Process — is not. Do this before it is relied on. |
@@ -709,3 +711,923 @@ The 7 new frontend tests cover `assembleChunks` — in-order join, shuffled inpu
 | No resumable upload | Open, deferred — `POST /api/jobs` takes one multipart body, so a 20 MB upload on a bad line restarts from zero. Backend work; do it if on-site retries actually fail |
 | 12 pre-existing lint errors | **Done** (§24) |
 | `pypdfium2` undeclared | **Done** (§23) |
+
+---
+
+# Session Handout — The Clay Prototype, and the First Real Schema
+
+**Date:** 21–23 September 2026
+**Scope:** built a full frontend prototype of the product redesigned on the Clay
+design system, including a stage/team model the real app does not have yet;
+then started making it real — Postgres, Alembic, and jobs that survive a
+restart.
+
+Continues the numbering above. Where this contradicts §28, this part is
+current.
+
+---
+
+## 29. Summary
+
+| # | Work | Outcome |
+|---|---|---|
+| 1 | `demo/` — a standalone Clay prototype | 16 screens, no build step, nothing in the real app touched |
+| 2 | Stages modelled as **teams** | Size set · PPM · Interim · Final, each with its own workspace |
+| 3 | Auth and per-stage RBAC in the prototype | 4 roles, 8 capabilities, enforced across every screen |
+| 4 | **Phase 1** of the real implementation | Postgres schema, Alembic, jobs survive a restart |
+| 5 | Verified against real Postgres 18.3 | not just SQLite — it caught a test-isolation bug |
+
+**Tests:** 341 → **354** Python. `ruff check src tests migrations` clean.
+
+---
+
+## 30. The prototype — `demo/`
+
+Open `demo/index.html` in a browser. No server, no build, no install. Nothing
+in `demo/` is imported by anything outside it, and no file under `src/` was
+modified for it.
+
+`demo/clay/` is the Clay design system copied in verbatim (tokens only — its
+component primitives are React and this is plain HTML). `demo/app.css` is the
+product layer built on those tokens. `demo/README.md` is the full write-up:
+what was carried over unchanged, three flagged deviations, and the gaps
+inherited from the system itself.
+
+### 30.1 Sign in
+
+| id | password | reaches |
+|---|---|---|
+| **`admin`** | **`admin123`** | every stage, every feature |
+| `d.bhardwaj` | `demo123` | every stage (second administrator) |
+| `a.bhatt` | `demo123` | Size set, PPM |
+| `s.iqbal` | `demo123` | Size set, Interim, Final |
+| `p.grewal` | `demo123` | Size set, PPM, Final |
+| `r.menon` | `demo123` | Size set, Interim |
+| `k.tanaka` | — | invited only; cannot sign in |
+
+Passwords are checked, so a wrong one fails. The accounts are listed as chips
+under the form; clicking one fills both fields.
+
+### 30.2 The screens
+
+| File | |
+|---|---|
+| `index.html` | Inspections — the register, filterable, rows open a report |
+| `report.html?id=` | One inspection, with **Report** and **Stats** tabs |
+| `transcript.html?id=` | The transcript, with where the two passes disagreed |
+| `audit.html` | The graded sheet — 133 cells, click to correct, playback per reading |
+| `record.html` | Recording, live transcript, crash-recovery banner |
+| `library.html` | Style sets, PDF-only upload |
+| `logs.html` | Activity — one log per stage |
+| `teams.html` | Stages, your role on each |
+| `members.html` | Admin — add, edit, change role, remove |
+| `account.html` | Your id and stages, password change, preferences |
+| `dashboard.html` | Size set — role-aware hero, queue and counts |
+| `ppm.html` · `interim.html` · `final.html` | The other three stages' workspaces |
+| `signin.html` · `processing.html` | |
+
+### 30.3 The model worth arguing with
+
+**A team is a stage, and features belong to the stage.** Switching stage in the
+rail switches the whole workspace — nav, screens, and the role under your name.
+Opening a size-set screen while standing in Final is not a permission error, it
+is the wrong stage, and gets its own panel with a way back.
+
+**Roles are held per stage, not per person.** `s.iqbal` is a QA reviewer on
+size set and interim but only an inspector on final. A stage you hold no role
+on does not open. Administrators are the exception and hold every stage by a
+flag rather than by being listed four times — a list of four goes stale the
+first time a fifth stage exists.
+
+**Separation of duties is the load-bearing rule.** An approver cannot edit the
+sheet they sign off. If one account could both alter a measurement and release
+the document, a wrong reading and its sign-off would leave no trace of
+disagreement. Recording, correcting and releasing sit in three different hands.
+
+**Release was removed from Size set entirely** on the last pass: an approver
+signs the graded sheet off, and the shipment is released at Final.
+
+### 30.4 Things the prototype gets right that are easy to lose
+
+- Blocked controls stay on the page, dead, with the reason on hover. Only the
+  admin nav link disappears. A control that vanishes teaches nobody why.
+- Filter tabs are built from the data, so a state nobody is in never gets a tab
+  that returns nothing.
+- The graded sheet shows confidence on **every** reading, not only the shaky
+  ones, and bands cells below 100% in blue with a stronger band below 85%.
+  Blue is deliberately **not** a Clay colour — the six brand fills were all
+  spoken for and lavender already means "no verdict".
+- A zero deviation renders as **OK**, not `0`. It is a pass, and "okay" is the
+  word on the tape.
+- Every number on the Stats tab reconciles with the report above it: the
+  confidence buckets sum to *judged*, the by-size rows sum to *rows*.
+
+---
+
+## 31. Phase 1 — the database
+
+### 31.1 What landed
+
+| File | |
+|---|---|
+| `src/services/db/models/` | one table per file: `base.py`, `enums.py`, `inspection.py`, `reading.py` |
+| `src/services/db/session.py` | engine, session, the optional-database switch |
+| `src/services/db/store.py` | `DatabaseJobStore`, measurement conversion, `rebuild_readings` |
+| `migrations/` + `alembic.ini` | Alembic; first revision `32907614bd3c` |
+| `tests/test_db.py` | 13 tests |
+| `tests/conftest.py` | clears `DATABASE_URL` before any test module loads |
+| `src/api/jobs.py` | persists at each announced stage, not only at the end |
+| `src/api/app.py` | picks the store based on `DATABASE_URL` |
+
+### 31.2 The three decisions
+
+**`inspections.extraction` is the source of truth; `readings` is derived.**
+Settle and regrade already work by editing that JSON document and re-rendering
+every output from it. `readings` exists so the register and the statistics are
+SQL questions rather than several hundred parsed blobs, and it is rebuilt
+wholesale — never merged, never edited directly. Two editable copies of the
+same truth eventually disagree.
+
+**No floats anywhere.** Every measurement is stored twice: `spec_text` =
+`"21 1/2"` for reading back, `spec_sixteenths` = `344` for sorting and
+aggregation. Exact both ways, because every value on these sheets is a binary
+fraction. A value finer than a sixteenth is rounded **half away from zero** and
+logged — Python's `round()` is banker's rounding and would have put a
+thirty-second at zero. A test catches this.
+
+**The database is optional, and that is scaffolding.** `DATABASE_URL` unset
+keeps the in-memory store, so the pipeline and every existing test still run
+without Postgres. `session.py` says when that should stop being true: once
+members and the audit trail live there too, there is nothing useful to do
+without it and it should become a hard failure at startup.
+
+### 31.3 Verified against real Postgres
+
+Local PostgreSQL **18.3**, database `triburg`, port 5432. `DATABASE_URL` lives
+in `.env`; Alembic reads that file itself, so the password never goes into a
+shell command or a terminal history.
+
+| Check | Result |
+|---|---|
+| `alembic upgrade head` | applied, transactional DDL |
+| Column types | `jsonb` ×4, `timestamp with time zone` ×3 |
+| Indexes | 3 on `inspections`, 3 on `readings` including the unique cell |
+| Foreign key | `ON DELETE CASCADE`, enforced by the server |
+| `downgrade base` → `upgrade head` | clean both ways |
+| `alembic check` | *No new upgrade operations detected* |
+| Restart survival | finished job intact; interrupted job returns **failed** |
+| Measurements | `21 1/2` + `-1/8` = `21 3/8`; `344 + -2 = 342` |
+| JSONB queryable | `extraction->>'style_no'` works |
+
+**An interrupted job comes back as failed, not running**, and is written back
+that way so the next restart cannot resurrect it. An operator watching a
+progress line that will never move is worse than being told to re-run.
+
+### 31.4 The bug the Postgres run flushed out
+
+`tests/test_api.py` imports `api.app`, and `api.app` now opens a job store at
+import. With `DATABASE_URL` in `.env`, **the test suite was connecting to the
+real `triburg` database.** Nothing wrote to it, but it was one `store.create()`
+away from doing so. Fixed in `tests/conftest.py`, which clears the variable
+before any test module is imported. Tests that want a database build their own
+per test in `tmp_path`.
+
+This is the whole argument for running a migration against the real server
+early: SQLite would never have shown it.
+
+---
+
+## 32. The road to a functional product
+
+Phases 1, 2 and 4 are done (§31, §35, §36). The rest, in the order I would build it:
+
+| Phase | What | Why there |
+|---|---|---|
+| 2 | S3 for recordings and outputs, presigned range playback | **Done — §35** |
+| 3 | Queue + worker, idempotency by content hash | **Deferred — §36.7.** Nothing loses jobs at one operator |
+| 4 | Accounts, sessions, RBAC on every endpoint | **Done — §36** |
+| 5 | Audit log, and the members screen | Memberships landed with §36; who-did-what did not |
+| 6 | Style set library in the database, upload flow | Removes the last local-disk dependency |
+| 7 | PPM / Interim / Final pipelines | Genuinely new products |
+
+Notes carried forward for phase 2:
+
+- **Keep `playable_copy`.** VBR MP3 with no Xing header seeks wrong by 3×
+  (§5.2). S3 does not fix it — re-encode once on upload and store both objects.
+- **Presign GETs.** Presigned URLs support `Range` natively, so playback
+  snippets work without proxying audio through FastAPI. Short TTL.
+- **SSE-KMS, public access blocked, versioning on.** These documents carry
+  *"Subject to Legal Action if Disclosed Without Authorization from AEO."*
+- The capability names in `demo/auth.js` are the ones to port verbatim in
+  phase 4: `record`, `audit.view`, `audit.edit`, `download.working`,
+  `download.vendor`, `release`, `manage.styles`, `manage.people`.
+
+---
+
+## 33. Open items — current
+
+> Phase 2 added its own in **§35.6** (bucket versioning above all), phase 4 in **§36.8**
+> (no sign-in rate limit above all).
+
+| Item | State |
+|---|---|
+| **A live OpenAI API key was pasted into a session transcript** | **Open, urgent.** Rotate it at platform.openai.com and move secrets to Secrets Manager or SSM. |
+| `data/` in git **history** | **Open, still.** ~1.3 GB of proprietary audio and stamped PDFs; every clone gets it. `.gitignore` stopped the growth in September. Needs a rewrite decision and it gets harder every commit. |
+| Recording recovery never exercised in a real browser | **Open, and it gates the feature** (§28). Record, kill the tab, reload, Recover, Process. |
+| Pointer over-advance (§17.4) | **Open.** Diagnosed, reproducible, unfixed. |
+| LLM snippet mapping (§18) | **Proven on one window, not built.** |
+| No backfill of `data/` into the new tables | **Open by design.** ~500 existing outputs stay on disk; reading them in has to settle what to do with inspections whose style set has since changed. Its own migration, its own decision. |
+| End-to-end rehearsal | **Never run** since playback, recovery or the database landed. |
+| `ruff format --check` | Open — 9 files, pre-existing; wants `# fmt: skip` per block, not a blanket format (§24) |
+| `DEEPGRAM_API_KEY` undocumented | Open — absent from `README.md` |
+| `src/api/index.html` | Open — 1319-line parallel UI, now far behind |
+| `POST /api/transcript-jobs` | Open — reachable, called by nothing |
+| `README.md` drift | Open — and now also missing `services/db/`, `migrations/`, `services/storage.py` and `demo/` |
+| `pypdfium2` undeclared · 12 lint errors | **Done** (§23, §24) |
+
+---
+
+## 34. Running it
+
+```powershell
+# install
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\venv\Scripts\python.exe -m pip install "psycopg[binary]"   # only with Postgres
+
+# .env
+OPENAI_API_KEY=sk-...
+DEEPGRAM_API_KEY=...          # playback only; absent = 409, nothing else breaks
+DATABASE_URL=postgresql+psycopg://postgres:PASS@localhost:5432/triburg
+#   unset      -> jobs kept in memory, lost on restart (the old behaviour)
+#   sqlite:/// -> fine for a local run
+S3_BUCKET=...                 # unset = disk only, one server (the old behaviour)
+S3_ENDPOINT_URL=...           # Railway, MinIO, R2; omit for AWS
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+
+# schema
+.\venv\Scripts\python.exe -m alembic upgrade head
+
+# the first administrator, before anyone can sign in
+python src\main.py user add <email> --name "Their Name" --admin
+
+# the app
+cd src\frontend; npm run build; cd ..\..
+python src\main.py serve
+
+# checks
+.\venv\Scripts\python.exe -m pytest                     # 419
+.\venv\Scripts\python.exe -m ruff check src tests migrations
+.\venv\Scripts\python.exe -m alembic check              # models vs schema
+.\venv\Scripts\python.exe src\services\storage.py      # round-trips the real bucket
+cd src\frontend; npm test; npm run lint; npm run build  # 57
+
+# the prototype — no build, no server
+start demo\index.html
+```
+
+Alembic reads `.env`, so `alembic upgrade head` needs no arguments and the
+connection string stays out of the shell history. `storage.py` reads it the
+same way, for the same reason.
+
+---
+
+## 35. Phase 2 — the bucket
+
+**Date:** 23 September 2026. Continues §31. Where this contradicts §32 or §34,
+this is current.
+
+Recordings and finished reports now live in object storage. Before this, a
+report existed on exactly one filesystem: one server, no redeploy that replaces
+a container, and one disk failure away from losing documents the client cannot
+reproduce.
+
+### 35.1 What landed
+
+| File | |
+|---|---|
+| `src/services/storage.py` | the whole of it — keys, upload, fetch, signed links, the round-trip check |
+| `src/api/jobs.py` | `_archive_recording` before the pipeline, `_archive_outputs` from `apply_result` |
+| `src/api/app.py` | `_local_recording`, `_seekable`, signed redirects on `/audio` and `/download` |
+| `tests/test_storage.py` | 20 tests against a stub bucket |
+| `tests/conftest.py` | clears the bucket variables, and now holds the shared web fixtures |
+| `.env.example` · `pyproject.toml` · `requirements.txt` | `boto3>=1.34`, and the five settings |
+
+**Tests:** 354 → **374**. `ruff check src tests migrations` clean.
+
+### 35.2 The shape of it
+
+**Local disk is the working copy; the bucket is the durable one.** ffmpeg wants
+a file, pypdf wants a file, and rewriting eight pipeline stages to stream from
+a bucket would have bought nothing but a longer diff. So everything is still
+written to disk, mirrored up after, and pulled back down on a machine that does
+not have it. `ensure_local` is the whole multi-server story: a container that
+has never seen an inspection answers for it anyway, once.
+
+**Signed links, not proxied bytes.** `/audio` and `/download/{kind}` now answer
+307 to a presigned URL and S3 serves the file. A half-hour recording is tens of
+megabytes and an operator working through a sheet seeks it dozens of times;
+there is no reason for an app worker to sit in the middle of that. Both call
+sites in the frontend are plain URLs — `<audio src>` and an anchor — so no CORS
+is involved. With no bucket configured both fall back to `FileResponse` exactly
+as before.
+
+**A mirror failure is not a run failure.** The report is on disk the moment it
+is written. Losing the copy costs durability, not work, and a transcription
+that took eight minutes must not be discarded because a bucket blipped.
+Fetching is the other way round: a file that is not here and cannot be pulled
+is a real error and the caller hears about it. Same argument as `_persist` in
+§31.
+
+**The recording goes up before transcription, not after.** Eight minutes is a
+long time to be holding the only copy of the one artefact that cannot be
+produced again. Its SHA-256 goes with it, which finally feeds the
+`content_sha256` column and index that §31 built and nothing used — phase 3
+recognises a re-upload by it instead of transcribing it again at full price.
+
+**Outputs are archived from `apply_result`, not from the end of a run.**
+Settling a cell and regrading a size both rewrite those same files. A bucket
+left holding the version from before a correction is worse than one holding
+nothing: it is a document someone could be served that a person has already
+ruled wrong. One hook, three callers, no way to add a fourth that forgets.
+
+### 35.3 Keys
+
+```
+recordings/<filename>          as captured on the floor
+playback/<stem>.mp3            the seekable re-encode — a second object, not a replacement
+outputs/<name>/<filename>      one folder per inspection, so a report expires as a unit
+```
+
+The playable copy is still built on first ask (§5.2, and it is still needed —
+S3 does not fix a VBR MP3 with no Xing header), but now it is built once
+*anywhere*: the second machine asked fetches the re-encode instead of running
+ffmpeg again.
+
+### 35.4 Two bugs the tests caught
+
+**`mimetypes` reads the Windows registry.** `.csv` came back
+`application/vnd.ms-excel` and `.webm` came back `video/webm`. An object is
+stamped with its content type once, at upload, and served that way for its
+life — so the same report would have arrived as a spreadsheet or as text
+depending on which machine happened to process it. Content types are now a
+stated table, and `mimetypes` is only the fallback for something unrecognised.
+
+**The test suite could have written to the client's bucket.** Exactly the
+`DATABASE_URL` bug of §31.4, one layer up: `tests/conftest.py` now clears the
+bucket variables too, before any test module is imported.
+
+### 35.5 Verified against the real bucket
+
+Railway object storage, backed by Tigris — `t3.storageapi.dev`, path-style
+addressing. 19 checks in round one, 17 in round two.
+
+| Check | Result |
+|---|---|
+| put · head · get · presign · delete | all ok |
+| Content type survives the round trip | `audio/mpeg`, `application/pdf` |
+| **Unsigned GET** | **403 Forbidden** — the behaviour, not a config flag |
+| Signed GET | 200, bytes identical to what went up |
+| **Range request** | **206, `bytes 1000-1099/5000`, correct slice** |
+| Altered signature · expired link | 403, 403 |
+| `Content-Disposition` | `inline` for playback, `attachment` with the filename for downloads |
+| An overwrite replaces the object | corrected report served, not the old one |
+| **Multipart upload, 24 MB** | 12.6s — this is the seam most S3-compatible endpoints fail |
+| Range across a part boundary | 206, exact bytes at offset 17 MB |
+| Fetch back | 2.8s, byte-identical, no `.part` left behind |
+| `_archive_recording` / `_archive_outputs` | run against real boto3, not the stub |
+| `ensure_local` on a machine without the file | pulled it |
+| Bucket after clean-up | 0 objects |
+
+`python src/services/storage.py` runs the first of these on demand. It is the
+only check that can catch a wrong region, the wrong addressing style, or a
+read-only key — all three pass every mock.
+
+### 35.6 Left open
+
+**Versioning is not enabled on the bucket.** It reads back as `not enabled`,
+and it matters here more than usual: settle and regrade overwrite an object in
+place, so without versioning a bad correction has no previous copy to go back
+to. Enabling it is a deliberate act — it can afterwards be suspended but never
+removed, and every retained version is billed — so it is the operator's call,
+not a thing the code should do on its own.
+
+`get_public_access_block` returns `{}` on Tigris rather than AWS's structure,
+so that flag cannot be read the AWS way. The unsigned 403 above is the stronger
+answer regardless: it is the behaviour rather than the setting.
+
+**Encryption at rest** is whatever Railway's default is; not confirmed. These
+documents carry *"Subject to Legal Action if Disclosed Without Authorization
+from AEO."*
+
+**Nothing has been backfilled.** The ~500 existing outputs under `data/` are
+still only on disk, which is the same decision as §33 and for the same reason.
+
+**No lifecycle rule.** Recordings are kept forever today. Nothing decides when
+an inspection's audio stops being worth storing.
+
+---
+
+## 36. Phase 4 — accounts, sessions and permissions
+
+> **Partly superseded by §38.** Accounts are `users`, keyed by uuid and
+> signed in by email. The argument below for keying on the login name is
+> the one §38.1 reverses, and the reasoning there is the record.
+
+**Date:** 23 September 2026. Continues §35. Phase 3 was skipped deliberately —
+see §36.7.
+
+Until now every endpoint was open. Anyone who could reach the port could
+upload an inspection, settle a reading, or download a vendor document stamped
+*"Subject to Legal Action if Disclosed Without Authorization from AEO."* The
+prototype's permission model was real design work that only ever ran in a
+browser; it is now enforced on the server, where access control has to live.
+
+### 36.1 What landed
+
+| File | |
+|---|---|
+| `src/services/auth.py` | the rules: hashing, the capability matrix, sessions, the roster |
+| `src/api/security.py` | the FastAPI end: cookie in, account out, 401 or 403 |
+| `src/services/db/models/account.py` · `membership.py` · `session.py` | three tables, one file each |
+| `src/services/db/models/enums.py` | `Role`, `AccountState` |
+| `migrations/versions/…f30dfefbe725…` | the schema |
+| `src/main.py` | `account add` · `list` · `password` · `disable` |
+| `src/api/app.py` | every endpoint gated; sign in, sign out, `/api/me`, the roster |
+| `src/frontend/src/session.ts` · `SessionProvider.tsx` · `components/SignIn.tsx` | the browser end |
+| `tests/test_auth.py` | 38 tests |
+
+**Tests:** 374 → **413** Python, 42 → **44** frontend. `ruff` and `eslint`
+clean. `alembic check` clean.
+
+### 36.2 The model
+
+**A role is a role *in* a stage.** The same person is routinely a reviewer on
+size set and an approver on final. One global role per person is what makes a
+factory keep two logins for somebody, and two logins is how an audit trail
+stops being able to answer who did what. So `memberships` is its own table,
+one row per person per stage, unique on the pair.
+
+**An administrator is a flag, not four rows.** They hold every stage,
+including ones that do not exist yet. Four rows go stale the first time a fifth
+stage is added, and a floor with an administrator who cannot see a stage is a
+floor with a stage nobody can fix.
+
+**The separation of duties is the load-bearing rule**, and it is the one worth
+re-reading:
+
+| | record | audit.view | audit.edit | download.working | download.vendor | release | manage.styles | manage.people |
+|---|---|---|---|---|---|---|---|---|
+| Inspector | ● | ● | | | | | | |
+| QA reviewer | ● | ● | ● | ● | | | | |
+| Approver | | ● | | ● | ● | ● | | |
+| Administrator | ● | ● | ● | ● | ● | ● | ● | ● |
+
+An approver has no `audit.edit`. That is not an omission. If one account could
+alter a measurement *and* sign the document off, a wrong reading and its
+approval would leave no trace of disagreement anywhere. A test asserts it in
+both directions, and a second test reads the capability names back out of
+`demo/auth.js` and fails if the two ever drift.
+
+### 36.3 The security decisions
+
+**Passwords: `hashlib.scrypt`, no new dependency.** Salted per account,
+~16 MB of memory per hash, compared with `hmac.compare_digest`. The parameters
+travel inside the stored string, so raising them later does not strand every
+existing account. A hash in any other format is refused rather than checked
+leniently.
+
+**Sessions: opaque tokens in a table, and only their hashes.** Not signed
+tokens carrying claims — the whole reason is revocation. An administrator
+disabling somebody at 14:00 means they are out at 14:00, not whenever the token
+they are holding runs out. That was proved against a running server: the
+session died mid-flight. Only `sha256(token)` is stored, so a database dump, or
+a backup on somebody's laptop, cannot be replayed as a session.
+
+**One message for every sign-in failure.** Unknown id and wrong password
+return the same 401 with the same wording, because the ids here are people's
+names and an anonymous caller must not be able to learn which of your
+colleagues have accounts. That includes the clock: an unknown id is checked
+against a cached hash of a random string, so both paths cost exactly one scrypt
+verification. A test counts the calls rather than timing them.
+
+**The cookie is httpOnly, SameSite=Lax, and `Secure` only over https.**
+httpOnly is the difference between an XSS bug that defaces a page and one that
+walks off with a session. Lax is CSRF protection without a token round trip.
+Following the scheme means a local http run works and a TLS deployment does not
+send the session in the clear — a hardcoded `True` breaks localhost, and a
+hardcoded `False` is a deployment nobody notices.
+
+**Narrowing somebody's access ends their sessions now.** Changing a role,
+resetting a password, or disabling an account signs that person out
+everywhere. A permission change that waits for a token to expire has not
+actually taken anything away.
+
+### 36.4 The database is no longer optional
+
+`services/db/session.py` said this would eventually be right, and phase 4 is
+when it became true: **the web app now refuses to start without
+`DATABASE_URL`.** Accounts, sessions and permissions live there, and an app
+that cannot authenticate anybody must not fall back to serving everybody.
+
+The CLI pipeline is untouched — `python src/main.py run` needs no database and
+never did.
+
+### 36.5 Bootstrapping
+
+Nothing is seeded. A default account with a known password shipped in a
+migration is a door that stays open on every deployment that forgets to close
+it. The first administrator is made by hand:
+
+```powershell
+python src\main.py account add <id> --name "Their Name" --admin
+python src\main.py account add r.menon --name "R. Menon" --role sizeset:inspector --invite
+python src\main.py account password r.menon
+python src\main.py account list
+python src\main.py account disable <id>
+```
+
+The password is prompted for, never an argument: an argument lands in the shell
+history, in `ps` output for every other user on the box, and in any recording
+of the terminal. `--invite` creates an account that holds roles and cannot sign
+in until somebody sets a password on it.
+
+### 36.6 Verified against a running server
+
+The suite uses `TestClient`, which never crosses a socket. These ran against
+uvicorn with a real cookie jar:
+
+| Check | Result |
+|---|---|
+| `/api/me`, `/api/jobs`, `/api/members`, `/api/realtime-token` anonymous | 401 ×4 |
+| The app shell | 200 — it has to load to draw the sign-in screen |
+| Wrong password vs unknown id | same 401, same wording |
+| Cookie | httpOnly ✓, SameSite=Lax ✓, not `Secure` over http ✓ |
+| Inspector: list inspections / reach the roster / settle a sheet | 200 / 403 / 403 |
+| **Approver settling a sheet** | **403**, with the reason |
+| **Disabling somebody mid-session** | **401 on their very next request** |
+| Adding a member, protecting the last administrator | 201 / 409 |
+| Sign out | 200, and the cookie is dead |
+
+A separate test walks the app's own routing table and asserts every `/api`
+route refuses an anonymous caller. Listed by hand it would not grow when
+somebody adds an endpoint in a hurry — and the endpoint added in a hurry is the
+one that ships unprotected.
+
+### 36.7 Why phase 3 was skipped
+
+A queue and a worker buy jobs surviving a deploy, and more than one worker.
+Neither shows up in a size-set demo with one operator at a time, `BackgroundTasks`
+already runs on Starlette's threadpool, and §31 made an interrupted job come
+back as **failed** with a message rather than stuck at 40% forever. Phase 3
+moves to whenever there is more than one person uploading, or a deploy cadence
+that interrupts jobs.
+
+The cheap half of it is still worth taking early: dedupe by `content_sha256`,
+so re-uploading the same recording is recognised rather than transcribed again
+at full price. ~20 lines, and the column and its index already exist. One
+wrinkle: the hash is computed inside `_archive_recording`, so today it only
+lands when a bucket is configured.
+
+### 36.8 Left open
+
+| Item | State |
+|---|---|
+| ~~No members screen in the real app~~ | **Done — §37.** The roster has a screen now. |
+| Password rules are length only | Eight characters, no dictionary check, no breach list, no rate limit on sign-in attempts. **A rate limit is the gap that matters** — scrypt makes each guess expensive, but nothing stops a caller trying all night. |
+| No audit trail | Who settled which cell is still not recorded. That is phase 5, and it is the reason accounts are keyed by login name rather than a surrogate id. |
+| Sessions are absolute, not sliding | Twelve hours from sign-in. Long enough for a shift; somebody signed in at the start of a double will be asked again. |
+| `manage.styles` and `release` are enforced but unused | Nothing calls them yet — the style set library and release flow are phases 6 and 5. They are in the matrix so the roles are complete rather than growing later. |
+| The stage is assumed | Every inspection is size set, so a permission question that needs a stage asks about that one (`auth.DEFAULT_STAGE`). Phase 7 gives jobs their own stage and that constant goes. |
+| Three accounts exist in `triburg` | `triburg.admin`, `r.menon`, `p.grewal`, all **invited** — they hold roles and cannot sign in until `account password <id>` is run. Remove any you do not want with `DELETE /api/members/<id>`. |
+| The suite is slower | 47s → 86s. scrypt is memory-hard on purpose, and every test that signs in pays for it. Worth it; noted so nobody goes looking for a regression. |
+
+---
+
+## 37. The real app, on Clay
+
+> **Superseded by §38.** This describes a Clay-flavoured interpretation of
+> the prototype, written before `demo/app.css` was used directly. It is
+> kept for the design reasoning, not as a description of the code.
+
+**Date:** 23 September 2026. Continues §36.
+
+The prototype in `demo/` was a design argument. This is the app taking it —
+the same design language, the same rail, the same screens, but only the ones
+with a real endpoint behind them.
+
+**Tests:** 44 → **56** frontend, 413 Python unchanged. `eslint`, `tsc` and the
+build all clean.
+
+### 37.1 What the app looks like now
+
+| | |
+|---|---|
+| `src/frontend/src/styles.css` | rethemed on Clay's tokens, values inlined from `demo/clay/tokens/` |
+| `src/frontend/src/router.ts` | hash routing, hand-rolled |
+| `components/Rail.tsx` | the nav rail — cream, collapsible, account at the foot |
+| `components/Inspections.tsx` | the register |
+| `components/Members.tsx` | the roster: add, re-role, disable, remove |
+| `components/Account.tsx` | who you are, what you may do, change your password |
+| `components/StyleSets.tsx` | the library, read-only |
+| `components/Stages.tsx` | the four stages and your role on each |
+| `screens.test.tsx` | every screen, two roles |
+| `components/Sidebar.tsx` | **gone** — the rail replaced it |
+
+### 37.2 What Clay got, and the one thing it did not
+
+Carried over: the cream canvas (#fffaf0) on **every** surface including the
+rail, the near-black CTA, 12px radius, 1px hairlines instead of shadows, pill
+badges and pill tabs, Inter 500 with negative tracking for display type and
+Inter 400/600 for body.
+
+The rail used to be ink. Clay has no dark chrome anywhere in the system and a
+dark rail is the commonest way a product breaks it, so it is cream now. One
+dark surface survives — **the running recorder** — for two reasons that are not
+cosmetic: a waveform needs a ground dark enough to be legible, and a recording
+in progress has to be unmistakable from across a room. It is built from Clay's
+own published dark-surface tokens rather than a palette invented beside them.
+
+**The four state hues did not change, and will not.** Fail orange, no-verdict
+violet, low-confidence blue and pass green are keyed to `graded_report.py`,
+which prints those same four states into the PDF. Screen and paper have to say
+the same thing in the same colour or a reviewer relearns the language halfway
+through the job. The prototype flagged this as its own third deviation —
+semantic colour doing real work in the grid — and it is the one place the
+system yields to the document.
+
+Two smaller deviations, both the prototype's and both kept: section rhythm is
+40px rather than Clay's 96px, because at 96px an inspection report is four
+screens of scrolling to answer *did it pass?*; and there is one scrim and one
+soft shadow, for the member dialog, because a dialog over a data table has to
+detach from it or the table reads as still-editable behind it.
+
+The tokens are **inlined**, not `@import`ed from `demo/clay/`. The prototype is
+a separate artefact that can be deleted, and a build that breaks when it is
+would be a poor trade for four files of custom properties. Each token carries
+its Clay name in a comment so the two can be diffed by eye.
+
+### 37.3 Screens, and what is deliberately absent
+
+The prototype has sixteen screens. Seven are here, because seven have a server
+behind them:
+
+| Prototype | Here | |
+|---|---|---|
+| `signin.html` | Sign in | Clay card on the cream canvas |
+| `index.html` | Inspections | filter tabs built from the data |
+| `record.html` · `processing.html` | Record | the existing recorder, its own screen now |
+| `report.html` (Report tab) | Inspection → Report | |
+| `audit.html` | Inspection → Graded sheet | a tab, not a separate screen |
+| `library.html` | Style sets | **read-only** |
+| `members.html` | Members | full CRUD |
+| `account.html` | Account | plus the capability list |
+| `teams.html` | Stages | your role on each of the four |
+
+Absent, and each for a reason rather than an oversight:
+
+- **Dashboard** — no statistics endpoint. Everything on the prototype's version
+  was invented.
+- **Activity log** — there is no audit trail yet. That is phase 5, and inventing
+  one in the browser would be worse than not having it.
+- **Transcript screen** — no endpoint serves a transcript.
+- **The Stats tab** — it wanted who, where and how long, and the server records
+  none of those.
+- **PPM / Interim / Final workspaces** — one pipeline exists. The Stages screen
+  lists all four and says plainly which are not built, because the roles are
+  already real: an account can hold approver on final today.
+- **Style set upload** — `GET /api/style-sets` lists the library and nothing
+  adds to it; sheets are read from `data/StyleSets/` on disk. The screen says
+  so rather than offering a button that would 404. `manage.styles` is enforced
+  and has nothing to guard yet — that is phase 6.
+
+### 37.4 Routing
+
+Hash routes, hand-rolled, about sixty lines. react-router is 20 kB to answer a
+question this app asks eight times, and hashes mean the server needs no
+catch-all route: it serves one shell at `/` and nothing else has to know the
+screen names.
+
+An unknown hash lands on the register rather than a blank pane — somebody
+arriving from a stale bookmark should see the list, not nothing.
+
+### 37.5 Permissions, in the browser this time
+
+The rail hides the **Members** link from anyone without `manage.people`. That
+is the one control that disappears; everywhere else a blocked control stays on
+the page and goes dead with its reason, because a control that vanishes
+teaches nobody why — but an empty admin screen teaches nothing either.
+
+Worked through:
+
+- the **Save** button on the graded sheet stays visible for an approver and is
+  disabled, with the separation-of-duties sentence on it;
+- the **downloads** row filters by document: working files need
+  `download.working`, the vendor PDFs need `download.vendor`, and an account
+  with neither is told the report is ready and that releasing it is an
+  approver's job;
+- the **Graded sheet** tab is dead rather than absent when an inspection was
+  never checked against a spec sheet.
+
+None of this is security. Every one of these is checked again on the way into
+the endpoint — §36 — and the browser's copy only decides what to draw.
+
+### 37.6 Verified
+
+56 frontend tests, including a sweep of every screen as an administrator and as
+an inspector. What that sweep catches is the class of failure that is invisible
+until somebody clicks: a screen that throws on an empty list, a capability read
+off an account that does not hold it, a route that renders nothing.
+
+Then the built bundle, through a real uvicorn:
+
+| Check | Result |
+|---|---|
+| Shell served, built React app | 200, `/assets/index-*.js` |
+| Bundle · stylesheet | 260 kB · 33 kB |
+| Cream canvas · near-black primary | `#fffaf0` · `#0a0a0a` |
+| Radii | `--r-panel: 12px`, `--r-chip: 9999px`, `--r-card: 16px` |
+| Inter loaded | ✓ |
+| No dark rail | ✓ |
+| Rail collapses | `.shell.tight` present |
+| The four document hues | all four still there |
+| Admin: `/api/jobs` · `/api/style-sets` · `/api/members` | 200 · 200 · 200 |
+| Inspector: `/api/members` | **403**, and the rail does not offer it |
+
+### 37.7 Left open
+
+| Item | State |
+|---|---|
+| **Nobody has looked at it** | The strongest check here is a jsdom sweep, which cannot tell you the rail is the wrong cream or that a table is cramped. It needs eyes on a real browser before anyone else sees it. |
+| Inter is loaded from Google | With a full system fallback, so a floor tablet with no route out looks ordinary rather than broken. Self-hosting the font is the fix if that matters. |
+| The dark theme is inferred | Built from Clay's two published dark-surface tokens, because the system specifies no dark theme at all. It is a reasonable reading, not a documented one. |
+| `src/api/index.html` | Still there, still the legacy single-file UI, now further behind than ever. It is what a checkout that has never run `npm run build` still serves. |
+| No members screen equivalent for stages | Stages is read-only. Assigning somebody to a stage is done on the Members screen, which is right, but the Stages screen looks editable and is not. |
+
+---
+
+## 38. Users, and the prototype as the product
+
+**Date:** 23 September 2026. Continues §37, and **supersedes it** — §37 described
+a Clay-flavoured interpretation of the prototype. This replaces it with the
+prototype itself.
+
+**Tests:** 419 Python, 44 → **57** frontend. `ruff`, `eslint`, `tsc` and
+`alembic check` clean.
+
+### 38.1 Accounts became users, keyed by uuid, signed in by email
+
+`accounts` → **`users`** throughout: table, model, API (`/api/users`), CLI
+(`user add`), UI, and the variable names. Mixed vocabulary for one entity is
+what bites six months later.
+
+**The primary key is a uuid and the credential is an email, and those are two
+separate facts.** §36 argued the opposite — that the login name should be the
+key because the audit trail records it. That was backwards, and it is worth
+writing down why:
+
+> A credential is exactly the thing that changes. People marry, a domain gets
+> bought, somebody is entered wrong on their first day. A key that changes has
+> to be chased through every row that points at it; a surrogate key never
+> changes, so the audit trail keeps pointing at the same person no matter what
+> they are called this year. The name to print is looked up, not stored in the
+> pointer.
+
+There is a test for exactly that: correct somebody's address through
+`PATCH /api/users/{id}` and their id does not move.
+
+Emails are stored lower case and uniquely indexed — `S.Iqbal@…` and `s.iqbal@…`
+as two rows is a split audit trail nobody notices for months. The pattern is
+deliberately permissive (`[^@\s]+@[^@\s]+\.[^@\s]{2,}`): a strict email regex is
+a famous way to reject somebody's real address, and the only check that proves
+an address works is sending to it.
+
+The phase-4 migration was **rewritten in place** rather than followed by a
+rename migration. It was untracked, never committed, and had only ever been
+applied to one development database. A rename migration for a schema that never
+shipped is archaeology nobody will thank us for. Current head:
+`b08425f66127`.
+
+Verified against the running server: capitalised sign-in works, wrong password
+and unknown address return the identical 401, an address correction keeps the
+id, a duplicate address is refused with 400, and a malformed uuid in the URL is
+404 rather than 500.
+
+### 38.2 `api/app.py` now reads `.env` itself
+
+`uvicorn api.app:app` failed at startup with "DATABASE_URL is not set" while
+`python src/main.py serve` worked. The CLI happened to call `Settings.load()`
+first, which loads `.env` into the process, and uvicorn inherited it — so the
+app depended on an implicit side effect of one of its two entry points.
+
+`app.py` now calls `load_env_file()` at import, the same way `migrations/env.py`
+already did. A module that needs configuration should fetch it rather than hope.
+Safe everywhere: `load_env_file` uses `setdefault`, so a real environment
+variable always wins, and it is why the test-isolation guard still holds —
+`conftest.py` blanks `DATABASE_URL` to `""` rather than deleting it, precisely
+so `setdefault` cannot put the live one back.
+
+### 38.3 The prototype is the product now
+
+`demo/app.css` and `demo/clay/` are **copied whole** into
+`src/frontend/src/ui/`. Not a reinterpretation, not a retheme — the files. Every
+screen below is the prototype's markup, its class names and its copy, wired to
+real endpoints:
+
+| Prototype | Component |
+|---|---|
+| `app.js` `rail()` | `Rail.tsx` — stage tile, stage switcher, that stage's nav, hairline, Members / account / Log out |
+| `teams.js` | `stages.ts` — four stages, each with nav, tag, fill, blurb |
+| `signin.html` | `SignIn.tsx` — `.topbar`, `.auth-split`, the AEO confidentiality panel |
+| `dashboard.html` | `Dashboard.tsx` — hero verdict, `.readout`, needs-attention, recent |
+| `index.html` | `Inspections.tsx` — eight columns, state pills, tabs built from the data |
+| `record.html` | `Intake.tsx` — the teal `.recorder`, `.recdot`, `.clock`, `.wave`, `.transcript` |
+| `report.html` | `JobDetail.tsx` + `Stats.tsx` — both panels |
+| `audit.html` | `AuditSheet.tsx` — `.audit-head/scroll/foot`, `.grid`, `.gridkey`, the cell dialog |
+| `library.html` | `StyleSets.tsx` |
+| `teams.html` | `Stages.tsx` — `.stageflow` with arrows, `.teamcard` grid |
+| `members.html` | `Users.tsx` — `.teamchips`, the `.scrim`/`.dialog` editor |
+| `account.html` | `Account.tsx` — `.kv`, stages table, password form |
+| `logs.html` | `Activity.tsx` |
+
+Nav icons are the prototype's SVG paths, copied rather than redrawn. The rail's
+open/closed state is on `<html data-rail>` set before first paint, exactly as
+every prototype page does it — otherwise the rail flashes open and snaps shut.
+
+`ui/extra.css` is the only stylesheet of our own, and it holds three kinds of
+thing: components the prototype never modelled (the live transcription monitor,
+playing a reading back, the settle dialog), a handful of aliases so carried-over
+rules keep working, and the grid deviations in §38.5. If `app.css` styles it, it
+does not belong there — a second opinion about `.btn` is how two design systems
+start.
+
+### 38.4 What is deliberately not the prototype
+
+- **No account list on the sign-in screen.** The prototype lists every id and
+  password as clickable chips. Shipping that enumerates who has an account,
+  which is the precise thing `auth.sign_in` goes to trouble to hide. There is a
+  test asserting no address appears on that screen.
+- **Activity says it is empty.** The prototype's log is invented events. There
+  is no audit trail yet, and a fabricated audit log is worse than an honest
+  empty one, because that screen is what people reach for when they need to
+  know what actually happened.
+- **No Sign it off button.** `release` is enforced and has no endpoint behind it.
+- **Four provenance facts on the Stats tab** — who took it, which bench, the
+  season, the transcript — say they are not recorded rather than showing a
+  plausible name.
+- **"Written to device" is gone from the recorder.** The prototype shows `462`;
+  the recorder exposes no chunk count, and a made-up number on a reliability
+  stat is worse than one fewer stat.
+
+### 38.5 The graded sheet, after looking at it
+
+Three things only visible on a real sheet:
+
+**The colours were missing entirely.** The component emitted `uncertain`,
+`shaky` and `mark-glyph`; `app.css` styles `conf-mid`, `conf-low` and `.mark`.
+Nothing matched, so the confidence washes and **every state glyph** rendered
+uncoloured. Renamed in the component.
+
+**One blue, not two.** The prototype grades confidence in two bands, 10% under
+100% and 20% under 85%. On a real sheet that is a distinction without a
+difference: 99% and 68% both mean *the model was not certain, listen before you
+release it*, and the reviewer's next action is identical. Two shades invited
+somebody to treat the paler one as good enough, which is the one reading that
+gets a wrong number onto a vendor document. One fill now, at .36.
+
+**One weight for all three states.** `app.css` fills out-of-tolerance at 7% and
+no-verdict at 22% against the confidence blue's 36%, so the eye ranked cells by
+strength rather than by hue — and the faintest was the most serious. All three
+now carry the same weight, with lavender at **.62** because a pale hue needs
+more of itself to read as loudly. The three fills are tokens
+(`--cell-uncertain`, `--cell-fail`, `--cell-open`) read by both the cell rules
+and the key under the grid, so a key cannot drift from the cells it explains.
+
+Hover no longer repaints the cell. `app.css` washes the hovered button with
+`surface-soft`, erasing the state colour underneath — and the hovered cell is
+exactly the one whose colour is being read. The affordance is an inset outline
+instead.
+
+### 38.6 The Stats tab, which nearly did not happen
+
+It was dropped in §37 on the grounds that it wanted who, where and how long.
+That was true of its **provenance** half only. The analysis half is entirely
+computable from the graded sheet the server already returns, and it is the half
+with the substance — median confidence, the five confidence buckets, deviation
+sizes bucketed on absolute value, and a by-size table. Every figure is counted
+cell by cell from `/api/jobs/{id}/sheet`.
+
+Worth remembering as a pattern: "the server does not have the data" was true of
+a part and got applied to the whole.
+
+### 38.7 Left open
+
+| Item | State |
+|---|---|
+| **Nobody has reviewed this on a real screen but the author of the prototype** | Several defects in §38.5 were invisible to 57 passing tests. jsdom cannot tell you a colour is missing. |
+| No audit trail | Activity, the Stats provenance card and "who settled this cell" all wait on it. Phase 5. |
+| No release endpoint | `release` is enforced, guards nothing. |
+| No style set upload | `manage.styles` likewise. The Upload button is present and dead, with the reason on it. |
+| Three stages have no pipeline | PPM, Interim and Final carry nav and roles; standing in one shows an honest panel rather than an empty dashboard. |
+| `src/api/index.html` | The legacy single-file UI, now very far behind. It is still what a checkout that has never run `npm run build` serves. |
+| The bucket and the database hold demo data | `triburg` has five users; the Railway bucket has whatever has been uploaded since §35. |

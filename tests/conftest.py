@@ -1,3 +1,38 @@
+"""Test-wide setup.
+
+One job, and it matters more than it looks: the tests must never touch the
+database or the bucket that `.env` points at. `api/app.py` opens a job store at
+import, so a developer with DATABASE_URL set for local work would otherwise
+have the suite connect to their real database — and `tests/test_api.py` imports
+that module. Passing today is not the point; the point is that nothing here
+should be one `store.create()` away from writing rows into a database somebody
+is using, or one upload away from putting a test fixture in the client's
+document bucket.
+
+Tests that want a database make their own, per test, in a tmp_path — see
+tests/test_db.py. Tests that want a bucket use a stub — see
+tests/test_storage.py.
+"""
+
+import os
+
+# Blanked, not deleted, and before any test module is imported — so before
+# `api.app` runs. Deleting is not enough: `Settings.load()` calls
+# `load_env_file()`, which reads the real `.env` and `setdefault`s anything
+# absent straight back. An empty string survives that, and every reader treats
+# it as "not configured".
+for _name in (
+    "DATABASE_URL",
+    "S3_BUCKET",
+    "BUCKET_NAME",
+    "AWS_S3_BUCKET",
+    "S3_ENDPOINT_URL",
+    "BUCKET_ENDPOINT_URL",
+    "AWS_ENDPOINT_URL_S3",
+):
+    os.environ[_name] = ""
+
+
 import shutil
 from pathlib import Path
 
@@ -172,3 +207,89 @@ def recording(settings) -> Path:
     path = settings.recordings_dir / "Recording_20.m4a"
     path.write_bytes(b"audio")
     return path
+
+
+# The user every test signs in as. An administrator, so that a test about
+# uploading is a test about uploading rather than about permissions; the tests
+# that are about permissions make their own users — see tests/test_auth.py.
+TEST_EMAIL = "tester@example.com"
+TEST_PASSWORD = "test-password"
+
+
+@pytest.fixture
+def app_db(tmp_path):
+    """A throwaway database for one test, with one administrator in it.
+
+    The web app requires a database now: users, sessions and permissions
+    live there, and an app that cannot authenticate anybody must not fall back
+    to serving everybody. SQLite per test, in tmp_path, exactly as
+    tests/test_db.py does it.
+    """
+    from services import auth
+    from services.db import configure, create_all, reset, session
+
+    reset()
+    configure(f"sqlite:///{tmp_path / 'app.db'}")
+    create_all()
+    with session() as db:
+        auth.create_user(
+            db, TEST_EMAIL, "Test Administrator", password=TEST_PASSWORD, is_admin=True
+        )
+    yield
+    reset()
+
+
+@pytest.fixture
+def client(settings, app_db):
+    """A signed-in test client whose uploads land in the throwaway data directory.
+
+    Here rather than in `test_api.py` because more than one module needs the
+    same application — and a second TestClient wired slightly differently would
+    be testing something other than the app that ships.
+    """
+    # Imported inside the fixture so that a pipeline-only run never pays to
+    # import FastAPI, and so that nothing opens a job store at collection time.
+    from fastapi.testclient import TestClient
+
+    from api import app as api
+
+    api.app.dependency_overrides[api.settings_dependency] = lambda: settings
+    with TestClient(api.app) as test_client:
+        opened = test_client.post(
+            "/api/session", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
+        )
+        assert opened.status_code == 200, opened.text
+        yield test_client
+    api.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def anonymous(settings, app_db):
+    """The same app, nobody signed in."""
+    from fastapi.testclient import TestClient
+
+    from api import app as api
+
+    api.app.dependency_overrides[api.settings_dependency] = lambda: settings
+    with TestClient(api.app) as test_client:
+        yield test_client
+    api.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def stub_pipeline(monkeypatch):
+    """Replace the two API-backed stages so uploads process offline."""
+    import pipeline
+
+    monkeypatch.setattr(
+        pipeline.inspection_pipeline,
+        "transcribe_recording",
+        lambda recording, settings, client=None, on_delta=None, announce=None: "text",
+    )
+    monkeypatch.setattr(
+        pipeline.inspection_pipeline,
+        "extract_inspection",
+        lambda transcript, settings, template, client=None: InspectionSheet.from_payload(
+            SHEET_PAYLOAD
+        ),
+    )

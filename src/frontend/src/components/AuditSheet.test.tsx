@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AuditSheet } from "./AuditSheet";
+import { SessionProvider } from "../SessionProvider";
 import type { GradedSheet, Job } from "../types";
 
 afterEach(cleanup);
@@ -63,13 +64,38 @@ const CUES = { duration: 600, cues: { "12": { start: 120, end: 134, exact: true 
 let play: ReturnType<typeof vi.fn>;
 let pause: ReturnType<typeof vi.fn>;
 
+const ME = {
+  id: "tester",
+  name: "Test Administrator",
+  admin: true,
+  state: "active",
+  stage: "sizeset",
+  role: "admin",
+  role_label: "Administrator",
+  stages: ["sizeset", "ppm", "interim", "final"],
+  can: [
+    "record",
+    "audit.view",
+    "audit.edit",
+    "download.working",
+    "download.vendor",
+    "release",
+    "manage.styles",
+    "manage.people",
+  ],
+  roles: { sizeset: "admin" },
+};
+
 beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string) =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(url.includes("/cues") ? CUES : SHEET),
+        json: () =>
+          Promise.resolve(
+            url.includes("/api/me") ? ME : url.includes("/cues") ? CUES : SHEET,
+          ),
       }),
     ),
   );
@@ -92,7 +118,11 @@ beforeEach(() => {
 });
 
 const cell = async () => {
-  render(<AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />);
+  render(
+    <SessionProvider>
+      <AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />
+    </SessionProvider>,
+  );
   await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
   return within(document.querySelector("td.cell") as HTMLElement);
 };
@@ -115,7 +145,11 @@ test("the deviation the inspector called is shown against it", async () => {
 
 
 const playFirstReading = async () => {
-  render(<AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />);
+  render(
+    <SessionProvider>
+      <AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />
+    </SessionProvider>,
+  );
   await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
   fireEvent.click(screen.getByRole("button", { name: /4\.04A S/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Play this reading/ }));
@@ -137,7 +171,7 @@ test("staging a change stops the audio too", async () => {
   await playFirstReading();
 
   pause.mockClear();
-  fireEvent.click(screen.getByRole("button", { name: "Stage this change" }));
+  fireEvent.click(screen.getByRole("button", { name: "Stage this correction" }));
 
   expect(pause).toHaveBeenCalled();
 });

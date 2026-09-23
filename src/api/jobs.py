@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pipeline
+from services import storage
 from services.config import Settings
 from services.measurements import format_measurement
 
@@ -140,12 +141,13 @@ class JobStore:
 
 def process(job: Job, recording: Path, settings: Settings, store: JobStore) -> None:
     """Run the whole pipeline for one upload, recording progress on the job."""
-    del store  # the job object is shared; the store is only needed to look it up
     _run_and_record(
         job,
         lambda announce: pipeline.run(
             recording, settings, announce=announce, style_no=job.style_no
         ),
+        store,
+        recording=recording,
     )
 
 
@@ -159,33 +161,109 @@ def process_transcript(
     four outputs — is identical, which is the point: one report format, however
     the audio reached us.
     """
-    del store
     _run_and_record(
         job,
         lambda announce: pipeline.run_from_transcript(
             transcript_text, name, settings, style_no=job.style_no, announce=announce
         ),
+        store,
     )
 
 
-def _run_and_record(job: Job, invoke) -> None:
+def _run_and_record(
+    job: Job, invoke, store: JobStore | None = None, recording: Path | None = None
+) -> None:
     """Run one pipeline call and copy its result onto the job.
 
     Shared by both entry points so the status payload the browser polls cannot
     drift between them — a field populated for uploads but not for meetings
     would show up as a silently empty column in the UI.
+
+    `recording` is the audio this run came from, or None for a transcript that
+    arrived as text. It is only used to put the audio somewhere durable.
     """
+    # Written down on each announced stage, and again at the end. Not on every
+    # attribute set: that would put a transaction inside the pipeline. Not only
+    # at the end: that would lose the eight minutes a restart interrupts, which
+    # is the whole reason the row exists.
+    def checkpoint(message: str) -> None:
+        job.message = message
+        _persist(job, store)
+
     job.status = RUNNING
+    _persist(job, store)
+    # Before the pipeline, not after: transcription takes minutes, and the
+    # recording is the one thing here that cannot be produced again.
+    if recording is not None:
+        _archive_recording(job, recording, store)
     try:
-        result = invoke(lambda message: setattr(job, "message", message))
+        result = invoke(checkpoint)
     except Exception as exc:  # noqa: BLE001 - a background task must not die silently
         log.exception("job %s failed", job.id)
         job.status, job.error = FAILED, str(exc)
         job.message = "failed"
         job.finished_at = time.time()
+        _persist(job, store)
         return
 
     apply_result(job, result)
+    _persist(job, store)
+
+
+def _archive_recording(job: Job, recording: Path, store: JobStore | None) -> None:
+    """Put the audio in the bucket and note where it went.
+
+    The hash goes down with it: it is one pass over a file already being read,
+    and it is what makes re-uploading the same recording recognisable rather
+    than transcribed again at full price.
+    """
+    if not storage.enabled():
+        return
+    key = storage.recording_key(recording.name)
+    if not storage.mirror(key, recording):
+        return
+    recorder = getattr(store, "record_recording", None)
+    if recorder is None:
+        return
+    try:
+        recorder(job, key, storage.sha256_of(recording))
+    except Exception:  # noqa: BLE001 - never let bookkeeping kill the job
+        log.exception("could not record the recording key for job %s", job.id)
+
+
+def _archive_outputs(job: Job) -> None:
+    """Put every finished output in the bucket.
+
+    Best effort, one by one. A report that reached disk is already the work;
+    this is the copy that lets a different machine serve it.
+
+    Called from `apply_result` rather than from the end of a run, because
+    settling a cell and regrading a size both rewrite these same files. A
+    bucket left holding the version from before a correction is worse than one
+    holding nothing: it is a document someone could be served that a person has
+    already ruled wrong.
+    """
+    if not storage.enabled():
+        return
+    for path in job.files.values():
+        storage.mirror(storage.output_key(job.name, path.name), path)
+
+
+def _persist(job: Job, store: JobStore | None) -> None:
+    """Save the job if the store can save. A failure here must not fail the run.
+
+    The report is already on disk by the time most of these fire; losing the
+    row would cost the operator the status line, not the work, and a pipeline
+    that dies because a database blipped is worse than one that finishes and
+    forgets.
+    """
+    saver = getattr(store, "save", None)
+    if saver is None:
+        return
+    try:
+        saver(job)
+    except Exception:  # noqa: BLE001 - never let bookkeeping kill the job
+        log.exception("could not persist job %s", job.id)
 
 
 def apply_result(job: Job, result) -> None:
@@ -222,6 +300,7 @@ def apply_result(job: Job, result) -> None:
         for number, row in sheet.flagged()[:MAX_FLAGGED_DETAIL]
     ]
     _record_grading(job, result)
+    _archive_outputs(job)
     job.message = f"{job.rows} rows, {job.flagged} need review"
     if job.unconfirmed:
         job.message += f", {job.unconfirmed} verdict(s) not captured"

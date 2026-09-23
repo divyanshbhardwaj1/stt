@@ -52,14 +52,14 @@ test("the words still being spoken are a separate, marked line", () => {
   const lines = screen.getAllByRole("listitem");
   expect(lines).toHaveLength(3);
   // Marked, so a half-heard phrase is not mistaken for a settled reading.
-  expect(lines[2].className).toContain("saying");
+  expect(lines[2].className).toContain("partial");
   expect(lines[2].textContent).toContain("across front seam to");
 });
 
 test("it says it is a monitor, not the report", () => {
   render(<LiveTranscript status="live" error="" utterances={SPOKEN} partial="" live={true} />);
 
-  expect(screen.getByText(/transcribed again, more thoroughly, after upload/)).toBeDefined();
+  expect(screen.getByText(/transcribed again afterwards/)).toBeDefined();
 });
 
 test("a finished take shows its transcript without claiming to be listening", () => {

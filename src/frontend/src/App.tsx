@@ -1,30 +1,98 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Account } from "./components/Account";
+import { Activity } from "./components/Activity";
 import { AuditSheet } from "./components/AuditSheet";
+import { Dashboard } from "./components/Dashboard";
+import { Inspections } from "./components/Inspections";
 import { Intake } from "./components/Intake";
-import { EmptyState, JobDetail } from "./components/JobDetail";
-import { Sidebar } from "./components/Sidebar";
+import { JobDetail } from "./components/JobDetail";
+import { Rail } from "./components/Rail";
+import { SignIn } from "./components/SignIn";
+import { Stages } from "./components/Stages";
+import { StyleSets } from "./components/StyleSets";
+import { Users } from "./components/Users";
 import { useJobs } from "./hooks/useJobs";
+import { href, useRoute } from "./router";
+import { SessionProvider } from "./SessionProvider";
+import { useSession } from "./session";
+import { STAGE_KEY, stageOf } from "./stages";
 import type { Job } from "./types";
 
+/**
+ * The session gate.
+ *
+ * Nothing below this renders, and no polling starts, until the server has said
+ * who is signed in. Mounting the workspace first and hiding it afterwards
+ * would fire a poll per second against endpoints that all answer 401.
+ */
 export default function App() {
+  return (
+    <SessionProvider>
+      <Gate />
+    </SessionProvider>
+  );
+}
+
+function Gate() {
+  const { me, loading } = useSession();
+  // Nothing at all rather than a spinner: /api/me answers in a millisecond on
+  // the same host, and a spinner that flashes for one frame reads as a fault.
+  if (loading) return null;
+  if (!me) return <SignIn />;
+  return <Workspace />;
+}
+
+function Workspace() {
+  const { route, go } = useRoute();
   const { jobs, refreshNow } = useJobs();
-  const [picked, setPicked] = useState<string | null>(null);
+  const { me } = useSession();
+
+  /**
+   * The stage being stood in. Remembered, and corrected against the account:
+   * landing somebody in a stage they hold no role on is the prototype's own
+   * rule, and the server would refuse everything on it anyway.
+   */
+  const [stage, setStage] = useState(() => {
+    try {
+      return window.localStorage.getItem(STAGE_KEY) || "sizeset";
+    } catch {
+      return "sizeset";
+    }
+  });
+  useEffect(() => {
+    const mine = me?.stages ?? [];
+    const settled = mine.includes(stage) ? stage : (mine[0] ?? "sizeset");
+    if (settled !== stage) setStage(settled);
+    try {
+      window.localStorage.setItem(STAGE_KEY, settled);
+    } catch {
+      /* private mode. The default stage still resolves. */
+    }
+  }, [stage, me]);
+
+  /**
+   * The rail's open/closed state lives on <html>, not in a class here: the
+   * prototype's CSS keys off `:root[data-rail="closed"]`, and index.html sets
+   * it before first paint so the rail does not flash open and snap shut.
+   */
+  const [closed, setClosed] = useState(
+    () => document.documentElement.dataset.rail === "closed",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.rail = closed ? "closed" : "open";
+    try {
+      window.localStorage.setItem("rail", closed ? "closed" : "open");
+    } catch {
+      /* the toggle still works for this page */
+    }
+  }, [closed]);
+
   /**
    * The job just accepted by the server, before any poll has returned it.
-   *
-   * Without this, pressing Process leaves the *previous* inspection on screen
-   * for a poll cycle — pill still reading "done" — which looks like the new
-   * recording produced the old report.
+   * Without it, pressing Process opens a report for an id the list does not
+   * have yet, which renders as "not here" for a poll cycle.
    */
   const [queued, setQueued] = useState<Job | null>(null);
-  /**
-   * The job whose graded sheet is open for audit.
-   *
-   * Held by id rather than as a flag, so selecting a different inspection in
-   * the sidebar closes the sheet instead of showing one job's readings under
-   * another job's heading.
-   */
-  const [auditing, setAuditing] = useState<string | null>(null);
   /**
    * A job the audit view has rebuilt, shown until the next poll catches up.
    * Settling a cell rewrites every output, so the counts and the verdict on
@@ -32,47 +100,134 @@ export default function App() {
    */
   const [settled, setSettled] = useState<Job | null>(null);
 
-  // Derived, not synchronised: the selection is whatever the operator last
-  // clicked, then the job we just queued, then the newest. That also covers a
-  // job dropping off the server - the store is in memory and empties on
-  // restart - without an effect writing state back on every poll.
   const polled =
-    jobs.find((candidate) => candidate.id === picked) ??
-    (queued && queued.id === picked ? queued : undefined) ??
-    jobs[0];
-  // A just-settled job wins over the poll only until the poll returns it.
-  const job = settled && settled.id === polled?.id && settled.rows !== polled.rows ? settled : polled;
+    jobs.find((candidate) => candidate.id === route.id) ??
+    (queued && queued.id === route.id ? queued : undefined);
+  const job =
+    settled && settled.id === polled?.id && settled.rows !== polled.rows ? settled : polled;
+
+  const here = stageOf(stage);
+  // A stage without a pipeline says so rather than drawing an empty one. This
+  // is the prototype's `data-need-team` answer, and it is deliberately not a
+  // permission error: it is the wrong stage, not a locked door.
+  const strayed = !here.built && route.screen !== "stages" && route.screen !== "account";
 
   return (
     <div className="shell">
-      <Sidebar jobs={jobs} selected={job?.id ?? null} onSelect={setPicked} />
+      <Rail
+        route={route}
+        stage={stage}
+        onStage={(next) => {
+          setStage(next);
+          go(href(stageOf(next).home));
+        }}
+        closed={closed}
+        onToggle={() => setClosed((was) => !was)}
+      />
       <main>
-        {/* Intake fills the pane with the live transcript while recording, and
-            falls back to this content the rest of the time. */}
-        <Intake
-          onQueued={(accepted) => {
-            setQueued(accepted);
-            setPicked(accepted.id);
-            setAuditing(null);
-            refreshNow();
-          }}
-        >
-          {job && auditing === job.id ? (
-            <AuditSheet
-              job={job}
-              onClose={() => setAuditing(null)}
-              onSettled={(rebuilt) => {
-                setSettled(rebuilt);
-                refreshNow();
-              }}
-            />
-          ) : job ? (
-            <JobDetail job={job} onAudit={() => setAuditing(job.id)} />
-          ) : (
-            <EmptyState />
-          )}
-        </Intake>
+        {/* The audit sheet fills the pane itself: it is a wide grid with its
+            own head and foot, and .wrap's column would crop it. */}
+        {route.screen === "inspection" && route.tab === "sheet" && job?.graded && !strayed ? (
+          <AuditSheet
+            job={job}
+            onClose={() => go(href("inspection", job.id, "report"))}
+            onSettled={(rebuilt) => {
+              setSettled(rebuilt);
+              refreshNow();
+            }}
+          />
+        ) : (
+          <div className="wrap">{strayed ? <NotBuilt /> : screen()}</div>
+        )}
       </main>
     </div>
   );
+
+  function NotBuilt() {
+    return (
+      <div className="blank">
+        <div>
+          <span
+            className={`tile ${here.fill}`}
+            aria-hidden="true"
+            style={{ margin: "0 auto 16px" }}
+          >
+            {here.tag}
+          </span>
+          <h2>{here.name} is not built yet</h2>
+          <p>
+            {here.detail} Only size set has a pipeline behind it today — the roles here are
+            real, the screens are not.
+          </p>
+          <div className="files" style={{ justifyContent: "center" }}>
+            <button className="btn" onClick={() => setStage("sizeset")}>
+              Switch to Size set
+            </button>
+            <a className="btn secondary" href={href("stages")}>
+              See your stages
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function screen() {
+    switch (route.screen) {
+      case "record":
+        return (
+          <Intake
+            onQueued={(accepted) => {
+              setQueued(accepted);
+              refreshNow();
+              go(href("inspection", accepted.id));
+            }}
+          />
+        );
+
+      case "inspections":
+        return <Inspections jobs={jobs} onOpen={(id) => go(href("inspection", id))} />;
+
+      case "inspection":
+        if (!job) {
+          return (
+            <div className="blank">
+              <div>
+                <h2>That inspection is not here</h2>
+                <p>
+                  It may still be arriving, or it may have been recorded before this floor
+                  had a database.
+                </p>
+                <div className="files" style={{ justifyContent: "center" }}>
+                  <a className="btn" href={href("inspections")}>
+                    Back to inspections
+                  </a>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return <JobDetail job={job} onAudit={() => go(href("inspection", job.id, "sheet"))} />;
+
+      case "styles":
+        return <StyleSets />;
+      case "activity":
+        return <Activity />;
+      case "stages":
+        return (
+          <Stages
+            stage={stage}
+            onStage={setStage}
+            openWork={jobs.filter((one) => one.status === "done" && one.unconfirmed > 0).length}
+          />
+        );
+      case "users":
+        return <Users />;
+      case "account":
+        return <Account stage={stage} onStage={setStage} />;
+
+      default:
+        return <Dashboard jobs={jobs} onOpen={(id) => go(href("inspection", id))} />;
+    }
+  }
 }

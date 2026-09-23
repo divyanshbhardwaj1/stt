@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import pipeline
+from services.auth import AuthError
 from services.config import ConfigError, Settings
 from services.csv_filler import ExtractionError, TemplateError
 from services.measurements import format_measurement as fmt
@@ -195,6 +196,145 @@ def command_serve(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def _users_ready() -> None:
+    """Fail with something actionable when there is no database to talk to."""
+    from services.db import enabled
+
+    if not enabled():
+        raise ConfigError(
+            "DATABASE_URL is not set, so there is nowhere to keep users. "
+            "Put it in .env and run `alembic upgrade head` first."
+        )
+
+
+def _ask_password(confirm: bool = True) -> str:
+    """Read a password without echoing it, and without it reaching the shell.
+
+    Not an argument, deliberately. A password on a command line lands in the
+    shell history, in `ps` output for every other user on the box, and in any
+    recording of the terminal.
+    """
+    import getpass
+
+    password = getpass.getpass("password: ")
+    if confirm and password != getpass.getpass("again: "):
+        raise ConfigError("Those did not match.")
+    return password
+
+
+def _parse_roles(pairs: list[str]) -> dict[str, str]:
+    """`--role sizeset:reviewer --role final:approver` -> {stage: role}."""
+    roles: dict[str, str] = {}
+    for pair in pairs or []:
+        stage, separator, role = pair.partition(":")
+        if not separator:
+            raise ConfigError(f"--role wants stage:role, not {pair!r}")
+        roles[stage.strip()] = role.strip()
+    return roles
+
+
+def _by_email(db, email: str):
+    """One user, by the address they sign in with."""
+    from sqlalchemy import select
+
+    from services import auth
+    from services.db.models import User
+
+    return db.scalar(select(User).where(User.email == auth.normalise_email(email)))
+
+
+def command_user_add(args: argparse.Namespace, settings: Settings) -> int:
+    """Create a user. This is how the first administrator exists."""
+    del settings
+    _users_ready()
+    from services import auth
+    from services.db import session
+
+    password = "" if args.invite else _ask_password()
+    with session() as db:
+        user = auth.create_user(
+            db,
+            args.email,
+            args.name,
+            password=password,
+            roles=_parse_roles(args.role),
+            is_admin=args.admin,
+        )
+        held = "every stage" if user.is_admin else ", ".join(
+            f"{m.stage}:{m.role}" for m in sorted(user.memberships, key=lambda m: m.stage)
+        )
+        print(f"{user.email} ({user.name}): {user.state}, {held}")
+    return 0
+
+
+def command_user_list(args: argparse.Namespace, settings: Settings) -> int:
+    """Everyone on the roster, and what they hold."""
+    del args, settings
+    _users_ready()
+    from sqlalchemy import select
+
+    from services import auth
+    from services.db import session
+    from services.db.models import User
+
+    with session() as db:
+        people = db.scalars(select(User).order_by(User.name)).all()
+        if not people:
+            print("no users yet - `user add <email> --name ... --admin` makes the first")
+            return 0
+        for person in people:
+            held = (
+                "every stage"
+                if person.is_admin
+                else ", ".join(f"{m.stage}:{m.role}" for m in person.memberships) or "no stage"
+            )
+            flag = auth.ROLE_LABELS.get(auth.role_on(person) or "", "no role")
+            print(f"{person.email:<32} {person.state:<9} {flag:<14} {held}")
+    return 0
+
+
+def command_user_password(args: argparse.Namespace, settings: Settings) -> int:
+    """Set somebody's password, activating an invited user."""
+    del settings
+    _users_ready()
+    from services import auth
+    from services.db import session
+    from services.db.models import UserState
+
+    with session() as db:
+        person = _by_email(db, args.email)
+        if person is None:
+            raise ConfigError(f"no user {args.email!r}")
+        person.password_hash = auth.hash_password(_ask_password())
+        person.state = UserState.active.value
+        ended = auth.sign_out_everywhere(db, person.id)
+        print(f"{person.email}: password set, {ended} session(s) ended")
+    return 0
+
+
+def command_user_disable(args: argparse.Namespace, settings: Settings) -> int:
+    """Lock somebody out now, keeping the user the audit trail points at."""
+    del settings
+    _users_ready()
+    from services import auth
+    from services.db import session
+    from services.db.models import UserState
+
+    with session() as db:
+        person = _by_email(db, args.email)
+        if person is None:
+            raise ConfigError(f"no user {args.email!r}")
+        if auth.last_admin(db, person.id):
+            raise ConfigError(
+                "That is the last administrator. Promote somebody else first, or "
+                "nobody can manage the roster."
+            )
+        person.state = UserState.disabled.value
+        ended = auth.sign_out_everywhere(db, person.id)
+        print(f"{person.email}: disabled, {ended} session(s) ended")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sizeset", description=__doc__)
     parser.add_argument("-v", "--verbose", action="store_true", help="log progress to stderr")
@@ -227,6 +367,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rerender_cmd.set_defaults(handler=command_rerender)
 
+    # Users. Here rather than only in the web app because the first
+    # administrator has to exist before anybody can sign in to create one, and
+    # because locking somebody out should not require a working browser.
+    user_cmd = sub.add_parser("user", help="users and roles")
+    users = user_cmd.add_subparsers(dest="user_command", required=True)
+
+    add_cmd = users.add_parser("add", help="create a user")
+    add_cmd.add_argument("email", help="what they sign in with")
+    add_cmd.add_argument("--name", required=True, help="what the audit trail records")
+    add_cmd.add_argument("--admin", action="store_true", help="holds every stage")
+    add_cmd.add_argument(
+        "--role",
+        action="append",
+        default=[],
+        metavar="STAGE:ROLE",
+        help="e.g. sizeset:reviewer. Repeatable. Ignored for --admin",
+    )
+    add_cmd.add_argument(
+        "--invite",
+        action="store_true",
+        help="create without a password; they cannot sign in until one is set",
+    )
+    add_cmd.set_defaults(handler=command_user_add)
+
+    list_cmd = users.add_parser("list", help="show the roster")
+    list_cmd.set_defaults(handler=command_user_list)
+
+    password_cmd = users.add_parser("password", help="set a password")
+    password_cmd.add_argument("email")
+    password_cmd.set_defaults(handler=command_user_password)
+
+    disable_cmd = users.add_parser("disable", help="lock a user out")
+    disable_cmd.add_argument("email")
+    disable_cmd.set_defaults(handler=command_user_disable)
+
     serve_cmd = sub.add_parser("serve", help="run the web app")
     serve_cmd.add_argument("--host", default="127.0.0.1", help="default: 127.0.0.1")
     serve_cmd.add_argument("--port", type=int, default=8000, help="default: 8000")
@@ -246,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.handler(args, Settings.load())
     except (
+        AuthError,
         ConfigError,
         TranscriptionError,
         ExtractionError,
