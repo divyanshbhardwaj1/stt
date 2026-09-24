@@ -75,10 +75,11 @@
    from: a latency-tuned model drops exactly the short verdict words the batch
    passes exist to catch.
    ============================================================ */
-.feed {
-  display: flex; flex-direction: column;
-  height: 100%; min-height: 0;
-}
+/* No `.feed` rule here. The monitor renders `.feed-head` and `.feed-body`
+   and never an element carrying `feed` itself, so the bare selector that used
+   to sit here styled nothing it was written for — and did reach the one thing
+   that does use the class, the dashboard's activity list, which app.css
+   already draws. Rule 1 at the top of this file. */
 .feed-head { padding: 20px 32px 12px; border-bottom: 1px solid var(--line); }
 .feed-head h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .feed-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-mute); max-width: 74ch; }
@@ -521,4 +522,111 @@ input[type="tel"]:focus {
 .reveal > input[type="password"],
 .reveal > input[type="text"] {
   padding-right: 58px;
+}
+
+/* ============================================================
+   The style picker
+
+   A combobox, because the library is thousands of sheets deep and the
+   prototype's `<select>` was built when it was eight. The panel is drawn here
+   rather than by the browser: a native `<datalist>` gives type-ahead away for
+   free and gives away the panel with it — width, row height and type are all
+   outside CSS, which is where this stopped being enough.
+
+   See components/StylePicker.tsx for what that trade bought and cost.
+   ============================================================ */
+.stylepick {
+  position: relative;
+  /* Wider than the field needs, because the panel hangs off it and a list of
+     numbers reading edge to edge is harder to scan than one with air in it. */
+  width: 340px;
+  max-width: 100%;
+}
+.stylepick input {
+  /* Matches the height `.intake .opts select` set, so the row does not jump
+     between this and the stage picker beside it. */
+  height: 36px;
+  padding-right: 36px;
+  font-variant-numeric: tabular-nums;
+}
+.stylepick input[aria-invalid="true"] { border-color: var(--fail); }
+
+/* The chevron. Not focusable — the field owns the keyboard, and a second tab
+   stop that only opens a panel the arrow keys already open is in the way. */
+.stylepick-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 36px;
+  width: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+}
+.stylepick-toggle:hover { color: var(--ink); }
+
+.stylepick-list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 264px;
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  /* The panel floats over the form, so it needs to read as lifted rather than
+     as another band of the page. */
+  box-shadow: 0 8px 24px rgba(10, 10, 10, .10);
+}
+.stylepick-list li {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  color: var(--ink);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+/* One highlight, driven by the keyboard cursor — the component moves it on
+   hover too, so the mouse and the arrow keys cannot disagree about which row
+   is about to be chosen. */
+.stylepick-list li.at { background: var(--sunken); }
+.stylepick-list li[aria-selected="true"] { font-weight: 600; }
+
+/* The default row: a real answer, so it gets a line of its own explaining it. */
+.stylepick-list li.any {
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+}
+.stylepick-list li.any em {
+  display: block;
+  font: var(--text-caption);
+  font-style: normal;
+  color: var(--ink-mute);
+  margin-top: 2px;
+}
+
+/* Not an option: "reading the library", "no sheet matches", "12 more". */
+.stylepick-list li.note {
+  cursor: default;
+  color: var(--ink-mute);
+  font: var(--text-caption);
+}
+.stylepick-list li.note:hover { background: none; }
+
+/* The matched run, so it is visible why a row is in a narrowed list. */
+.stylepick-list mark {
+  background: var(--color-brand-ochre);
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0 1px;
 }

@@ -1,4 +1,6 @@
-import { since } from "../format";
+import { useEffect, useState } from "react";
+import { fetchActivity, type Event } from "../api";
+import { kindLabel, kindPill, plural, since } from "../format";
 import { href } from "../router";
 import { useSession } from "../session";
 import type { Job } from "../types";
@@ -6,19 +8,43 @@ import type { Job } from "../types";
 /**
  * The size-set dashboard — `demo/dashboard.html`.
  *
- * The one thing the page exists to answer, in the one saturated card this
- * screen gets. Its colour and its text both come from the role: a reviewer and
- * an approver are blocked on different things, and an inspector is blocked on
- * nothing — what they recorded is somebody else's queue now.
+ * The figures first, then the queue. The prototype opens on a saturated
+ * verdict card and this deliberately does not: that card answers "can THIS be
+ * sent?", which is a question about one inspection, and `JobDetail` still
+ * leads with it. On a register of many it restated the readout and the queue
+ * underneath it in a third voice and a loud colour.
+ *
+ * What is still scoped to the role is the queue — a reviewer and an approver
+ * are blocked on different things, and an inspector is blocked on nothing,
+ * because what they recorded is somebody else's queue now.
  *
  * The prototype's numbers are invented. Every figure here is counted from the
- * job list, and the two the server cannot answer — median review time, and how
- * many readings were settled by hand across a fortnight — are left out rather
- * than filled in. A dashboard that makes a figure up is worse than one with
- * fewer figures, because the whole point of it is being trusted at a glance.
+ * job list or read off the audit trail, and the two the server cannot answer —
+ * median review time, and how many readings were settled by hand across a
+ * fortnight — are left out rather than filled in. A dashboard that makes a
+ * figure up is worse than one with fewer figures, because the whole point of it
+ * is being trusted at a glance.
  */
 
 const DAY = 86_400_000;
+
+/** One letter per day on the fortnight axis. The tooltip carries the rest. */
+const WEEKDAY = ["S", "M", "T", "W", "T", "F", "S"];
+
+/**
+ * Why an inspection is in the queue, badged.
+ *
+ * The prototype's vocabulary, from `SEVERITY` in demo/dashboard.html, kept in
+ * its order: a gap outranks a finding.
+ */
+const SEVERITY: Record<string, [string, string]> = {
+  open: ["no verdict", "pill lavender"],
+  fail: ["out of tolerance", "pill error"],
+  failed: ["failed", "pill error"],
+  none: ["not graded", "pill"],
+  running: ["running", "pill warning"],
+  ready: ["ready", "pill success"],
+};
 
 interface Props {
   jobs: Job[];
@@ -28,6 +54,26 @@ interface Props {
 export function Dashboard({ jobs, onOpen }: Props) {
   const { me, can } = useSession();
   const role = me?.admin ? "admin" : (me?.roles?.sizeset ?? "inspector");
+
+  /**
+   * The newest five lines of this stage's log.
+   *
+   * The same rows the Activity screen reads, not a second list that can
+   * disagree with it. Its own fetch rather than the job poll: the trail is
+   * append-only and a dashboard left open does not need it every two seconds.
+   */
+  const [trail, setTrail] = useState<Event[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchActivity(5)
+      .then((rows) => live && setTrail(rows))
+      // An unreadable log must not take the dashboard down with it: the counts
+      // above are the part somebody came here for.
+      .catch(() => live && setTrail([]));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const done = jobs.filter((job) => job.status === "done");
   const running = jobs.filter((job) => job.status === "queued" || job.status === "running");
@@ -77,7 +123,7 @@ export function Dashboard({ jobs, onOpen }: Props) {
         ? jobs.slice(0, 8)
         : [...open, ...failed, ...done.filter((job) => job.out_of_tolerance && !job.unconfirmed)];
 
-  const hero = buildHero();
+  const framing = queueFraming();
 
   return (
     <>
@@ -103,35 +149,17 @@ export function Dashboard({ jobs, onOpen }: Props) {
         </p>
       </header>
 
+      {/* No hero card. The saturated verdict card belongs to one inspection —
+          `JobDetail` still leads with it — and on a register of many it was a
+          third telling of what the readout and the queue below already say.
+          The figures open the page instead. */}
       <section style={{ marginTop: 24 }}>
-        <div className={`verdict ${hero.fill}`}>
-          <span className="glyph" aria-hidden="true">
-            {hero.glyph}
-          </span>
-          <div>
-            <span className="eyebrow">{hero.eyebrow}</span>
-            <h2>{hero.title}</h2>
-            <p>{hero.body}</p>
-            {hero.cta.length > 0 && (
-              <div className="row">
-                {hero.cta.map(([label, to, tone]) => (
-                  <a key={label} className={`btn ${tone}`} href={to}>
-                    {label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section>
         <div className="section-head">
           <h2>Inspections</h2>
         </div>
         <dl className="readout">
           <div>
-            <dt>Total</dt>
+            <dt>Total inspections</dt>
             <dd>{jobs.length}</dd>
           </div>
           <div>
@@ -151,14 +179,14 @@ export function Dashboard({ jobs, onOpen }: Props) {
             <dd>{needsAttention}</dd>
           </div>
           <div className={passRate === 100 ? "clear" : ""}>
-            <dt>Pass</dt>
+            <dt>Pass %</dt>
             <dd>{passRate === null ? "—" : `${passRate}%`}</dd>
           </div>
         </dl>
         <p className="lede" style={{ marginTop: 12, fontSize: 12.5 }}>
           <b>Overdue</b> is a pending inspection more than 24 hours old — there is no due date
           on an inspection, and a day is how long a recording can sit before the garment it was
-          taken from has moved on. <b>Pass</b> counts only inspections that carry a verdict: a
+          taken from has moved on. <b>Pass %</b> counts only inspections that carry a verdict: a
           sheet nobody has ruled on is not a pass waiting to happen.
         </p>
       </section>
@@ -191,15 +219,33 @@ export function Dashboard({ jobs, onOpen }: Props) {
         <div className="dash-split">
           <div>
             <div className="section-head">
-              <h2>{hero.queueTitle}</h2>
-              {queue.length > 0 && <span className="pill error">{queue.length}</span>}
+              <h2>{framing.title}</h2>
+              {queue.length > 0 && (
+                <span className={`pill ${role === "inspector" ? "" : "error"}`}>
+                  {plural(queue.length, "item")}
+                </span>
+              )}
             </div>
-            <p className="lede">{hero.queueLede}</p>
+            <p className="lede">{framing.lede}</p>
             {queue.length === 0 ? (
+              // Two different emptinesses, and a floor opening this for the
+              // first time should not be told its queue is clear. Nothing
+              // recorded at all is a prompt; nothing blocked is a result.
               <div className="blank" style={{ minHeight: "18vh" }}>
                 <div>
-                  <h2>Nothing here</h2>
-                  <p>Nothing on this stage is waiting on you.</p>
+                  <h2>{jobs.length ? "Nothing here" : "No inspections on this stage"}</h2>
+                  <p>
+                    {jobs.length
+                      ? "Nothing on this stage is waiting on you."
+                      : "Record one, or drop a recording you already have — the pipeline does not mind which."}
+                  </p>
+                  {!jobs.length && can("record") && (
+                    <div className="files" style={{ justifyContent: "center" }}>
+                      <a className="btn" href={href("record")}>
+                        Record inspection
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -208,29 +254,50 @@ export function Dashboard({ jobs, onOpen }: Props) {
                   <thead>
                     <tr>
                       <th>Inspection</th>
-                      <th>Style</th>
-                      <th className="num">No verdict</th>
-                      <th>Waiting on</th>
+                      <th>
+                        {role === "inspector" ? "What happened" : "What is blocking it"}
+                      </th>
+                      <th className="num">Waiting</th>
+                      <th>State</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
-                    {queue.map((job) => (
-                      <tr key={job.id} onClick={() => onOpen(job.id)}>
-                        <td>
-                          <b>{job.filename}</b>
-                          <div className="dim" style={{ fontSize: 11.5 }}>
-                            {job.status === "failed" ? job.error || "Failed" : job.message}
-                          </div>
-                        </td>
-                        <td className="pom">
-                          {job.graded_style_no || job.announced_style_no || "—"}
-                        </td>
-                        <td className="num">{job.unconfirmed || "—"}</td>
-                        <td>
-                          <span className={`pill ${waitingTone(job)}`}>{waitingOn(job)}</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {queue.map((job) => {
+                      const held = blocking(job);
+                      const [word, tone] = SEVERITY[held.severity];
+                      return (
+                        <tr
+                          key={job.id}
+                          onClick={(event) => {
+                            // The Open link is its own target; the rest of the
+                            // row is a bigger one for the same destination.
+                            if ((event.target as HTMLElement).closest("a")) return;
+                            onOpen(job.id);
+                          }}
+                        >
+                          <td>
+                            <b>{job.filename}</b>
+                            <div className="dim pom" style={{ fontSize: 11.5 }}>
+                              style {job.graded_style_no || job.announced_style_no || "—"}
+                            </div>
+                          </td>
+                          <td>
+                            {held.why}
+                            <div className="why">{held.detail}</div>
+                          </td>
+                          <td className="num">{since(job.started_at) || "—"}</td>
+                          <td>
+                            <span className={tone}>{word}</span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <a className="btn quiet sm" href={href("inspection", job.id)}>
+                              Open
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -285,129 +352,128 @@ export function Dashboard({ jobs, onOpen }: Props) {
           <h2>Recent activity</h2>
         </div>
         <p className="lede">
-          The newest inspections on this stage. Nothing is attributed yet — who recorded and who
-          settled arrives with the audit trail, so this lists what happened rather than who did
-          it.
+          The five newest entries in this stage&apos;s log. Every correction and every
+          download is attributed — <a className="link" href={href("activity")}>see the whole
+          log</a>.
         </p>
-        {jobs.length === 0 ? (
-          <p className="lede dim">Nothing yet.</p>
+        {trail === null ? (
+          <p className="lede dim">Reading the log…</p>
+        ) : trail.length === 0 ? (
+          <p className="lede dim">
+            Nothing yet. The trail starts with the first recording, correction or download.
+          </p>
         ) : (
           <ul className="feed">
-            {jobs.slice(0, 5).map((job) => (
-              <li key={job.id}>
-                <b>{job.filename}</b> — {job.status === "done" ? summary(job) : job.message}
-                <span className="when">{since(job.started_at)}</span>
-              </li>
-            ))}
+            {trail.map((event) => {
+              const when = new Date(event.at);
+              return (
+                <li key={event.id}>
+                  <span className="avatar" aria-hidden="true">
+                    {(event.actor || "?").slice(0, 1)}
+                  </span>
+                  <div className="grow">
+                    <b>{event.actor || "Unattributed"}</b>{" "}
+                    <span className={kindPill(event.kind)}>{kindLabel(event.kind)}</span>
+                    <p>{event.what}</p>
+                  </div>
+                  <div className="when">
+                    {when.toLocaleDateString(undefined, { day: "numeric", month: "short" })}{" "}
+                    {when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                    <span className="pom">{event.subject || "—"}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
     </>
   );
 
-  function buildHero() {
+  /**
+   * What the queue below is, for the role standing here.
+   *
+   * All that is left of the hero card: a reviewer and an approver are looking
+   * at different lists, and the heading has to say which. The counts and the
+   * severities are in the table itself.
+   */
+  function queueFraming(): { title: string; lede: string } {
     if (!jobs.length) {
       return {
-        fill: "none",
-        glyph: "·",
-        eyebrow: "Nothing yet",
-        title: "No inspections on this stage",
-        body: "Record one, or drop a recording you already have — the pipeline does not mind which.",
-        cta: can("record")
-          ? ([["Record inspection", href("record"), "on-tint"]] as [string, string, string][])
-          : [],
-        queueTitle: "Needs attention",
-        queueLede: "Nothing is blocked, because nothing has been recorded.",
+        title: "Needs attention",
+        lede: "Nothing is blocked, because nothing has been recorded.",
       };
     }
-
     if (role === "approver") {
-      const n = signoff.length;
       return {
-        fill: n ? "pass" : "none",
-        glyph: n ? "→" : "✓",
-        eyebrow: "Waiting on you",
-        title: n
-          ? `${n} graded sheet${n === 1 ? " is" : "s are"} reviewed and waiting for your sign-off`
-          : "Nothing is waiting for your sign-off",
-        body: n
-          ? "Every verdict is captured and every measurement sits inside tolerance. Signing off locks the sheet exactly as the reviewers left it — you cannot change a measurement and approve it in the same hand, which is the point. Nothing is sent to the vendor from this stage; that happens at Final."
-          : "Anything a reviewer finishes will appear here. Until then there is nothing to sign.",
-        cta: [] as [string, string, string][],
-        queueTitle: "Waiting for sign-off",
-        queueLede:
-          "Reviewed and sitting still. Signing off locks the sheet as the reviewers left it.",
+        title: "Waiting for sign-off",
+        lede:
+          "Reviewed and sitting still. Signing off locks the sheet as the reviewers left it — you cannot change a measurement and approve it in the same hand, which is the point.",
       };
     }
-
     if (role === "inspector") {
       return {
-        fill: failed.length ? "fail" : "none",
-        glyph: failed.length ? "!" : "✓",
-        eyebrow: "Your recordings",
-        title: failed.length
-          ? `${failed.length} recording${failed.length === 1 ? "" : "s"} produced nothing`
-          : "Everything recorded has gone through",
-        body: failed.length
-          ? "Worth recording again while the garments are still out — a take that produced nothing cannot be recovered later."
-          : "Each one was transcribed and graded. A reading the recording missed is for the QA team; you do not need to do anything with it.",
-        cta: can("record")
-          ? ([["Record another", href("record"), "on-tint"]] as [string, string, string][])
-          : [],
-        queueTitle: "Your recordings",
-        queueLede:
+        title: "Your recordings",
+        lede:
           "What happened to each one after you handed it over. Nothing here is yours to settle, except a take that produced nothing.",
       };
     }
-
     // Reviewer, and administrators looking across the floor.
-    const blocked = open.length + failed.length;
     return {
-      fill: blocked ? "open" : outOfTol ? "fail" : "pass",
-      glyph: blocked ? "??" : outOfTol ? "×" : "✓",
-      eyebrow: role === "admin" ? "Across the floor" : "Waiting on you",
-      title: blocked
-        ? `${blocked} inspection${blocked === 1 ? "" : "s"} cannot go anywhere yet`
-        : outOfTol
-          ? `${outOfTol} measurement${outOfTol === 1 ? "" : "s"} out of tolerance`
-          : "Nothing is waiting on a reviewer",
-      body: blocked
-        ? `${open.length ? `${open.length} carr${open.length === 1 ? "ies a point" : "y points"} of measure the recording never ruled on, and those are not passes — transcription drops short words, so each one has to be listened back to.` : ""}${failed.length ? ` ${failed.length} failed to process at all.` : ""}`.trim()
-        : outOfTol
-          ? "Every point of measure was heard and ruled on. What is left is a real finding, not a gap."
-          : "Every reading on this stage carries a verdict.",
-      cta: [] as [string, string, string][],
-      queueTitle: role === "admin" ? "Blocked across the floor" : "Needs attention",
-      queueLede:
+      title: role === "admin" ? "Blocked across the floor" : "Needs attention",
+      lede:
         "Ordered by what it costs to leave alone. A report with no verdict on a point of measure is not a passing report — it is an unanswered question with a deadline.",
     };
   }
 }
 
-function waitingOn(job: Job): string {
-  if (job.status === "failed") return "nobody — it failed";
-  if (job.status !== "done") return "the pipeline";
-  if (!job.graded) return "a style set";
-  if (job.unconfirmed) return "a QA reviewer";
-  if (job.out_of_tolerance) return "a QA reviewer";
-  return "an approver";
-}
-
-function waitingTone(job: Job): string {
-  if (job.status === "failed") return "error";
-  if (job.status !== "done") return "warning";
-  if (job.unconfirmed) return "lavender";
-  if (job.out_of_tolerance) return "error";
-  return "success";
-}
-
-function summary(job: Job): string {
-  if (!job.graded) return "processed, not checked against a spec sheet";
-  if (job.unconfirmed)
-    return `${job.rows} rows, ${job.unconfirmed} without a verdict`;
-  if (job.out_of_tolerance)
-    return `${job.rows} rows, ${job.out_of_tolerance} out of tolerance`;
-  return `${job.rows} rows, every verdict captured`;
+/**
+ * What is holding one inspection up, and how loudly to say so.
+ *
+ * Ranked the way the product ranks findings: a gap outranks a failure, because
+ * a failure has been ruled on and a gap has not.
+ */
+function blocking(job: Job): { why: string; detail: string; severity: string } {
+  if (job.status === "failed") {
+    return {
+      why: "Processing failed",
+      detail: job.error || "Nothing was written, and nothing was sent anywhere.",
+      severity: "failed",
+    };
+  }
+  if (job.status !== "done") {
+    return { why: "Still processing", detail: job.message, severity: "running" };
+  }
+  if (!job.graded) {
+    return {
+      why: "Never checked against a spec sheet",
+      detail: job.announced_style_no
+        ? `The recording announced ${job.announced_style_no}; no sheet was picked.`
+        : "No style was chosen and none was announced.",
+      severity: "none",
+    };
+  }
+  if (job.unconfirmed) {
+    return {
+      why: `${plural(job.unconfirmed, "point")} of measure ${
+        job.unconfirmed === 1 ? "has" : "have"
+      } no verdict`,
+      detail: "Not passes — each one has to be listened back to and filled in.",
+      severity: "open",
+    };
+  }
+  if (job.out_of_tolerance) {
+    return {
+      why: `${plural(job.out_of_tolerance, "measurement")} out of tolerance`,
+      detail: `Every point of measure was heard and ruled on, on style ${job.graded_style_no}.`,
+      severity: "fail",
+    };
+  }
+  return {
+    why: "Reviewed, waiting for sign-off",
+    detail: "Every verdict captured, all within tolerance.",
+    severity: "ready",
+  };
 }
 
 /**
@@ -416,42 +482,65 @@ function summary(job: Job): string {
  * Real dates, from `started_at`. An empty day is drawn as an empty column
  * rather than skipped — a gap in the work is a fact about the fortnight, and
  * dropping it would make four inspections in a week look like four in a row.
+ *
+ * The markup is what app.css draws: a `.stack` sized against the busiest day,
+ * split inside by how much of that day came out complete, and a one-letter
+ * axis underneath. Drawn in CSS, because a charting library for fourteen pairs
+ * of small integers is a dependency to keep current in exchange for nothing.
  */
 function Fortnight({ jobs }: { jobs: Job[] }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
   const days = Array.from({ length: 14 }, (_, index) => {
-    const start = today.getTime() - (13 - index) * DAY;
+    const start = midnight.getTime() - (13 - index) * DAY;
     const on = jobs.filter(
       (job) => job.started_at * 1000 >= start && job.started_at * 1000 < start + DAY,
     );
     return {
       start,
-      complete: on.filter(
-        (job) => job.status === "done" && job.graded && !job.unconfirmed,
-      ).length,
-      gap: on.filter(
-        (job) => job.status !== "done" || !job.graded || job.unconfirmed > 0,
-      ).length,
+      total: on.length,
+      complete: on.filter((job) => job.status === "done" && job.graded && !job.unconfirmed)
+        .length,
     };
   });
-  const top = Math.max(1, ...days.map((day) => day.complete + day.gap));
+  const tallest = Math.max(1, ...days.map((day) => day.total));
 
   return (
     <div className="bars">
-      {days.map((day) => (
-        <div
-          className="bar"
-          key={day.start}
-          title={`${new Date(day.start).toLocaleDateString(undefined, {
-            day: "numeric",
-            month: "short",
-          })}: ${day.complete} complete, ${day.gap} left a gap`}
-        >
-          <i className="ochre" style={{ height: `${(day.gap / top) * 100}%` }} />
-          <i className="teal" style={{ height: `${(day.complete / top) * 100}%` }} />
-        </div>
-      ))}
+      {days.map((day) => {
+        const when = new Date(day.start);
+        // Of that day's own work, not of the fortnight: the column height
+        // already says how busy the day was, so the split inside it is free to
+        // answer the other question.
+        const good = day.total ? Math.round((day.complete / day.total) * 100) : 0;
+        const date = when.toLocaleDateString(undefined, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        });
+        return (
+          <div
+            className="bar"
+            key={day.start}
+            title={
+              day.total
+                ? `${date} — ${day.total} processed, ${day.complete} complete, ${
+                    day.total - day.complete
+                  } left a gap`
+                : `${date} — nothing processed`
+            }
+          >
+            <div
+              className="stack"
+              style={{ height: `${Math.round((day.total / tallest) * 100)}%` }}
+            >
+              <div className="gap" style={{ height: `${100 - good}%` }} />
+              <div className="good" style={{ height: `${good}%` }} />
+            </div>
+            <span>{WEEKDAY[when.getDay()]}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -12,6 +12,30 @@ export const fieldLabel = (key: string): string =>
     )
     .join(" ");
 
+/**
+ * What kind of thing happened in the audit trail, and how it is badged.
+ *
+ * Here rather than in `Activity.tsx` because the dashboard shows the newest
+ * five of that same log, and two copies of this table is how "Correction"
+ * becomes lavender on one screen and grey on the other — which teaches a
+ * reader that the colour means nothing. Mirrors the constants in
+ * `services/trail.py`.
+ */
+export const EVENT_KINDS: Record<string, [string, string]> = {
+  record: ["Recording", "pill"],
+  correction: ["Correction", "pill lavender"],
+  approval: ["Approval", "pill success"],
+  release: ["Release", "pill error"],
+  access: ["Access", "pill"],
+};
+
+/** The printed name of an event kind. An unknown kind prints as itself —
+    the column deliberately refuses nothing, so neither does this. */
+export const kindLabel = (kind: string): string => EVENT_KINDS[kind]?.[0] ?? kind;
+
+/** The pill class for an event kind. */
+export const kindPill = (kind: string): string => EVENT_KINDS[kind]?.[1] ?? "pill";
+
 /** Loose duration for elapsed job time: "42s", "6m 51s". */
 export const secs = (n: number): string =>
   n < 60 ? `${n.toFixed(0)}s` : `${Math.floor(n / 60)}m ${Math.round(n % 60)}s`;

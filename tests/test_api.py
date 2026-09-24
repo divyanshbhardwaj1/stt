@@ -13,9 +13,15 @@ from .conftest import SHEET_PAYLOAD
 from .style_set_fixture import write_style_set
 
 
-def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=None):
-    data = {"style_no": style_no} if style_no is not None else None
-    return client.post("/api/jobs", files={"recording": (name, content, "audio/mp4")}, data=data)
+def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=None, stage=None):
+    data = {}
+    if style_no is not None:
+        data["style_no"] = style_no
+    if stage is not None:
+        data["stage"] = stage
+    return client.post(
+        "/api/jobs", files={"recording": (name, content, "audio/mp4")}, data=data or None
+    )
 
 
 def _finish(client, style_no="7270"):
@@ -328,6 +334,44 @@ def test_a_deleted_output_reports_gone(client, template, stub_pipeline):
     api.store.get(job_id).files["report"].unlink()
 
     assert client.get(f"/api/jobs/{job_id}/download/report").status_code == 410
+
+
+def test_an_upload_is_filed_under_a_stage(client, template, stub_pipeline):
+    """Size set by default, and the stage travels back on the job."""
+    assert upload(client).json()["stage"] == "sizeset"
+    assert upload(client, name="b.m4a", stage="sizeset").json()["stage"] == "sizeset"
+
+
+def test_a_stage_with_no_pipeline_refuses_a_recording(client, template, stub_pipeline):
+    """The refusal this product turns on.
+
+    PPM, Interim and Final are real stages with real roles and demo data on
+    screen. What they do not have is a pipeline — so a recording filed under
+    one would be run through the size-set extractor and come back looking like
+    a graded report for a check nobody performed.
+    """
+    response = upload(client, stage="final")
+
+    assert response.status_code == 409
+    assert "no pipeline yet" in response.json()["detail"]
+    # And nothing was queued behind the refusal.
+    assert not [job for job in api.store.all() if job.stage == "final"]
+
+
+def test_an_unknown_stage_is_refused(client, template, stub_pipeline):
+    assert upload(client, stage="nonsense").status_code == 422
+
+
+def test_jobs_can_be_narrowed_to_one_stage(client, template, stub_pipeline):
+    upload(client, name="one.m4a")
+
+    assert [job["filename"] for job in client.get("/api/jobs?stage=sizeset").json()] == [
+        "one.m4a"
+    ]
+    assert client.get("/api/jobs?stage=final").json() == []
+    # Unfiltered still answers for the whole floor, which is what the dashboard
+    # counts across.
+    assert len(client.get("/api/jobs").json()) == 1
 
 
 def test_jobs_are_listed_newest_first(client, template, stub_pipeline):

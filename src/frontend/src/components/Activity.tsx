@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchActivity, type Event } from "../api";
+import { kindLabel, kindPill } from "../format";
 import { useSession } from "../session";
 
 /**
@@ -16,16 +17,9 @@ import { useSession } from "../session";
  * reads.
  */
 
-/** What kind of thing happened, and how it is badged. */
-const KINDS: Record<string, [string, string]> = {
-  record: ["Recording", "pill"],
-  correction: ["Correction", "pill lavender"],
-  approval: ["Approval", "pill success"],
-  release: ["Release", "pill error"],
-  access: ["Access", "pill"],
-};
-
-const label = (kind: string) => KINDS[kind]?.[0] ?? kind;
+/* The kind badges live in format.ts: the dashboard shows the newest five of
+   this same log, and one table means one colour per kind on both screens. */
+const label = kindLabel;
 
 function When({ at }: { at: string }) {
   const when = new Date(at);
@@ -184,7 +178,7 @@ export function Activity() {
                   </td>
                   <td>{event.what}</td>
                   <td>
-                    <span className={KINDS[event.kind]?.[1] ?? "pill"}>{label(event.kind)}</span>
+                    <span className={kindPill(event.kind)}>{label(event.kind)}</span>
                   </td>
                   <td className="why pom">{event.subject || "—"}</td>
                 </tr>
@@ -255,7 +249,7 @@ export function Activity() {
                     <td>
                       <div className="sizes">
                         {[...seen.kinds].map((one) => (
-                          <span className={KINDS[one]?.[1] ?? "pill"} key={one}>
+                          <span className={kindPill(one)} key={one}>
                             {label(one)}
                           </span>
                         ))}

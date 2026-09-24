@@ -47,6 +47,8 @@ export interface Job {
   id: string;
   filename: string;
   style_no: string;
+  /** Which of the four checks this inspection is. Mirrors `Stage` in enums.py. */
+  stage: string;
   status: JobStatus;
   message: string;
   name: string;
@@ -82,6 +84,20 @@ export interface Job {
   /** Whether a transcript was saved. Only on the single-job read. */
   transcript?: boolean;
 }
+
+/**
+ * The style an inspection belongs to.
+ *
+ * What it was graded against, else what the recording announced, else the one
+ * picked at upload — and "" when none of the three is known, which is its own
+ * bucket on the register rather than a reason to drop the inspection.
+ *
+ * Here rather than beside the screen that reads it: three screens now group by
+ * style, and three answers to "which style is this" is how two of them quietly
+ * disagree.
+ */
+export const styleOf = (job: Job): string =>
+  job.graded_style_no || job.announced_style_no || job.style_no || "";
 
 /* ---------- the audit view ----------
    The graded sheet as a grid: every point of measure the client's sheet

@@ -15,7 +15,9 @@ import {
   pendingSessions,
   type StoredSession,
 } from "../recordingStore";
+import { STAGES, STAGE_KEY, stageOf } from "../stages";
 import { LiveTranscript } from "./LiveTranscript";
+import { StylePicker } from "./StylePicker";
 import { Waveform } from "./Waveform";
 
 interface Props {
@@ -84,6 +86,10 @@ async function placeName(latitude: number, longitude: number): Promise<string> {
   }
 }
 
+/** Why Process is dead while the style box holds something unrecognised. */
+const BAD_STYLE =
+  "That style has no sheet in the library. Clear the box to use the style announced in the recording.";
+
 export function Intake({ onQueued }: Props) {
   const [take, setTake] = useState<Take | null>(null);
   /**
@@ -111,7 +117,33 @@ export function Intake({ onQueued }: Props) {
   const [savedTranscript, setSavedTranscript] = useState("");
   const [recovering, setRecovering] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [styleNo, setStyleNo] = useState("");
+  /**
+   * What the operator has typed into the style box.
+   *
+   * The raw text, not a chosen style — the two are deliberately different.
+   * Empty means "use whatever the recording announces", which is the default
+   * and a real answer; anything else has to match a sheet in the library
+   * before it can be sent, or the upload is refused after the recording has
+   * already gone up. See `chosen` and `styleUnknown` below.
+   */
+  const [styleQuery, setStyleQuery] = useState("");
+  /**
+   * Which of the four checks this recording is.
+   *
+   * Defaults to the stage the operator is standing in — they walked here from
+   * that rail — and falls back to the one stage that has a pipeline. Only
+   * `built` stages are selectable; the server refuses the rest outright
+   * (RECORDABLE_STAGES in api/app.py), and a control that offers something the
+   * server will reject is a control that teaches nobody anything.
+   */
+  const [stage, setStage] = useState(() => {
+    try {
+      const remembered = window.localStorage.getItem(STAGE_KEY) || "sizeset";
+      return stageOf(remembered).built ? remembered : "sizeset";
+    } catch {
+      return "sizeset";
+    }
+  });
   /**
    * Where the inspection happened. The browser is asked first - an operator
    * who has to type the bench every take types it once and then stops. Typing
@@ -168,6 +200,28 @@ export function Intake({ onQueued }: Props) {
       live = false;
     };
   }, []);
+
+  /**
+   * The style picker, over a library that is not small.
+   *
+   * A `<select>` was fine at the eight sheets in `data/StyleSets` and is
+   * unusable at the three to four thousand styles Triburg actually run — the
+   * operator would be scrolling for a number they already know. The searching
+   * and the panel live in `StylePicker`; what stays here is the one thing this
+   * screen owns, which is whether what has been typed can be sent.
+   *
+   * ponytail: the whole list is fetched once and filtered in the browser. It
+   * is a few thousand short strings — tens of kilobytes — so that is cheaper
+   * than a request per keystroke. The ceiling is the SERVER, not this: every
+   * call to `GET /api/style-sets` iterates the style-set directory on disk.
+   * When that stops being fast the fix is an index in the database and a `?q=`
+   * on the endpoint, and the picker changes only by fetching on a debounce.
+   */
+  /** What will actually be sent. "" is the default, not a missing answer. */
+  const chosen = styleQuery.trim();
+  const knownStyle = chosen !== "" && (styleSets ?? []).includes(chosen);
+  /** Typed something, the library has loaded, and no sheet matches it. */
+  const styleUnknown = chosen !== "" && styleSets !== null && !knownStyle;
 
   const liveHeard = useRef<Utterance[]>([]);
 
@@ -322,10 +376,11 @@ export function Intake({ onQueued }: Props) {
       }
       const job = await uploadRecording(
         pending,
-        styleNo,
+        chosen,
         monitor,
         setProgress,
         location || coords,
+        stage,
       );
       setProgress(-1);
       clear();
@@ -334,7 +389,7 @@ export function Intake({ onQueued }: Props) {
       setProgress(-1);
       setUploadError(cause instanceof Error ? cause.message : "Upload failed.");
     }
-  }, [pending, styleNo, location, coords, located, heard, savedTranscript, clear, onQueued]);
+  }, [pending, chosen, stage, location, coords, located, heard, savedTranscript, clear, onQueued]);
 
   const onDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -485,7 +540,8 @@ export function Intake({ onQueued }: Props) {
                   <button
                     className="btn"
                     onClick={() => void process()}
-                    disabled={progress >= 0}
+                    disabled={progress >= 0 || styleUnknown}
+                    title={styleUnknown ? BAD_STYLE : undefined}
                   >
                     Process this recording
                   </button>
@@ -507,7 +563,8 @@ export function Intake({ onQueued }: Props) {
                 <button
                   className="btn"
                   onClick={() => void process()}
-                  disabled={progress >= 0}
+                  disabled={progress >= 0 || styleUnknown}
+                  title={styleUnknown ? BAD_STYLE : undefined}
                 >
                   Process this recording
                 </button>
@@ -553,30 +610,59 @@ export function Intake({ onQueued }: Props) {
               </>
             )}
 
+            {/* Which of the four checks this is. First, because it decides
+                what the rest of the form means — and it is the one thing on
+                this screen nothing downstream can infer from the audio. */}
             <div className="opts">
-              <label htmlFor="style">Check against</label>
+              <label htmlFor="stage">Inspection stage</label>
               <select
-                id="style"
-                value={styleNo}
-                onChange={(e) => setStyleNo(e.target.value)}
+                id="stage"
+                value={stage}
+                onChange={(event) => setStage(event.target.value)}
               >
-                <option value="">Style announced in the recording</option>
-                {styleSets?.length === 0 && (
-                  <option value="" disabled>
-                    {styleError || "No sheets in data/StyleSets"}
-                  </option>
-                )}
-                {styleSets?.map((style) => (
-                  <option key={style} value={style}>
-                    Style {style}
+                {STAGES.map((entry) => (
+                  <option key={entry.id} value={entry.id} disabled={!entry.built}>
+                    {entry.name}
+                    {entry.built ? "" : " — not built yet"}
                   </option>
                 ))}
               </select>
               <span className="hint">
-                {styleSets?.length
-                  ? `${styleSets.length} sheet${styleSets.length === 1 ? "" : "s"} in the library`
-                  : "The library is empty"}
+                {stageOf(stage).built
+                  ? "Graded against the buyer's spec sheet, point of measure by point of measure."
+                  : "This stage has no pipeline yet, so a recording cannot be graded against it."}
               </span>
+            </div>
+
+            <div className="opts">
+              <label htmlFor="style">Check against</label>
+              <StylePicker
+                library={styleSets}
+                value={styleQuery}
+                onChange={setStyleQuery}
+                invalid={styleUnknown}
+                error={styleError}
+              />
+              {styleUnknown ? (
+                // Said here rather than at upload. The server refuses an
+                // unknown style with a 404 — after the recording has been sent
+                // and deleted again, which on a phone connection is minutes
+                // thrown away for a typo.
+                <span className="msg bad" role="alert">
+                  No sheet for style {chosen}. Pick one from the list, or choose
+                  &ldquo;Style announced in the recording&rdquo;.
+                </span>
+              ) : (
+                <span className="hint">
+                  {styleSets === null
+                    ? "Reading the library…"
+                    : (styleSets ?? []).length === 0
+                      ? styleError || "The library is empty"
+                      : knownStyle
+                        ? `Style ${chosen} — graded against its sheet`
+                        : `${styleSets.length} sheet${styleSets.length === 1 ? "" : "s"} · type a number to search`}
+                </span>
+              )}
             </div>
 
             <div className="opts">

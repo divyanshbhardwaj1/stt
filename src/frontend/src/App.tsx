@@ -11,6 +11,7 @@ import { Rail } from "./components/Rail";
 import { SignIn } from "./components/SignIn";
 import { Stages } from "./components/Stages";
 import { StyleSets } from "./components/StyleSets";
+import { StyleStages } from "./components/StyleStages";
 import { Users } from "./components/Users";
 import { useJobs } from "./hooks/useJobs";
 import { href, useRoute } from "./router";
@@ -233,7 +234,30 @@ function Workspace() {
         );
 
       case "inspections":
-        return <Inspections jobs={jobs} onOpen={(id) => go(href("inspection", id))} />;
+        return (
+          <Inspections
+            jobs={jobs}
+            onOpen={(id) => go(href("inspection", id))}
+            onOpenStyle={(styleNo) => go(href("style", styleNo))}
+          />
+        );
+
+      // One style and its four checks, between the style list and a report.
+      case "style":
+        return route.id ? (
+          <StyleStages
+            key={route.id}
+            styleNo={route.id}
+            jobs={jobs}
+            onOpen={(id) => go(href("inspection", id))}
+          />
+        ) : (
+          <Inspections
+            jobs={jobs}
+            onOpen={(id) => go(href("inspection", id))}
+            onOpenStyle={(styleNo) => go(href("style", styleNo))}
+          />
+        );
 
       case "inspection":
         if (!job) {

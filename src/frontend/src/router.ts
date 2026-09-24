@@ -15,6 +15,7 @@ export type Screen =
   | "inspections"
   | "record"
   | "inspection"
+  | "style"
   | "styles"
   | "stages"
   | "users"
@@ -22,7 +23,8 @@ export type Screen =
 
 export interface Route {
   screen: Screen;
-  /** The inspection being looked at, for `inspection`. */
+  /** The inspection being looked at for `inspection`, or the style number
+      for `style` — both name the one thing the screen is about. */
   id?: string;
   /** Which tab of it: the report, or the graded sheet. */
   tab?: "report" | "sheet";
@@ -34,6 +36,7 @@ const SCREENS: Screen[] = [
   "inspections",
   "record",
   "inspection",
+  "style",
   "styles",
   "stages",
   "users",
@@ -47,6 +50,9 @@ export function parse(hash: string): Route {
   if (head === "inspection" && id) {
     return { screen: "inspection", id, tab: tab === "sheet" ? "sheet" : "report" };
   }
+  // One style, and its four stages. Without the id there is no style to show,
+  // so it falls through to the list rather than rendering an empty page.
+  if (head === "style" && id) return { screen: "style", id: decodeURIComponent(id) };
   // An unknown hash lands on the register rather than on a blank pane. Somebody
   // arriving from a stale bookmark should see the list, not nothing.
   return { screen: (SCREENS.includes(head as Screen) ? head : "dashboard") as Screen };
@@ -54,6 +60,7 @@ export function parse(hash: string): Route {
 
 export function href(screen: Screen, id?: string, tab?: string): string {
   if (screen === "inspection" && id) return `#/inspection/${id}${tab ? `/${tab}` : ""}`;
+  if (screen === "style" && id) return `#/style/${encodeURIComponent(id)}`;
   return screen === "dashboard" ? "#/" : `#/${screen}`;
 }
 

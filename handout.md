@@ -1713,3 +1713,370 @@ checking whether a fix worked: try it again.
 - These were both found by restarting, not by testing. 57 frontend and 419
   Python tests were green throughout §39.1, because nothing in the suite
   simulated a process that had already been running.
+
+---
+
+## 40. One product, four stages
+
+**Date:** 24–25 September 2026. Continues §39.
+
+**Tests:** 440 → **444** Python, 65 → **70** frontend. `ruff check` clean.
+`ruff format --check` wants 22 files, exactly as it did at `e8ccf4e` — see
+§40.12. Alembic head unchanged at `27ad5b972e48`: **no migration**, because
+`inspections.stage` has carried all four values since phase 1 and nothing above
+it ever read the column.
+
+### 40.1 Summary
+
+| # | Work | Outcome |
+|---|---|---|
+| 1 | Read the whole codebase | Findings through §40.3 and §40.13 |
+| 2 | First administrator on `triburg` | `admin@triburg.com`, scrypt, via `auth.create_user` |
+| 3 | Dashboard — three things that rendered as nothing | Fortnight chart, activity feed, a stray `.feed` rule |
+| 4 | Dashboard — the six figures the floor asked for | Present, and the queue now says what is blocking each row |
+| 5 | The hero verdict card came off | Requested; §40.5 |
+| 6 | Stage became a property of an inspection | `Job.stage` end to end; the store no longer scopes itself to one |
+| 7 | Record screen picks the stage | Disabled for the three without a pipeline, and refused server-side |
+| 8 | Inspections is led by the style | Styles → one style's four checks → the report |
+| 9 | Demo data for PPM, Interim and Final | Browser-only and deterministic; on-screen marking dropped on request, §40.8 |
+| 10 | The style picker is searched | A `<select>` does not survive four thousand styles. Native `<datalist>` first, then a real combobox — §40.9 |
+
+### 40.2 The first administrator
+
+`triburg` had no users at all, so nobody could sign in to create one. Made
+through `auth.create_user` rather than raw SQL, so the password is scrypt-hashed
+at the parameters the app verifies against:
+
+```
+admin@triburg.com · Administrator · active · is_admin=True
+stages: sizeset, ppm, interim, final   (all four, by the flag — see Role)
+```
+
+The CLI path (`python src/main.py user add … --admin`) is the intended route and
+does the same thing; it prompts through `getpass`, which cannot be driven from a
+non-interactive shell.
+
+### 40.3 The dashboard — three things that rendered as nothing
+
+All three are the same failure: **markup that matches no rule in the
+stylesheet.** Nothing throws, nothing logs, and the frontend suite had no
+opinion, because jsdom does not apply CSS.
+
+**The fortnight chart.** `app.css` draws `.bar > .stack > .gap + .good`, with a
+one-letter axis in `.bar > span`. The component emitted bare
+`<i class="teal">` / `<i class="ochre">` — and `teal` and `ochre` only exist as
+`.sw.*`, the legend swatches. Fourteen invisible columns and no axis, under a
+legend that described them.
+
+**The activity feed.** `.feed li` is laid out as `avatar + .grow(b, p) +
+.when(.pom)`. The component emitted a flat `<b>text</b><span class="when">`, so
+the flex row had nothing to distribute.
+
+**A stray `.feed` in `extra.css`.** `display:flex; flex-direction:column;
+height:100%`, written for the live-transcript monitor — which renders
+`.feed-head` and `.feed-body` and **never an element carrying `feed` at all**.
+The rule reached only the one thing it was not for. Deleted; it broke rule 1 at
+the top of that file, which says so in as many words.
+
+Fixed, plus: the queue table took the prototype's shape (*what is blocking it*,
+with a detail line, a waiting age, a state pill and an Open button), and
+**Recent activity now reads the real audit trail** — `GET /api/activity?limit=5`
+— instead of re-listing jobs under a comment claiming nothing was attributed
+yet. That comment was written before `trail.py` existed. The kind badges moved
+to `format.ts` as `EVENT_KINDS` / `kindLabel` / `kindPill`, so the dashboard and
+the Activity screen cannot disagree about what colour a Correction is; exporting
+them from `Activity.tsx` would have tripped
+`react-refresh/only-export-components`, which is the same rule that put
+`SessionProvider` in its own file.
+
+The six figures the floor asked for are on the first readout strip, in its own
+words: **Total inspections · Pending · Done · Overdue · Need attention · Pass %.**
+
+### 40.4 A test that was green by never getting there
+
+`figure()` in the dashboard test did `screen.getByText(label)` across the whole
+document. Every one of those labels is also a word in the paragraph underneath
+explaining it — `<b>Overdue</b> is a pending inspection more than 24 hours
+old…` — so the query matched the `<dt>` and the `<b>` and refused to choose.
+
+It was failing at `e8ccf4e`, before this session touched anything. Verified by
+stashing. Now scoped to `dl.readout > div`, which is the query it should always
+have been.
+
+### 40.5 The hero card came off
+
+`.verdict.open` — `--color-brand-ochre`, `#e8b94a` — is the large yellow box the
+dashboard opened with. All four of its states went, not only the yellow one: a
+card that appears only when things are fine would be worse than none.
+
+`buildHero()` also produced the queue's heading and lede, which are genuinely
+role-scoped, so it was reduced to `queueFraming()` returning exactly those two;
+about fifty lines of card copy, glyphs, fills and CTAs are gone. The empty-state
+guidance lived inside the card, so it moved into the queue's blank panel, which
+now distinguishes **nothing recorded yet** (a prompt, with the Record button)
+from **nothing blocked** (a result).
+
+Worth noting against PRODUCT.md principle 2, *"lead with the verdict, in a
+sentence"*: that principle is about one inspection, and `JobDetail` still leads
+with its card. On a register of many the same card was restating `Need
+attention` and the queue table beneath it in a third voice and a loud colour.
+`test("the dashboard does not lead with a saturated verdict card")` asserts
+`main .verdict` is null, so it cannot quietly come back.
+
+### 40.6 Stage became a property of an inspection
+
+The database was already shaped for this. Everything above it was pinned:
+
+| Layer | Before |
+|---|---|
+| `inspections.stage` | column + index, all four values, since phase 1 |
+| `DatabaseJobStore` | **scoped at construction** — loaded and wrote one stage |
+| `Job` / `as_dict()` | no `stage` field, so the API never reported it |
+| `POST /api/jobs` | no stage input |
+| `auth.can(...)` | every check asked about `DEFAULT_STAGE = "sizeset"` |
+
+`DatabaseJobStore(stage=…)` is the one worth dwelling on: a second stage would
+have meant a second store and a second in-memory dictionary, and `GET /api/jobs`
+could not have answered for the floor as a whole — which is what the dashboard
+counts across. The stage now travels on the job, there is one registry, and
+callers narrow it with `?stage=`.
+
+**`_stage_for` is the new gate**, and it answers two separate questions with two
+separate refusals:
+
+```
+POST /api/jobs  stage=final      409  "final has no pipeline yet …"
+POST /api/jobs  stage=ppm        409
+POST /api/jobs  stage=nonsense   422  "there is no 'nonsense' stage"
+database afterwards              1 row — nothing queued behind the refusals
+```
+
+`RECORDABLE_STAGES` holds one member. The pipeline is size-set-specific all the
+way down — the extraction prompt, the spec-sheet alignment, the 26 fields of the
+client's workbook — and a Final inspection is a sampling plan against an accept
+number, which none of that computes. A recording filed under Final would be run
+through the point-of-measure extractor and come back looking like a graded
+report for a check nobody performed. **Adding a stage to that set is the last
+line of building it, not the first.**
+
+### 40.7 Inspections is led by the style now
+
+A garment is inspected four times and what those four share is the style, not
+the day or the operator. The flat register answered *"what happened this
+afternoon"* — a useful question, and the wrong one to organise a product around,
+because it cannot answer *"where is 7270 up to"*, which is what a buyer's call
+actually asks.
+
+```
+#/inspections   styles, with a column per check
+#/style/7270    that style's four stage panels
+#/inspection/…  the report and stats, unchanged
+```
+
+Three things fell out of building it that are worth keeping:
+
+- **`styleOf` moved to `types.ts`.** Three screens now group by style, and three
+  answers to "which style is this" is how two of them quietly disagree.
+- **`Inspections` takes `onOpenStyle` rather than writing `location.hash`.**
+  Routing belongs to `App`, as it does for every other screen; a component that
+  sets the hash itself is a second router.
+- **`StyleStages` is mounted keyed on the style number**, so a different style
+  is a different component instead of this one being scrubbed clean in an
+  effect.
+
+A style with inspections but no sheet on disk still gets a row, and so does the
+**unfiled** bucket — inspections whose style the recording never announced.
+Dropping either would hide exactly the inspections somebody is looking for.
+
+### 40.8 Demo data, and what holds it honest
+
+PPM, Interim and Final carry stand-in rows so a style does not open on one
+populated panel and three empty ones, which reads as a broken product rather
+than an unfinished one. `demoStages.ts` holds them, and its header holds the
+argument. Two rules, and a third that was dropped:
+
+1. **It never reaches the server.** No fetch, no write, no row — and
+   `RECORDABLE_STAGES` means one cannot be mistaken for real later either. This
+   is the safeguard that actually holds, because it does not depend on anybody
+   reading anything.
+2. **It is deterministic**, seeded FNV-1a off the style number. Figures that
+   change under a reader are how somebody learns the screen is fake, and how two
+   screenshots come to show two different truths.
+3. ~~**It is marked on screen.**~~ **Dropped, by request, later the same day.**
+   The panels carried a `demo data` pill, a notice per stage, a *demo row — no
+   recording behind it* sub-line and a **no report** in place of every action.
+   All four are gone; the rows now carry an inspector and a bench, drawn off the
+   same seed, and read exactly as a real one does.
+
+   Recorded here because it was argued against twice before it was made, and
+   because the reasoning is worth keeping either way: these stages are being
+   shown to the team building them, who already know the three are unbuilt, and
+   the labels were reading as defects in the product rather than as honesty
+   about it. `demo: true` is still on every row, so a caller can always tell
+   them apart — nothing draws attention to it. **If this data is ever put in
+   front of somebody who does not already know, that is the moment to put the
+   marking back.** Rule 1 is what keeps the gap cosmetic until then.
+
+Each stage gets its own vocabulary rather than one shape three times: a PPM is a
+meeting with open points, an interim is a defect rate off a sample, a final is a
+lot accepted against an accept number. Three copies of a size-set row would have
+taught the floor the wrong model of its own process before the real screens
+exist to correct it.
+
+`test("a style opens all four checks, whether or not they are built")` asserts
+all four panels render, that each of the three speaks its own vocabulary, and
+that **exactly one** `Open report` link exists on the page — the size-set one. A
+link to a fabricated report is the failure still worth guarding, and it is the
+one the dropped labels were never what prevented. **Deleting `demoStages.ts` is
+the last step of building those pipelines.**
+
+One test-harness bug found on the way, worth knowing because it will recur: the
+fetch stub matched `/api/style-sets/sheets` by prefix and so answered the
+**single-sheet** URL with the whole library. The style screen read `sizes` off
+an array, got `undefined`, and threw. `/api/jobs/<id>` had already been given
+its own branch for exactly this reason; the sheet endpoint now has one too.
+
+### 40.9 The style picker is searched, not scrolled
+
+`Check against` on the record screen was a `<select>` holding every sheet in
+the library. Fine at the eight in `data/StyleSets`; unusable at the three to
+four thousand styles Triburg run, where the operator already knows the number
+and would be scrolling for it.
+
+It went through two shapes in one sitting, and the second is the interesting
+one.
+
+**First: a native `<input list>` + `<datalist>`.** The right first answer — the
+browser does type-ahead, keyboard and accessibility for free, no dependency,
+about ten lines. Same instinct as the hand-rolled hash router: the platform
+already answers this.
+
+**Then: "make the dropdown wider and better".** Which is precisely the one thing
+a datalist cannot do. **Its panel is drawn by the browser** — width, row height,
+type and whether it shows anything before you type are all outside CSS. There is
+no styling it, so the rung ran out and the panel became ours:
+`components/StylePicker.tsx` plus a block in `extra.css`.
+
+Everything the datalist had given away free now has to be paid for — the
+keyboard handling, the click-away, the `aria-activedescendant` wiring. What it
+bought:
+
+- **Width.** 340px, off the field rather than tracking it. A list of numbers
+  reading edge to edge is harder to scan than one with air in it.
+- **The match, marked.** Typing `72` highlights the `72` inside `7270`, so it is
+  visible *why* a row is in the list rather than leaving seven numbers that all
+  start alike to be re-read.
+- **The default as a row.** "Style announced in the recording" is a real answer,
+  and a datalist can only ever suggest values — so it could only live in a
+  placeholder nobody reads, and getting back to it meant deleting what you had
+  typed.
+
+Three things that were true of both shapes:
+
+- **The rows are capped at 50.** Four thousand nodes costs the browser real time
+  on every keystroke. Not a limit on what can be chosen — anything in the
+  library can be typed in full.
+- **Typed text and a chosen style are different things.** `styleQuery` is what
+  is in the box; `chosen` is what gets sent. Empty is a real answer, so it
+  cannot be conflated with "nothing valid was picked".
+- **An unrecognised style blocks Process.** The server already refuses one, with
+  a 404 — but only after the recording has been uploaded and deleted again,
+  which on a phone connection is minutes thrown away for a typo. The box says
+  so instead, and the button goes dead with the reason on it.
+
+**One bug the tests caught, which a datalist could not have had.** `choose()`
+puts focus back on the field so the next keystroke lands there, and the panel
+opened on `focus` — so every pick re-opened the panel it had just closed. It
+opens on `click` now; a keyboard user opens it with the arrow keys, which is
+what a combobox is expected to do anyway.
+
+**The ceiling is the server, not the browser.** The whole list is fetched once
+and filtered client-side, because a few thousand short strings is tens of
+kilobytes and that is cheaper than a request per keystroke. What does not scale
+is `GET /api/style-sets`: `list_style_numbers` iterates the style-set directory
+on disk on every call. When that stops being fast the fix is an index in the
+database and a `?q=` on the endpoint — and this box changes only by fetching on
+a debounce. Recorded here because the request that prompted it said *"there
+might be millions of styles"*, and at that size the dropdown is not what breaks
+first.
+
+Four tests, and the split is the point: two cover the searching (`72` keeps both
+`7270` and `7271`, the run is marked, no match is a state rather than an empty
+panel) and two cover what the browser used to do — arrow-and-Enter picks a row
+and closes, Escape closes without choosing, and the default row clears the box.
+That second pair is the standing cost of owning the panel.
+
+### 40.10 Files changed
+
+Nineteen files, three of them new, **+1806 / −419**. No migration.
+
+| File | What |
+|---|---|
+| `src/api/app.py` | `_stage_for` and `RECORDABLE_STAGES`; `stage` on the upload form; `?stage=` on the job list |
+| `src/api/jobs.py` | `Job.stage`, in `as_dict()` and `JobStore.create` |
+| `src/services/db/store.py` | The store stopped scoping itself to one stage; `stage` through `_apply` and `_revive` |
+| `tests/test_api.py` | Four: the default stage, the 409, the 422, and the `?stage=` filter |
+| **`components/StylePicker.tsx`** | **new** — the combobox, once a `<datalist>` could not be styled |
+| **`components/StyleStages.tsx`** | **new** — one style, its four checks |
+| **`demoStages.ts`** | **new** — the stand-in rows, and the argument about them in its header |
+| `components/Dashboard.tsx` | Rewritten: the six figures, the real markup for the chart and the feed, the hero removed |
+| `components/Inspections.tsx` | Rewritten: led by the style rather than the recording |
+| `components/Intake.tsx` | The stage picker, and the style box |
+| `components/Activity.tsx` | Kind badges moved out to `format.ts` |
+| `App.tsx` · `router.ts` | The `style` screen, and `onOpenStyle` so routing stays with `App` |
+| `types.ts` | `Job.stage`, and `styleOf` — three screens group by it now |
+| `format.ts` | `EVENT_KINDS` / `kindLabel` / `kindPill` |
+| `api.ts` | `stage` on `uploadRecording`, `limit` on `fetchActivity` |
+| `ui/extra.css` | The picker's panel; the dead `.feed` rule deleted |
+| `screens.test.tsx` · `App.test.tsx` | Seven new, three rewritten, one repaired |
+
+### 40.11 Verified
+
+Against a running server on the real `triburg` database, signed in as the
+account from §40.2:
+
+```
+GET  /api/jobs                    stage on the payload: sizeset
+GET  /api/jobs?stage=sizeset      1 job
+GET  /api/jobs?stage=final        0 jobs
+POST /api/jobs  stage=final       409  "final has no pipeline yet …"
+POST /api/jobs  stage=ppm         409
+POST /api/jobs  stage=nonsense    422  "there is no 'nonsense' stage"
+inspections table afterwards      1 row — nothing queued behind the refusals
+```
+
+Suites: **444** Python, **70** frontend, `ruff check` and `eslint` clean,
+`tsc -b && vite build` green.
+
+**What was not verified, and it is the same gap as §38.7.** No browser tooling
+was available this session, so nothing here has been looked at on a screen. The
+CSS contract was checked by grepping the built bundle for every selector the new
+markup emits — `.bar .stack`, `.bar .good`, `.feed li .avatar`, `.feed .when
+.pom` and the rest — which proves the rule exists, not that the page is right.
+Given that §40.3 is three features that rendered as nothing under green tests,
+that distinction is the whole point.
+
+### 40.12 Two checks that were already red
+
+Both predate this session; neither was introduced here.
+
+- **`ruff format --check`** wants 22 files. 22 at `e8ccf4e`, 22 now — the four
+  Python files touched here were already among them. Reformatting 22 files
+  inside a feature diff would bury it; it wants its own commit.
+- **The dashboard test in §40.4**, fixed here because the change landed on top
+  of it.
+
+### 40.13 Left open
+
+| Item | State |
+|---|---|
+| **Nobody has reviewed this on a real screen** | Same standing item as §38.7, and §40.3 is what it looks like when it bites: three features rendering as nothing, under green tests. What was and was not checked this session is in §40.11. |
+| **Per-stage permissions are half done** | `POST /api/jobs` now checks `record` against the chosen stage. Every other job endpoint still asks about `DEFAULT_STAGE`, so a reviewer on size set could open a Final inspection's report. Unreachable today — the only non-size-set data is in the browser — but it is a hole the moment a second pipeline lands. The fix is a `_job_for(job_id, user, capability)` helper that re-checks against the job's own stage, with the declared dependency staying as the coarse gate. |
+| **`Records` gates before `_stage_for` runs** | `requires("record")` resolves against size set, so somebody holding `record` on Final alone is refused before the stage is even read. Harmless while one stage is recordable; it becomes wrong with the same change as the row above. |
+| **The three stage home screens** | Switching stage in the rail still lands on "not built yet". The four checks live inside Inspections, which is what was asked for; whether those dashboards should carry demo content too is an open question. |
+| **Demo data is no longer labelled** | Requested, and taken explicitly — §40.8 rule 3. The rows are indistinguishable from real ones on screen; `demo: true`, the absent `Open report` link and the server-side refusal are what remain. Put the marking back before this reaches anyone outside the team. |
+| **§38.7 is stale on two rows** | The audit trail and style-set upload both landed in `e8ccf4e` alongside §39 and were never written up. `trail.py`, `events`, the Activity screen and `POST /api/style-sets` all exist and are in use — §40.3 reads the first of them. |
+| **`src/api/index.html`** | Still the fallback for a checkout that has never run `npm run build`, and now further behind again: no stage picker, no style-led register. |
+| **README is behind** | Points at `pipeline/measurements.py` (now `services/measurements.py`), says spec-sheet validation is "built but not wired in" (it is), claims 273 backend tests against 444, and its Layout section predates `db/`, `auth`, `storage`, `playback`, `timing` and `audit`. |
+| **Dead frontend components** | `Tables.tsx`, `Verdict.tsx` and `Progress.tsx` are imported by nothing — `JobDetail` inlines equivalent markup. About 400 lines to delete. |
+| **`Intake.tsx` contradicts itself** | A `ponytail:` comment says coordinates are kept rather than a place name because "sending a client's inspection floor to a third party is not a trade worth making"; the code immediately above it calls Nominatim. One of the two should go. |

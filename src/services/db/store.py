@@ -74,6 +74,7 @@ def _text(value: Fraction | None) -> str:
 def _apply(job: Job, row: Inspection) -> Inspection:
     """Copy the live job onto its row. One direction only."""
     row.filename = job.filename
+    row.stage = job.stage
     row.name = job.name
     row.location = job.location
     if job.recorded_by_id:
@@ -109,7 +110,7 @@ def _revive(row: Inspection) -> Job:
     and the report endpoints rebuild them from the document on demand. What
     has to survive is the state, the counts and where the outputs went.
     """
-    job = Job(id=row.id, filename=row.filename, style_no=row.style_no)
+    job = Job(id=row.id, filename=row.filename, style_no=row.style_no, stage=row.stage)
     # Without this a revived job cannot find its own outputs: every one of them
     # is named for it, and `_graded_sheet` looks up `<name>.json`.
     job.name = row.name
@@ -158,19 +159,21 @@ class DatabaseJobStore(JobStore):
     the status endpoint four times a second does not become four queries.
     """
 
-    def __init__(self, stage: str = Stage.sizeset.value) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.stage = stage
         self.load()
 
     def load(self) -> None:
-        """Bring back everything the last process left behind."""
+        """Bring back everything the last process left behind.
+
+        Every stage, not one. The store used to be built for a single check
+        and filter the table down to it, which made a second stage a second
+        store and a second in-memory dictionary — and left `GET /api/jobs`
+        unable to answer for the floor as a whole. The stage now travels on
+        the job, so there is one registry and callers narrow it.
+        """
         with session() as db:
-            rows = db.scalars(
-                select(Inspection)
-                .where(Inspection.stage == self.stage)
-                .order_by(Inspection.created_at)
-            ).all()
+            rows = db.scalars(select(Inspection).order_by(Inspection.created_at)).all()
             revived = [(_revive(row), row) for row in rows]
             for job, row in revived:
                 # An interrupted job is written back, not just relabelled in
@@ -183,10 +186,12 @@ class DatabaseJobStore(JobStore):
         if revived:
             log.info("recovered %d inspection(s) from the database", len(revived))
 
-    def create(self, filename: str, style_no: str = "") -> Job:
-        job = super().create(filename, style_no=style_no)
+    def create(
+        self, filename: str, style_no: str = "", stage: str = Stage.sizeset.value
+    ) -> Job:
+        job = super().create(filename, style_no=style_no, stage=stage)
         with session() as db:
-            db.add(_apply(job, Inspection(id=job.id, stage=self.stage)))
+            db.add(_apply(job, Inspection(id=job.id)))
         return job
 
     def save(self, job: Job) -> None:
@@ -194,7 +199,7 @@ class DatabaseJobStore(JobStore):
         with session() as db:
             row = db.get(Inspection, job.id)
             if row is None:
-                row = Inspection(id=job.id, stage=self.stage)
+                row = Inspection(id=job.id)
                 db.add(row)
             _apply(job, row)
 

@@ -70,12 +70,17 @@ test("with nothing recorded the dashboard says so and offers the recorder", asyn
   expect(screen.getAllByRole("link", { name: "Record inspection" }).length).toBeGreaterThan(0);
 });
 
-test("the hero answers whether anything is waiting on you", async () => {
+test("the dashboard does not lead with a saturated verdict card", async () => {
   render(<App />);
 
+  // `.verdict` is the system's one saturated feature card and it answers "can
+  // THIS be sent?" — a question about one inspection. JobDetail still leads
+  // with it; a register of many must not, or the loudest thing on the floor's
+  // home screen is a restatement of the readout beneath it.
   await waitFor(() =>
     expect(screen.getByText(/Record one, or drop a recording you already have/)).toBeDefined(),
   );
+  expect(document.querySelector("main .verdict")).toBeNull();
 });
 
 test("the record screen is where the recorder lives", async () => {

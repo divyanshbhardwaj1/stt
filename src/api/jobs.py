@@ -50,6 +50,10 @@ class Job:
     id: str
     filename: str
     style_no: str = ""  # chosen at upload; "" means use whatever the recording announces
+    # Which of the four checks this inspection is. Chosen at upload and never
+    # inferred: the same garment is inspected four times and a reading filed
+    # under the wrong check is a reading nobody will find again.
+    stage: str = "sizeset"
     status: str = QUEUED
     message: str = "waiting to start"
     name: str = ""
@@ -92,6 +96,7 @@ class Job:
             "id": self.id,
             "filename": self.filename,
             "style_no": self.style_no,
+            "stage": self.stage,
             "status": self.status,
             "message": self.message,
             "name": self.name,
@@ -133,8 +138,10 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create(self, filename: str, style_no: str = "") -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], filename=filename, style_no=style_no)
+    def create(self, filename: str, style_no: str = "", stage: str = "sizeset") -> Job:
+        job = Job(
+            id=uuid.uuid4().hex[:12], filename=filename, style_no=style_no, stage=stage
+        )
         with self._lock:
             self._jobs[job.id] = job
         return job

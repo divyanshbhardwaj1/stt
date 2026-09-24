@@ -106,6 +106,49 @@ CHUNK = 1024 * 1024
 # lands well under it even at phone-default quality.
 MAX_RECORDING_BYTES = 500 * 1024 * 1024
 
+# The checks that can actually be recorded into.
+#
+# One, today. The pipeline is size-set-specific all the way down — the
+# extraction prompt, the spec-sheet alignment and the 26 fields of the client's
+# workbook — and a Final inspection is a sampling plan against an accept
+# number, which none of that computes. The other three stages exist on screen,
+# in the roster and on this column, and they are filled with demo data so the
+# shape of the product is visible; what they do not have is somewhere for a
+# real recording to go. Queuing one anyway would run the size-set pipeline over
+# it and file the result under Final, which is a fabricated document in the one
+# place this product exists to keep honest.
+#
+# Adding a stage here is the last line of building it, not the first.
+RECORDABLE_STAGES = frozenset({Stage.sizeset.value})
+
+
+def _stage_for(stage: str, user: User) -> str:
+    """The stage an upload is filed under, or a refusal saying why not.
+
+    Two separate questions, and they get different answers. Whether the stage
+    can be recorded into at all is about this deployment; whether *you* may
+    record into it is about your roster row on that stage — and asking the
+    second against `DEFAULT_STAGE`, as every other check here still does,
+    would let somebody who holds `record` on size set alone record into Final
+    the day Final starts working.
+    """
+    filed = (stage or Stage.sizeset.value).strip()
+    if filed not in {member.value for member in Stage}:
+        raise HTTPException(status_code=422, detail=f"there is no {filed!r} stage")
+    if filed not in RECORDABLE_STAGES:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{filed} has no pipeline yet, so a recording filed under it could not "
+                "be graded — only transcribed and left looking like a report. Record it "
+                "under size set, which is the check this product performs today."
+            ),
+        )
+    if not auth.can(user, "record", filed):
+        raise HTTPException(status_code=403, detail=auth.REASONS["record"])
+    return filed
+
+
 # The one roster rule that is not about permissions.
 LAST_ADMIN = (
     "This is the last administrator. Promote somebody else first, or nobody can "
@@ -601,8 +644,17 @@ def realtime_token(settings: SettingsDep, user: Records) -> dict[str, object]:
 
 
 @app.get("/api/jobs")
-def list_jobs(user: ViewsAudit) -> list[dict[str, object]]:
-    return [job.as_dict() for job in store.all()]
+def list_jobs(user: ViewsAudit, stage: str = "") -> list[dict[str, object]]:
+    """Every inspection, newest first, optionally narrowed to one stage.
+
+    Unfiltered by default. The register is read stage by stage on screen, but
+    the dashboard counts across the floor and a client that has to ask four
+    times to do that is four round trips for one question.
+    """
+    jobs = store.all()
+    if stage:
+        jobs = [job for job in jobs if job.stage == stage]
+    return [job.as_dict() for job in jobs]
 
 
 @app.get("/api/jobs/{job_id}")
@@ -679,15 +731,20 @@ async def create_job(
     style_no: Annotated[str, Form()] = "",
     live_transcript: Annotated[str, Form()] = "",
     location: Annotated[str, Form()] = "",
+    stage: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     """Accept a recording and queue it. Returns immediately with a job to poll.
 
     `style_no` is the style set to check against. Leave it empty to fall back to
     the style number announced at the start of the recording.
 
+    `stage` is which of the four checks this is. Only size set has a pipeline
+    behind it, so it is the only one accepted here — see `_stage_for`.
+
     `live_transcript` is what the browser's monitor heard while recording. It is
     saved beside the batch transcripts for audit and never read by the pipeline.
     """
+    filed = _stage_for(stage, user)
     # The browser controls the filename, so keep only its last component and
     # check the suffix before anything touches the filesystem.
     name = Path(recording.filename or "").name
@@ -724,7 +781,7 @@ async def create_job(
         saved.write_text(live_transcript, encoding="utf-8")
         log.info("saved live transcript %s (%d chars)", saved.name, len(live_transcript))
 
-    job = store.create(destination.name, style_no=chosen)
+    job = store.create(destination.name, style_no=chosen, stage=filed)
     # Provenance, captured at the only moment anything knows it: the signed-in
     # account that sent the file, and whichever bench the operator typed.
     job.recorded_by_id = user.id

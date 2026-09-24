@@ -56,6 +56,7 @@ const JOB: Job = {
   id: "abc123",
   filename: "Recording_20.m4a",
   style_no: "7270",
+  stage: "sizeset",
   status: "done",
   message: "12 rows, 1 needs review",
   name: "Recording_20",
@@ -136,6 +137,11 @@ function serve(me: object, jobs: Job[] = [JOB]) {
         : /^\/api\/jobs\/[^/]+$/.test(url) ? (DETAIL ?? jobs[0])
         : url.startsWith("/api/jobs") ? jobs
         : url.startsWith("/api/activity") ? TRAIL
+        // One sheet is a different answer from the library, exactly as
+        // `/api/jobs/<id>` is from `/api/jobs`. Returning the list for both
+        // handed the style screen an array and it read `sizes` off it.
+        : /^\/api\/style-sets\/sheets\/[^/]+$/.test(url)
+          ? { ...(LIBRARY.find((sheet) => url.endsWith(sheet.style_no)) ?? LIBRARY[0]), rows: [] }
         : url.startsWith("/api/style-sets/sheets") ? LIBRARY
         : url.startsWith("/api/style-sets") ? ["7270", "2463"]
         : [];
@@ -211,16 +217,46 @@ beforeEach(() => {
   serve(ADMIN);
 });
 
-test("the register lists inspections and their state", async () => {
+test("the register lists styles, not recordings", async () => {
   window.location.hash = "#/inspections";
   render(<App />);
 
+  // A garment is inspected four times and what those four share is the style.
+  // The register is led by it, with a column per check.
+  await waitFor(() => expect(screen.getAllByText("7270").length).toBeGreaterThan(0));
+  expect(screen.getByText("RIBBED HENLEY, LONG SLEEVE")).toBeDefined();
+  for (const stage of ["Size set", "PPM", "Interim", "Final"]) {
+    expect(screen.getAllByText(stage).length).toBeGreaterThan(0);
+  }
+  // The recording itself is one level down, not here.
+  expect(screen.queryByText("Recording_20.m4a")).toBeNull();
+});
+
+test("a style opens all four checks, whether or not they are built", async () => {
+  window.location.hash = "#/style/7270";
+  render(<App />);
+
+  // Size set: the inspection that actually happened, openable.
   await waitFor(() => expect(screen.getAllByText("Recording_20.m4a").length).toBeGreaterThan(0));
-  // The prototype's state vocabulary, picked from the job: this one is done
-  // with an open question, so it needs review.
   expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
-  // Tabs are built from what is present, so a state nobody is in gets none.
-  expect(screen.queryByRole("button", { name: "Failed" })).toBeNull();
+  expect(screen.getAllByRole("link", { name: "Open report" }).length).toBeGreaterThan(0);
+
+  // All four panels render. A stage drawn only when it holds something is a
+  // stage somebody concludes does not exist.
+  for (const stage of ["Size set", "PPM", "Interim", "Final"]) {
+    expect(screen.getAllByText(stage).length).toBeGreaterThan(0);
+  }
+  // The three without a pipeline carry stand-in rows, in their own vocabulary
+  // rather than as three copies of a size-set row.
+  expect(screen.getByText("Pre-production meeting")).toBeDefined();
+  expect(screen.getByText("Line audit — first 20%")).toBeDefined();
+  expect(screen.getByText("Final random inspection")).toBeDefined();
+  // The on-screen marking came off on request (demoStages.ts, rule 3). What
+  // has to stay true is that a stand-in row opens nothing — there is no report
+  // behind it, and a link to a fabricated one is the failure worth guarding.
+  expect(
+    screen.queryAllByRole("link", { name: "Open report" }).length,
+  ).toBe(1);
 });
 
 test("an inspection route resolves to its report", async () => {
@@ -330,6 +366,12 @@ async function recordScreenWithAFile(container: HTMLElement) {
   await waitFor(() => expect(screen.getByText("Where")).toBeDefined());
 }
 
+/**
+ * A library big enough that the picker has to be searched rather than scrolled.
+ * `7270` and `7271` share a prefix on purpose — narrowing has to keep both.
+ */
+const STYLE_LIBRARY = ["2463", "7122", "7147", "7270", "7271", "9601", "9662"];
+
 /** The style library, plus whatever the reverse geocoder is meant to say. */
 function stubFetch(address?: Record<string, string>) {
   vi.stubGlobal(
@@ -338,7 +380,7 @@ function stubFetch(address?: Record<string, string>) {
       Promise.resolve(
         String(url).includes("nominatim")
           ? { ok: Boolean(address), json: () => Promise.resolve({ address }) }
-          : { ok: true, json: () => Promise.resolve(["2463"]) },
+          : { ok: true, json: () => Promise.resolve(STYLE_LIBRARY) },
       ),
     ),
   );
@@ -390,6 +432,125 @@ test("no address service, no problem: the fix stands on its own", async () => {
   await recordScreenWithAFile(container);
 
   expect(container.querySelector(".opts .pill")?.textContent).toBe("12.97160, 77.59460");
+});
+
+test("the style picker is searched, not scrolled", async () => {
+  stubFetch();
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  const box = container.querySelector("#style") as HTMLInputElement;
+  /** The style rows, without the "announced in the recording" row above them. */
+  const options = () =>
+    [...container.querySelectorAll('.stylepick-list li[role="option"]:not(.any)')].map(
+      (row) => row.textContent,
+    );
+
+  // A combobox, not a <select>. At three to four thousand styles the operator
+  // would be scrolling for a number they already know.
+  expect(box.tagName).toBe("INPUT");
+  expect(box.getAttribute("role")).toBe("combobox");
+  expect(box.getAttribute("aria-expanded")).toBe("false");
+
+  fireEvent.click(box);
+  expect(box.getAttribute("aria-expanded")).toBe("true");
+  await waitFor(() => expect(options()).toEqual(STYLE_LIBRARY));
+
+  // Typing narrows it, and a shared prefix keeps every match.
+  fireEvent.change(box, { target: { value: "72" } });
+  expect(options()).toEqual(["7270", "7271"]);
+  // The matched run is marked, so it is visible why a row is in the list
+  // rather than leaving seven numbers that all start alike to be re-read.
+  expect(container.querySelector(".stylepick-list mark")?.textContent).toBe("72");
+
+  // Nothing matches is a state, not an empty panel.
+  fireEvent.change(box, { target: { value: "8888" } });
+  expect(options()).toEqual([]);
+  expect(container.querySelector(".stylepick-list .note")?.textContent).toContain(
+    "No sheet matches",
+  );
+});
+
+test("the style picker is driven from the keyboard", async () => {
+  stubFetch();
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  const box = container.querySelector("#style") as HTMLInputElement;
+  fireEvent.change(box, { target: { value: "72" } });
+  await waitFor(() =>
+    expect(
+      container.querySelectorAll('.stylepick-list li[role="option"]:not(.any)').length,
+    ).toBe(2),
+  );
+
+  // A datalist gave this away for free; the panel is ours now, so this is the
+  // part that has to be held down by a test rather than by the browser.
+  fireEvent.keyDown(box, { key: "ArrowDown" });
+  fireEvent.keyDown(box, { key: "Enter" });
+
+  expect(box.value).toBe("7270");
+  expect(screen.getByText(/Style 7270 . graded against its sheet/)).toBeDefined();
+  // Choosing closes it.
+  expect(container.querySelector(".stylepick-list")).toBeNull();
+
+  // Escape closes without choosing.
+  fireEvent.click(box);
+  expect(container.querySelector(".stylepick-list")).not.toBeNull();
+  fireEvent.keyDown(box, { key: "Escape" });
+  expect(container.querySelector(".stylepick-list")).toBeNull();
+  expect(box.value).toBe("7270");
+});
+
+test("the default is a row, not an empty field", async () => {
+  stubFetch();
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  const box = container.querySelector("#style") as HTMLInputElement;
+  fireEvent.change(box, { target: { value: "7271" } });
+  await waitFor(() => expect(box.value).toBe("7271"));
+
+  // "Use whatever the recording announces" is a real answer. A datalist can
+  // only suggest values, so it could only ever live in a placeholder nobody
+  // reads — and getting back to it meant deleting what you had typed.
+  const any = container.querySelector(".stylepick-list li.any") as HTMLElement;
+  expect(any.textContent).toContain("Style announced in the recording");
+  fireEvent.click(any);
+
+  expect(box.value).toBe("");
+});
+
+test("a style with no sheet blocks the upload rather than wasting it", async () => {
+  stubFetch();
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  const box = container.querySelector("#style") as HTMLInputElement;
+  await waitFor(() => expect(container.querySelector("#style")).not.toBeNull());
+
+  fireEvent.change(box, { target: { value: "8888" } });
+
+  // The server refuses an unknown style with a 404 — but only after the
+  // recording has been uploaded and deleted again, which on a phone connection
+  // is minutes thrown away for a typo. Said here instead.
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toContain("No sheet for style 8888"),
+  );
+  expect(box.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (screen.getByRole("button", { name: "Process this recording" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  // Clearing it is a real answer, not a missing one: use whatever the
+  // recording announces.
+  fireEvent.change(box, { target: { value: "" } });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(
+    (screen.getByRole("button", { name: "Process this recording" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false);
 });
 
 test("a denied prompt leaves the operator the box", async () => {
@@ -495,17 +656,39 @@ test("the dashboard counts every inspection exactly once", async () => {
   window.location.hash = "";
   render(<App />);
 
+  // Scoped to the readout strip, not a global text search. Every one of these
+  // labels is also a word in the paragraph underneath explaining it, so
+  // `getByText("Overdue")` finds the `<dt>` and the `<b>` and refuses to
+  // choose — which is what it was doing here before.
   const figure = (label: string) =>
-    screen.getByText(label).parentElement?.querySelector("dd")?.textContent;
+    [...document.querySelectorAll("dl.readout > div")]
+      .find((box) => box.querySelector("dt")?.textContent === label)
+      ?.querySelector("dd")?.textContent;
 
   // The readout renders at zero before the first poll lands, so wait on the
   // value rather than on the label.
-  await waitFor(() => expect(figure("Total")).toBe("3"));
+  await waitFor(() => expect(figure("Total inspections")).toBe("3"));
   expect(figure("Pending")).toBe("1");
   expect(figure("Done")).toBe("2");
   expect(figure("Overdue")).toBe("1");
   // b has an unanswered reading, c has a failed measurement. Counted once each.
   expect(figure("Need attention")).toBe("2");
   // One PASS out of three that carry a verdict.
-  expect(figure("Pass")).toBe("33%");
+  expect(figure("Pass %")).toBe("33%");
+
+  // The fortnight chart is drawn entirely in CSS, so the markup IS the chart:
+  // app.css colours `.bar .stack .good` and `.bar .stack .gap` and nothing
+  // else. An earlier version emitted bare `<i>` elements, which matched no
+  // rule and rendered fourteen invisible columns — a silent failure no
+  // assertion about the counts could have caught.
+  expect(document.querySelectorAll(".bars .bar").length).toBe(14);
+  expect(document.querySelectorAll(".bars .bar .stack .good").length).toBe(14);
+  expect(document.querySelectorAll(".bars .bar .stack .gap").length).toBe(14);
+
+  // The newest lines of the audit trail, in the markup app.css draws for them.
+  await waitFor(() =>
+    expect(screen.getAllByText(/Recorded an inspection/).length).toBeGreaterThan(0),
+  );
+  expect(document.querySelector(".feed li .avatar")).not.toBeNull();
+  expect(document.querySelector(".feed li .when .pom")).not.toBeNull();
 });

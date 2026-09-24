@@ -21,9 +21,15 @@ export interface Event {
   subject: string;
 }
 
-/** The trail, newest first. */
-export async function fetchActivity(): Promise<Event[]> {
-  const response = await fetch("/api/activity");
+/**
+ * The trail, newest first.
+ *
+ * `limit` is the server's own cap, passed through: the Activity screen wants
+ * the lot, the dashboard wants five, and asking for five should not carry five
+ * hundred rows across to be thrown away.
+ */
+export async function fetchActivity(limit?: number): Promise<Event[]> {
+  const response = await fetch(limit ? `/api/activity?limit=${limit}` : "/api/activity");
   if (!response.ok) throw new Error(await detail(response, "Could not read the log."));
   return response.json();
 }
@@ -166,12 +172,14 @@ export function uploadRecording(
   liveTranscript: string,
   onProgress: (fraction: number) => void,
   location = "",
+  stage = "sizeset",
 ): Promise<Job> {
   return new Promise((resolve, reject) => {
     const body = new FormData();
     body.append("recording", file);
     body.append("style_no", styleNo);
     body.append("live_transcript", liveTranscript);
+    body.append("stage", stage);
     if (location) body.append("location", location);
 
     const xhr = new XMLHttpRequest();
