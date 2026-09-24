@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchJob } from "./api";
 import { Account } from "./components/Account";
 import { Activity } from "./components/Activity";
 import { AuditSheet } from "./components/AuditSheet";
@@ -100,11 +101,57 @@ function Workspace() {
    */
   const [settled, setSettled] = useState<Job | null>(null);
 
+  /**
+   * The full read of the job on screen.
+   *
+   * The polled list is a summary: it carries the counts but not the rows
+   * behind them, and not the client's own field labels. Both are derived -
+   * `_rehydrate` on the server rebuilds the rows from the saved extraction -
+   * and neither belongs on an endpoint polled every two seconds for every
+   * inspection. Without this the report shows "2 measurements out of
+   * tolerance" above an empty table as soon as the process that graded it has
+   * been restarted, which reads as a bug in the grading rather than in the
+   * bookkeeping.
+   */
+  const [detail, setDetail] = useState<Job | null>(null);
+  useEffect(() => {
+    if (!route.id) return;
+    let live = true;
+    fetchJob(route.id)
+      .then((one) => live && setDetail(one))
+      .catch(() => {
+        /* the summary still renders; the poll is the source of truth */
+      });
+    return () => {
+      live = false;
+    };
+  }, [route.id]);
+
   const polled =
     jobs.find((candidate) => candidate.id === route.id) ??
     (queued && queued.id === route.id ? queued : undefined);
-  const job =
-    settled && settled.id === polled?.id && settled.rows !== polled.rows ? settled : polled;
+  const job = useMemo(() => {
+    const base =
+      settled && settled.id === polled?.id && settled.rows !== polled.rows ? settled : polled;
+    if (!base || !detail || detail.id !== base.id) return base;
+    // The poll wins on everything it knows about - state, counts, the verdict
+    // - because it is newer. The full read only fills in what the list never
+    // sends, and only while the poll has nothing of its own to say.
+    const bare =
+      !base.flagged_rows.length && !base.unconfirmed_rows.length && !base.failed_rows.length;
+    return {
+      ...base,
+      form_labels: base.form_labels ?? detail.form_labels,
+      transcript: base.transcript ?? detail.transcript,
+      ...(bare
+        ? {
+            flagged_rows: detail.flagged_rows,
+            unconfirmed_rows: detail.unconfirmed_rows,
+            failed_rows: detail.failed_rows,
+          }
+        : {}),
+    };
+  }, [settled, polled, detail]);
 
   const here = stageOf(stage);
   // A stage without a pipeline says so rather than drawing an empty one. This

@@ -28,3 +28,12 @@ export function hms(ms: number): string {
 export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const megabytes = (bytes: number): string => `${(bytes / 1e6).toFixed(1)} MB`;
+
+/** Loose "when was this" for a list: "6 min ago", "3 h ago", then a date. */
+export function since(started: number): string {
+  if (!started) return "";
+  const ago = Date.now() - started * 1000;
+  if (ago < 3_600_000) return `${Math.max(1, Math.round(ago / 60_000))} min ago`;
+  if (ago < 86_400_000) return `${Math.round(ago / 3_600_000)} h ago`;
+  return new Date(started * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}

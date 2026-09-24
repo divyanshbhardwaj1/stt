@@ -1,6 +1,7 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
+import { Intake } from "./components/Intake";
 import type { Job } from "./types";
 
 afterEach(cleanup);
@@ -77,6 +78,9 @@ const JOB: Job = {
   unconfirmed_rows: [],
   failed_rows: [],
   elapsed: 42.5,
+  started_at: Date.now() / 1000 - 3600,
+  recorded_by: "R. Menon",
+  location: "Unit 2, bench 4",
 };
 
 const ROSTER = {
@@ -114,6 +118,9 @@ const ROSTER = {
   capabilities: [{ id: "record", label: "Record and upload inspections" }],
 };
 
+/** What `GET /api/jobs/<id>` returns, when a test wants it to differ. */
+let DETAIL: Job | null = null;
+
 function serve(me: object, jobs: Job[] = [JOB]) {
   vi.stubGlobal(
     "fetch",
@@ -123,7 +130,13 @@ function serve(me: object, jobs: Job[] = [JOB]) {
       const answer =
         url.startsWith("/api/users") ? ROSTER
         : url.startsWith("/api/me") ? me
+        // `/api/jobs/<id>` is a different answer from `/api/jobs`, and the
+        // difference is the whole point: the list is a summary and the single
+        // read is the one that carries the report's detail tables and labels.
+        : /^\/api\/jobs\/[^/]+$/.test(url) ? (DETAIL ?? jobs[0])
         : url.startsWith("/api/jobs") ? jobs
+        : url.startsWith("/api/activity") ? TRAIL
+        : url.startsWith("/api/style-sets/sheets") ? LIBRARY
         : url.startsWith("/api/style-sets") ? ["7270", "2463"]
         : [];
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer) });
@@ -131,7 +144,68 @@ function serve(me: object, jobs: Job[] = [JOB]) {
   );
 }
 
+/** The audit trail, as the server sends it. */
+const TRAIL = [
+  {
+    id: "e1",
+    at: "2026-09-24T09:12:00+00:00",
+    user_id: "u1",
+    actor: "Test Administrator",
+    kind: "record",
+    stage: "sizeset",
+    what: "Recorded an inspection - rec_2463(17).mp3",
+    subject: "rec_2463(21)",
+  },
+  {
+    id: "e2",
+    at: "2026-09-23T16:42:00+00:00",
+    user_id: null,
+    actor: "",
+    kind: "correction",
+    stage: "sizeset",
+    what: "Settled 2 readings by hand",
+    subject: "rec_2463(20)",
+  },
+];
+
+/** Two sheets, as `GET /api/style-sets/sheets` returns them. */
+const LIBRARY = [
+  {
+    style_no: "7270",
+    document: "style_7270.pdf",
+    readable: true,
+    description: "RIBBED HENLEY, LONG SLEEVE",
+    company: "AMERICAN EAGLE OUTFITTERS",
+    season: "FALL-A 2026",
+    division: "02 / 022",
+    status: "FNL",
+    base_size: "M",
+    sizes: ["S", "M", "L"],
+    poms: 71,
+    tolerance_model: "WW TOP L20",
+    from_scan: false,
+    last_used: null,
+  },
+  {
+    style_no: "2463",
+    document: "style_2463.pdf",
+    readable: true,
+    description: "TIERED MIDI SKIRT",
+    company: "AMERICAN EAGLE OUTFITTERS",
+    season: "SPRING 2027",
+    division: "02 / 019",
+    status: "FNL",
+    base_size: "M",
+    sizes: ["S", "M"],
+    poms: 43,
+    tolerance_model: "WW BTM L20",
+    from_scan: false,
+    last_used: null,
+  },
+];
+
 beforeEach(() => {
+  DETAIL = null;
   vi.stubGlobal("MediaRecorder", undefined);
   window.location.hash = "";
   serve(ADMIN);
@@ -172,10 +246,16 @@ test("the style set library lists the sheets on disk", async () => {
 
   await waitFor(() => expect(screen.getByText("7270")).toBeDefined());
   expect(screen.getByText("2463")).toBeDefined();
-  // The prototype has an Upload button. There is no endpoint behind one, so
-  // it is present and dead rather than absent, with the reason on it.
+  // Every column is read out of the sheet, not invented by the screen.
+  expect(screen.getByText("RIBBED HENLEY, LONG SLEEVE")).toBeDefined();
+  expect(screen.getByText("71")).toBeDefined();
+  expect(screen.getAllByText("Ready").length).toBe(2);
+  // Upload is live now, and opens the dialog that parses the PDF.
   const upload = screen.getByRole("button", { name: /Upload a sheet/i });
-  expect(upload).toHaveProperty("disabled", true);
+  expect(upload).toHaveProperty("disabled", false);
+  fireEvent.click(upload);
+  expect(screen.getByRole("dialog", { name: "Upload a sheet" })).toBeDefined();
+  expect(screen.getByText("Drop a PDF here")).toBeDefined();
 });
 
 test("the stages screen shows the role held on each", async () => {
@@ -235,4 +315,197 @@ test("every screen renders for an inspector without throwing", async () => {
     // The rail is the one thing on every screen; if the route threw, it is gone.
     await waitFor(() => expect(screen.getByRole("link", { name: "Style sets" })).toBeDefined());
   }
+});
+
+
+/** Put a file in front of the record screen, which is what reveals the options. */
+async function recordScreenWithAFile(container: HTMLElement) {
+  const file = new File(["x"], "take.mp3", { type: "audio/mpeg" });
+  const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+  // It lives inside the dropzone label. Loose on the page it renders as a
+  // stray "No file chosen" control under everything else.
+  expect(input.hidden).toBe(true);
+  expect(container.querySelector('.dropzone')).not.toBeNull();
+  fireEvent.change(input, { target: { files: [file] } });
+  await waitFor(() => expect(screen.getByText("Where")).toBeDefined());
+}
+
+/** The style library, plus whatever the reverse geocoder is meant to say. */
+function stubFetch(address?: Record<string, string>) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve(
+        String(url).includes("nominatim")
+          ? { ok: Boolean(address), json: () => Promise.resolve({ address }) }
+          : { ok: true, json: () => Promise.resolve(["2463"]) },
+      ),
+    ),
+  );
+}
+
+function stubFix(accuracy = 11.4) {
+  vi.stubGlobal("navigator", {
+    ...navigator,
+    geolocation: {
+      getCurrentPosition: (ok: PositionCallback) =>
+        ok({ coords: { latitude: 12.9716, longitude: 77.5946, accuracy } } as GeolocationPosition),
+    },
+  });
+}
+
+test("the browser's own answer fills in where, and the box goes away", async () => {
+  stubFetch({
+    road: "Residency Road",
+    suburb: "Shanthala Nagar",
+    city_district: "Shanthala Nagar", // Nominatim repeats itself; the UI must not
+    city: "Bengaluru",
+    state: "Karnataka",
+    postcode: "560025",
+  });
+  stubFix();
+
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  // The address is what an inspector reads; the fix is the footnote under it.
+  await waitFor(() =>
+    expect(container.querySelector(".opts .pill")?.textContent).toBe(
+      "Residency Road, Shanthala Nagar, Bengaluru, Karnataka, 560025",
+    ),
+  );
+  expect(screen.getByText(/12.97160, 77.59460/)).toBeDefined();
+  expect(screen.getByText(/to within 11 m/)).toBeDefined();
+  // Typing is the fallback, so while the browser is answering there is nothing
+  // to type into — only the offer to override it.
+  expect(container.querySelector("#where")).toBeNull();
+  expect(screen.getByText("type it instead")).toBeDefined();
+});
+
+test("no address service, no problem: the fix stands on its own", async () => {
+  stubFetch(); // nominatim answers with an error
+  stubFix();
+
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  expect(container.querySelector(".opts .pill")?.textContent).toBe("12.97160, 77.59460");
+});
+
+test("a denied prompt leaves the operator the box", async () => {
+  stubFetch();
+  vi.stubGlobal("navigator", {
+    ...navigator,
+    geolocation: {
+      getCurrentPosition: (_ok: PositionCallback, fail: PositionErrorCallback) =>
+        fail({ code: 1, message: "denied" } as GeolocationPositionError),
+    },
+  });
+
+  const { container } = render(<Intake onQueued={vi.fn()} />);
+  await recordScreenWithAFile(container);
+
+  expect(container.querySelector("#where")).not.toBeNull();
+});
+
+
+test("the activity screen shows the trail, attributed", async () => {
+  window.location.hash = "#/activity";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText(/Recorded an inspection/)).toBeDefined());
+  expect(screen.getAllByText("Test Administrator").length).toBeGreaterThan(0);
+  expect(screen.getByText("Settled 2 readings by hand")).toBeDefined();
+  // An event written before sign-in attribution existed says so rather than
+  // being filled in with a guess.
+  expect(screen.getAllByText("Unattributed").length).toBeGreaterThan(0);
+});
+
+
+test("the report's detail tables come from the single read, not the poll", async () => {
+  // Exactly the shape a restarted server serves: the counts survive as
+  // columns, the rows behind them do not, and only `GET /api/jobs/<id>`
+  // rebuilds them. A report that shows "2 out of tolerance" over an empty
+  // table reads as a bug in the grading rather than in the bookkeeping.
+  DETAIL = {
+    ...JOB,
+    form: { style_no: "7270", yy_mini_marker: "Shell = 52.92 cm" },
+    form_labels: { yy_mini_marker: "YY/ Mini Marker" },
+    unconfirmed_rows: [
+      {
+        no: 22,
+        size: "M",
+        pom: "6.05B",
+        description: "ON SEAM POCKET HEM HEIGHT",
+        spec: "1/4",
+        spoken: "",
+      },
+    ],
+    failed_rows: [
+      {
+        no: 7,
+        size: "S",
+        pom: "1.22A",
+        description: "CHEST 1 BELOW ARMHOLE",
+        spec: "11 1/4",
+        measured: "11",
+        deviation: "-1/4",
+      },
+    ],
+  } as Job;
+
+  // The poll knows the field; it does not know what the client prints it as.
+  serve(ADMIN, [{ ...JOB, form: { style_no: "7270", yy_mini_marker: "Shell = 52.92 cm" } }]);
+
+  window.location.hash = "#/inspection/abc123";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("ON SEAM POCKET HEM HEIGHT")).toBeDefined());
+  expect(screen.getByText("CHEST 1 BELOW ARMHOLE")).toBeDefined();
+  // And the client's own printed label, which the list never sends either.
+  expect(screen.getByText("YY/ Mini Marker")).toBeDefined();
+});
+
+
+test("the dashboard counts every inspection exactly once", async () => {
+  const base = { ...JOB };
+  serve(ADMIN, [
+    // Finished and complete.
+    { ...base, id: "a", unconfirmed: 0, out_of_tolerance: 0, measurement_result: "PASS" },
+    // Finished, one point of measure still unanswered — pending, and old
+    // enough to be overdue.
+    {
+      ...base,
+      id: "b",
+      unconfirmed: 1,
+      out_of_tolerance: 0,
+      measurement_result: "PASS PENDING 1 CHECK",
+      started_at: Date.now() / 1000 - 3 * 86400,
+    },
+    // Finished and complete, but a measurement failed.
+    {
+      ...base,
+      id: "c",
+      unconfirmed: 0,
+      out_of_tolerance: 2,
+      measurement_result: "FAIL CONDITIONALLY",
+    },
+  ]);
+
+  window.location.hash = "";
+  render(<App />);
+
+  const figure = (label: string) =>
+    screen.getByText(label).parentElement?.querySelector("dd")?.textContent;
+
+  // The readout renders at zero before the first poll lands, so wait on the
+  // value rather than on the label.
+  await waitFor(() => expect(figure("Total")).toBe("3"));
+  expect(figure("Pending")).toBe("1");
+  expect(figure("Done")).toBe("2");
+  expect(figure("Overdue")).toBe("1");
+  // b has an unanswered reading, c has a failed measurement. Counted once each.
+  expect(figure("Need attention")).toBe("2");
+  // One PASS out of three that carry a verdict.
+  expect(figure("Pass")).toBe("33%");
 });

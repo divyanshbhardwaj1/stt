@@ -11,6 +11,7 @@ Adding a table: a new module beside these, and a line below.
 
 from .base import Base, JSONish, utcnow
 from .enums import Role, Stage, State, UserState
+from .event import Event
 from .inspection import Inspection
 from .membership import Membership
 from .reading import Reading
@@ -20,6 +21,7 @@ from .user import User
 __all__ = [
     "UserState",
     "Base",
+    "Event",
     "Inspection",
     "JSONish",
     "LoginSession",

@@ -300,9 +300,6 @@ export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
                     Open the graded sheet
                   </button>
                 )}
-                <a className="btn on-tint" href="#unanswered">
-                  Jump to the open readings
-                </a>
               </div>
             </div>
           </div>
@@ -354,21 +351,6 @@ export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
           </div>
         )}
       </section>
-
-      {job.graded && can("audit.view") && (
-        <section>
-          <div className="audit-open">
-            <button className="btn" onClick={onAudit}>
-              Open the graded sheet
-            </button>
-            <span className="hint">
-              Every point of measure on style <b>{job.graded_style_no}</b>, one column per size.
-              Correct anything that was misheard, or fill in what the recording never covered —
-              the report and the graded sheet are rebuilt from your changes.
-            </span>
-          </div>
-        </section>
-      )}
 
       {job.unconfirmed_rows.length > 0 && (
         <section id="unanswered">
@@ -518,7 +500,9 @@ export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
           <dl className="kv">
             {filled.map(([key, value]) => (
               <span key={key} style={{ display: "contents" }}>
-                <dt>{key.replace(/_/g, " ")}</dt>
+                {/* The client's own wording, off their workbook — the same
+                    label the PDF prints. The field name is the fallback. */}
+                <dt>{job.form_labels?.[key] ?? key.replace(/_/g, " ")}</dt>
                 <dd>{value}</dd>
               </span>
             ))}
@@ -531,7 +515,9 @@ export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
               </summary>
               <div className="unstated">
                 {unstated.map((field) => (
-                  <span key={field}>{field.replace(/_/g, " ")}</span>
+                  <span key={field}>
+                    {job.form_labels?.[field] ?? field.replace(/_/g, " ")}
+                  </span>
                 ))}
               </div>
             </details>

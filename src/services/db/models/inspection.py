@@ -14,10 +14,11 @@ do it — they are a summary of the same document, rewritten whenever it is.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Index, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, JSONish, utcnow
@@ -25,6 +26,7 @@ from .enums import Stage, State
 
 if TYPE_CHECKING:  # pragma: no cover - for type checkers, not at runtime
     from .reading import Reading
+    from .user import User
 
 
 class Inspection(Base):
@@ -34,12 +36,37 @@ class Inspection(Base):
     stage: Mapped[str] = mapped_column(String(16), default=Stage.sizeset.value)
 
     filename: Mapped[str] = mapped_column(String(255))
+    # What every output of this inspection is called: `<name>.pdf`, `<name>.json`
+    # and the rest, and therefore how the extraction is found again. Distinct
+    # from `filename`, which is the recording as uploaded — the two differ
+    # whenever a name was already taken and the pipeline versioned it, so
+    # "Recording_20.m4a" becomes "Recording_20(2)".
+    #
+    # Its absence was a bug that only appeared after a restart: a revived job
+    # had `name == ""`, so the audit view went looking for `.json` and answered
+    # 410 for a report that was sitting on disk the whole time.
+    name: Mapped[str] = mapped_column(String(255), default="")
     # The style the operator chose at upload. Empty means "use whatever the
     # recording announces", which is not the same as "none" and has to survive
     # a restart or a re-run grades against a different sheet.
     style_no: Mapped[str] = mapped_column(String(32), default="")
     announced_style_no: Mapped[str] = mapped_column(String(32), default="")
     graded_style_no: Mapped[str] = mapped_column(String(32), default="")
+
+    # Provenance. The three questions asked months later when a vendor disputes
+    # a measurement: who took it, where, and against which sheet. The style is
+    # above; these two were missing entirely and the Stats screen had to say so.
+    #
+    # `recorded_by` is a pointer, never a name: the name is looked up, so a
+    # correction to somebody's name does not have to be chased through every
+    # inspection they ever took. SET NULL rather than CASCADE — losing a user
+    # must not delete the inspections they recorded.
+    recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Which bench, floor or unit. Typed by the operator at upload, because
+    # nothing on the machine knows it.
+    location: Mapped[str] = mapped_column(String(128), default="")
 
     state: Mapped[str] = mapped_column(String(16), default=State.queued.value)
     message: Mapped[str] = mapped_column(String(255), default="waiting to start")
@@ -78,6 +105,8 @@ class Inspection(Base):
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    recorded_by: Mapped[User | None] = relationship(lazy="joined")
 
     readings: Mapped[list[Reading]] = relationship(
         back_populates="inspection",

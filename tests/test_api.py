@@ -10,6 +10,7 @@ from api.jobs import DONE, FAILED, JobStore, process
 from services.csv_filler import InspectionSheet
 
 from .conftest import SHEET_PAYLOAD
+from .style_set_fixture import write_style_set
 
 
 def upload(client, name="Recording_20.m4a", content=b"audio bytes", style_no=None):
@@ -578,3 +579,266 @@ def test_an_empty_edit_is_refused(client, template, style_sets, stub_pipeline):
 def test_the_audit_endpoints_refuse_a_job_that_does_not_exist(client):
     assert client.get("/api/jobs/nope/sheet").status_code == 404
     assert client.post("/api/jobs/nope/sheet", json={"edits": [1]}).status_code == 404
+
+
+def test_api_answers_are_never_cached(client):
+    """404 and 410 are cacheable by default, and both are transient here.
+
+    A graded sheet that was briefly missing stayed missing in the browser long
+    after the server could serve it again, and nothing on screen said the fault
+    had already been fixed.
+    """
+    for path in ("/api/jobs", "/api/style-sets", "/api/jobs/nope"):
+        response = client.get(path)
+        assert "no-store" in response.headers.get("cache-control", ""), path
+
+
+# ------------------------------------------------------------- the style library
+def _sheet_bytes(tmp_path, style_no="7270"):
+    """A stand-in graded sheet, as the bytes a browser would post."""
+    return write_style_set(tmp_path / "upload.pdf", style_no=style_no).read_bytes()
+
+
+def _post_sheet(client, payload, name="graded.pdf", replace=False):
+    return client.post(
+        "/api/style-sets",
+        files={"sheet": (name, payload, "application/pdf")},
+        data={"replace": "true"} if replace else None,
+    )
+
+
+def test_an_uploaded_sheet_is_graded_against(client, template, tmp_path, stub_pipeline):
+    """The whole point of the upload: no `style_sets` fixture here, so the only
+    sheet in the library is the one that arrived over HTTP."""
+    added = _post_sheet(client, _sheet_bytes(tmp_path))
+
+    assert added.status_code == 201, added.text
+    assert added.json()["style_no"] == "7270"
+    assert added.json()["poms"] > 0
+    assert client.get("/api/style-sets").json() == ["7270"]
+
+    # and the very next recording is checked against it, with nothing restarted
+    job = _finish(client)
+    assert job["graded"] is True
+    assert job["graded_style_no"] == "7270"
+
+
+def test_the_style_number_comes_out_of_the_document(client, tmp_path):
+    """Not off the filename. A sheet filed under the wrong number grades every
+    measurement against the wrong spec and never looks wrong doing it."""
+    added = _post_sheet(client, _sheet_bytes(tmp_path, "8123"), name="style_9999.pdf")
+
+    assert added.status_code == 201, added.text
+    assert added.json()["style_no"] == "8123"
+    assert client.get("/api/style-sets").json() == ["8123"]
+
+
+def test_a_sheet_that_cannot_be_read_is_refused(client):
+    refused = _post_sheet(client, b"this is not a PDF at all")
+
+    assert refused.status_code == 422
+    assert "could not be read" in refused.json()["detail"]
+    assert client.get("/api/style-sets").json() == []
+
+
+def test_only_pdfs(client, tmp_path):
+    wrong = _post_sheet(client, _sheet_bytes(tmp_path), name="sheet.xlsx")
+
+    assert wrong.status_code == 415
+    assert client.get("/api/style-sets").json() == []
+
+
+def test_an_existing_style_is_not_overwritten_by_accident(client, tmp_path, style_sets):
+    """`style_sets` already put 7270 in the library."""
+    clash = _post_sheet(client, _sheet_bytes(tmp_path))
+
+    assert clash.status_code == 409
+    assert "already in the library" in clash.json()["detail"]
+
+    replaced = _post_sheet(client, _sheet_bytes(tmp_path), replace=True)
+    assert replaced.status_code == 201, replaced.text
+    assert client.get("/api/style-sets").json() == ["7270"]
+
+
+def test_the_library_reads_what_is_inside_each_sheet(client, tmp_path):
+    """The screen's columns come out of the PDF. A library that lists style
+    numbers and nothing else cannot tell you which sheet you are about to
+    grade against."""
+    assert _post_sheet(client, _sheet_bytes(tmp_path)).status_code == 201
+
+    library = client.get("/api/style-sets/sheets").json()
+
+    assert len(library) == 1
+    sheet = library[0]
+    assert sheet["style_no"] == "7270"
+    assert sheet["readable"] is True
+    assert sheet["poms"] > 0
+    assert sheet["sizes"]
+    assert sheet["base_size"] in sheet["sizes"]
+    assert sheet["last_used"] is None  # nothing has been graded against it yet
+
+
+def test_a_sheet_that_will_not_parse_is_listed_rather_than_hidden(client, settings, tmp_path):
+    """A sheet nobody can see is a sheet nobody fixes — and the first anyone
+    would hear of it is a recording that will not grade."""
+    settings.style_sets_dir.mkdir(parents=True, exist_ok=True)
+    (settings.style_sets_dir / "style_4141.pdf").write_bytes(b"not really a PDF")
+
+    library = client.get("/api/style-sets/sheets").json()
+
+    assert [sheet["readable"] for sheet in library] == [False]
+    assert library[0]["document"] == "style_4141.pdf"
+
+
+def test_the_sheet_detail_carries_the_graded_specification(client, tmp_path):
+    _post_sheet(client, _sheet_bytes(tmp_path))
+
+    sheet = client.get("/api/style-sets/sheets/7270").json()
+
+    assert sheet["rows"], "the dialog shows the whole spec, not a summary"
+    measured = [row for row in sheet["rows"] if any(row["specs"].values())]
+    assert measured
+    assert set(measured[0]["specs"]) >= set(sheet["sizes"])
+    assert client.get("/api/style-sets/sheets/9999").status_code == 404
+
+
+def test_last_used_points_at_the_inspection_that_used_it(
+    client, template, tmp_path, stub_pipeline
+):
+    _post_sheet(client, _sheet_bytes(tmp_path))
+    _finish(client)
+
+    sheet = client.get("/api/style-sets/sheets").json()[0]
+
+    assert sheet["last_used"] is not None
+
+
+def test_a_sheet_can_be_taken_out_of_the_library(client, tmp_path):
+    _post_sheet(client, _sheet_bytes(tmp_path))
+
+    removed = client.delete("/api/style-sets/sheets/7270")
+
+    assert removed.status_code == 200
+    assert client.get("/api/style-sets/sheets").json() == []
+    assert client.get("/api/style-sets").json() == []
+
+
+def test_the_buyers_own_document_is_downloadable(client, tmp_path):
+    _post_sheet(client, _sheet_bytes(tmp_path))
+
+    pdf = client.get("/api/style-sets/sheets/7270/pdf")
+
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+
+
+# ------------------------------------------------------------- the audit trail
+def test_recording_an_inspection_is_written_down(client, template, style_sets, stub_pipeline):
+    upload(client, style_no="7270")
+
+    trail = client.get("/api/activity").json()
+
+    assert len(trail) == 1
+    assert trail[0]["kind"] == "record"
+    assert "Recorded an inspection" in trail[0]["what"]
+    # Attributed to the signed-in account, by name, not by id.
+    assert trail[0]["actor"]
+    assert trail[0]["user_id"]
+
+
+def test_the_machine_working_is_not_an_event(client, template, style_sets, stub_pipeline):
+    """Transcription, grading and writing files are the inspection's own
+    progress. A log that records them buries the corrections."""
+    _finish(client)
+
+    kinds = [event["kind"] for event in client.get("/api/activity").json()]
+
+    assert kinds == ["record"]
+
+
+def test_a_correction_is_attributed(client, template, style_sets, stub_pipeline):
+    job = _graded_job(client)
+    grid = client.get(f"/api/jobs/{job['id']}/sheet").json()
+    target = next(row for row in grid["rows"] if row["kind"] == "pom" and row["measured_here"])
+    size = next(
+        (s for s, cell in target["cells"].items() if cell["state"] != "empty"),
+        grid["sizes"][0],
+    )
+    settled = client.post(
+        f"/api/jobs/{job['id']}/sheet",
+        json={
+            "edits": [
+                {
+                    "sheet_index": target["sheet_index"],
+                    "size": size,
+                    "deviation": "+1/8",
+                    "verdict": "deviation",
+                }
+            ]
+        },
+    )
+    assert settled.status_code == 200, settled.text
+
+    trail = client.get("/api/activity").json()
+
+    assert trail[0]["kind"] == "correction"
+    assert "Settled 1 reading by hand" in trail[0]["what"]
+    assert trail[0]["actor"]
+
+
+def test_only_the_copy_that_leaves_the_building_is_logged(
+    client, template, style_sets, stub_pipeline
+):
+    """A working file is downloaded a dozen times while a sheet is being
+    settled. The vendor PDF is the one line that matters."""
+    job = _finish(client)
+
+    client.get(f"/api/jobs/{job['id']}/download/data")
+    before = [event["kind"] for event in client.get("/api/activity").json()]
+    client.get(f"/api/jobs/{job['id']}/download/report")
+    after = client.get("/api/activity").json()
+
+    assert before == ["record"]
+    assert after[0]["kind"] == "access"
+    assert "for a vendor" in after[0]["what"]
+
+
+def test_the_roster_changes_are_written_down(client, tmp_path):
+    made = client.post(
+        "/api/users",
+        json={
+            "email": "new.person@example.com",
+            "name": "New Person",
+            "password": "a good long password",
+            "roles": {"sizeset": "inspector"},
+        },
+    )
+    assert made.status_code == 201, made.text
+
+    trail = client.get("/api/activity").json()
+
+    assert trail[0]["kind"] == "access"
+    assert "Added New Person to the roster" in trail[0]["what"]
+    assert trail[0]["subject"] == "new.person@example.com"
+
+
+def test_the_trail_survives_the_account_being_removed(client):
+    """The snapshot of the name is why. A row that says somebody did something
+    is worse than no row at all."""
+    made = client.post(
+        "/api/users",
+        json={
+            "email": "briefly@example.com",
+            "name": "Briefly Here",
+            "password": "a good long password",
+            "roles": {"sizeset": "inspector"},
+        },
+    ).json()
+    client.delete(f"/api/users/{made['id']}")
+
+    trail = client.get("/api/activity").json()
+    added = [event for event in trail if "Added Briefly Here" in event["what"]]
+
+    assert added, "the event is still there"
+    assert added[0]["actor"], "and still says who did it"

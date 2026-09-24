@@ -74,6 +74,10 @@ def _text(value: Fraction | None) -> str:
 def _apply(job: Job, row: Inspection) -> Inspection:
     """Copy the live job onto its row. One direction only."""
     row.filename = job.filename
+    row.name = job.name
+    row.location = job.location
+    if job.recorded_by_id:
+        row.recorded_by_id = job.recorded_by_id
     row.style_no = job.style_no
     row.announced_style_no = job.announced_style_no
     row.graded_style_no = job.graded_style_no
@@ -106,6 +110,12 @@ def _revive(row: Inspection) -> Job:
     has to survive is the state, the counts and where the outputs went.
     """
     job = Job(id=row.id, filename=row.filename, style_no=row.style_no)
+    # Without this a revived job cannot find its own outputs: every one of them
+    # is named for it, and `_graded_sheet` looks up `<name>.json`.
+    job.name = row.name
+    job.location = row.location
+    job.recorded_by_id = row.recorded_by_id
+    job.recorded_by = row.recorded_by.name if row.recorded_by else ""
     job.status = row.state
     job.message = row.message
     job.error = row.error

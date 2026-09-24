@@ -74,6 +74,11 @@ class Job:
     unconfirmed: int = 0
     unconfirmed_rows: list[dict[str, object]] = field(default_factory=list)
     failed_rows: list[dict[str, object]] = field(default_factory=list)
+    # Who recorded it and where. The id is the pointer the audit trail
+    # keeps; the name is resolved for display and never stored on the job.
+    recorded_by_id: object = None
+    recorded_by: str = ""
+    location: str = ""
     started_at: float = field(default_factory=time.time)
     finished_at: float = 0.0
 
@@ -109,6 +114,11 @@ class Job:
             "unconfirmed_rows": self.unconfirmed_rows,
             "failed_rows": self.failed_rows,
             "elapsed": round(self.elapsed, 1),
+            # Unix seconds. The dashboard groups by day, and a client
+            # that only knows how long a job took cannot say when.
+            "started_at": round(self.started_at, 3),
+            "recorded_by": self.recorded_by,
+            "location": self.location,
         }
 
 
@@ -287,19 +297,8 @@ def apply_result(job: Job, result) -> None:
     job.form = dict(sheet.form)
     job.accessories = len(sheet.accessories)
     job.comments = len(sheet.comments)
-    job.flagged_rows = [
-        {
-            "no": number,
-            "size": row.size,
-            "field": row.field,
-            "value": row.value,
-            "deviation": row.deviation,
-            "confidence": round(row.confidence, 2),
-            "note": row.note,
-        }
-        for number, row in sheet.flagged()[:MAX_FLAGGED_DETAIL]
-    ]
     _record_grading(job, result)
+    detail_rows(job, sheet, result.alignment)
     _archive_outputs(job)
     job.message = f"{job.rows} rows, {job.flagged} need review"
     if job.unconfirmed:
@@ -327,6 +326,33 @@ def _record_grading(job: Job, result) -> None:
     job.judged = len(alignment.judged)
     job.out_of_tolerance = len(alignment.failures)
     job.unconfirmed = len(alignment.unconfirmed)
+
+
+def detail_rows(job: Job, sheet, alignment) -> None:
+    """Fill the three tables the report prints under its verdict.
+
+    Split out because they are derived, not stored: `DatabaseJobStore` keeps
+    the counts as columns and deliberately does not keep these lists, since
+    they are a rendering of the saved extraction and capped for display
+    anyway. That left a gap — a job revived after a restart said "1 point of
+    measure has no verdict" and then showed an empty page where the row should
+    be, because nothing rebuilt them. `api.app` now does, through here, so the
+    pipeline path and the rebuild path cannot drift.
+    """
+    job.flagged_rows = [
+        {
+            "no": number,
+            "size": row.size,
+            "field": row.field,
+            "value": row.value,
+            "deviation": row.deviation,
+            "confidence": round(row.confidence, 2),
+            "note": row.note,
+        }
+        for number, row in sheet.flagged()[:MAX_FLAGGED_DETAIL]
+    ]
+    if alignment is None:
+        return
     job.unconfirmed_rows = [
         {
             "no": row.number,

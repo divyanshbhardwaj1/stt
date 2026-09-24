@@ -80,6 +80,10 @@ def test_a_finished_job_is_still_there_after_a_restart(db):
     store = DatabaseJobStore()
     job = store.create("7122(4).mp3", style_no="7122")
     job.status = DONE
+    # The output base name, which is NOT the recording's filename: the pipeline
+    # versions a name that is already taken, so the two part company on the
+    # second run of the same style.
+    job.name = "7122(4)"
     job.rows, job.judged, job.unconfirmed = 74, 71, 3
     job.sizes = ["S", "M", "L", "XL"]
     job.files = {"report": Path("data/output/7122(4).pdf")}
@@ -96,6 +100,10 @@ def test_a_finished_job_is_still_there_after_a_restart(db):
     assert back.sizes == ["S", "M", "L", "XL"]
     assert back.files["report"] == Path("data/output/7122(4).pdf")
     assert back.graded_style_no == "7122"
+    # Every output is named for this, and the audit view looks up
+    # `<name>.json` to find the extraction. It went missing once, and the
+    # symptom was a 410 on a report that was on disk the whole time.
+    assert back.name == "7122(4)"
 
 
 def test_a_job_interrupted_by_the_restart_is_reported_as_failed(db):
@@ -265,3 +273,38 @@ def test_without_a_url_there_is_no_database():
 
     assert configure("") is None
     assert not enabled()
+
+
+def test_the_report_tables_come_back_after_a_restart(db, settings, monkeypatch):
+    """The counts survive as columns; the rows behind them are rebuilt.
+
+    A revived job that says "2 measurements out of tolerance" above an empty
+    table reads as a bug in the grading rather than in the bookkeeping.
+    """
+    from api import app as api
+    from api.jobs import detail_rows
+
+    store = DatabaseJobStore()
+    job = store.create("7122(4).mp3", style_no="7122")
+    job.status, job.name, job.graded = DONE, "7122(4)", True
+    job.unconfirmed, job.out_of_tolerance, job.flagged = 3, 2, 4
+    job.unconfirmed_rows = [{"no": 1, "size": "M", "pom": "1.22A"}]
+    store.save(job)
+
+    back = DatabaseJobStore().get(job.id)
+    assert back is not None
+    # Derived, so deliberately not stored.
+    assert back.unconfirmed_rows == []
+    assert back.unconfirmed == 3
+
+    # And rebuilt on the way out, from whatever the extraction says.
+    rebuilt = []
+    monkeypatch.setattr(api, "_graded_sheet", lambda job, settings: ("sheet", "style"))
+    monkeypatch.setattr(api, "align", lambda sheet, style: "alignment")
+    monkeypatch.setattr(
+        api, "detail_rows", lambda job, sheet, alignment: rebuilt.append((sheet, alignment))
+    )
+    api._rehydrate(back, settings)
+
+    assert rebuilt == [("sheet", "alignment")]
+    assert detail_rows is not None  # the one implementation both paths share

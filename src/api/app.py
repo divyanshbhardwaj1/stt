@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import logging
+import re
+import shutil
+import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -25,14 +28,24 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from pipeline import resize_inspection, settle_inspection
-from services import auth, storage
+from services import auth, storage, trail
 from services.audit import SettleError, audit_grid
 from services.config import ConfigError, Settings, load_env_file
 from services.csv_filler import load_json
 from services.db import session
-from services.db.models import Stage, User, UserState
+from services.db.models import Event, Stage, User, UserState
+from services.measurements import format_measurement
 from services.playback import cues, playable_copy, playable_path_for
-from services.style_set import StyleSetNotFound, align, find_style_set, list_style_numbers
+from services.style_set import (
+    SpecSheetError,
+    StyleSetNotFound,
+    align,
+    find_style_set,
+    list_style_numbers,
+    read_library,
+    read_style_set,
+    style_set_files,
+)
 from services.timing import TimingError, word_index
 from services.transcript import (
     AUDIO_SUFFIXES,
@@ -42,11 +55,21 @@ from services.transcript import (
 )
 from services.transcript.transcription_service import MAX_UPLOAD_BYTES
 
-from .jobs import DONE, DOWNLOADS, JobStore, apply_result, process, process_transcript
+from .jobs import (
+    DONE,
+    DOWNLOADS,
+    JobStore,
+    apply_result,
+    detail_rows,
+    process,
+    process_transcript,
+)
 from .security import (
     SESSION_COOKIE,
+    DownloadsWorking,
     EditsAudit,
     ManagesPeople,
+    ManagesStyles,
     Records,
     SignedIn,
     ViewsAudit,
@@ -119,12 +142,43 @@ async def lifespan(app: FastAPI):
         )
     store = DatabaseJobStore()
     log.info("jobs are persisted; %d recovered", len(store.all()))
+    # The library before the first request. A container with an empty disk
+    # cannot grade anything, and the bucket is where an uploaded sheet lives.
+    # Guarded on the bucket first so that an app without one - every test run,
+    # and any local checkout - never pays for a Settings.load() it cannot use.
+    if storage.enabled():
+        try:
+            pulled = storage.pull_all(storage.STYLE_SETS, Settings.load().style_sets_dir)
+        except ConfigError as exc:
+            log.warning("could not restore the style set library: %s", exc)
+        else:
+            log.info("pulled %d style sets from the bucket", pulled)
     yield
 
 
 app = FastAPI(
     title="Size Set Inspection Reports", docs_url="/api/docs", lifespan=lifespan
 )
+
+
+@app.middleware("http")
+async def never_cache_the_api(request: Request, call_next):
+    """No browser cache on anything under /api.
+
+    Every answer here is about state that changes: a job's progress, a graded
+    sheet, who is signed in. None of it is worth caching and some of it is
+    actively harmful to cache — 404 and **410 are cacheable by default**, so a
+    sheet that was briefly missing stayed missing in the browser long after the
+    server could serve it again, with no way for the operator to tell that the
+    fault was already fixed.
+
+    The HTML shell already sets this for itself (see `index`); this covers the
+    data behind it.
+    """
+    response = await call_next(request)
+    if request.url.path.startswith("/api"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
 
 # Vite emits hashed bundles under dist/assets and references them absolutely.
 # Mounted at import, so a build made while the server is running needs a
@@ -168,10 +222,285 @@ def index() -> HTMLResponse:
     )
 
 
+# The trail as the screen reads it. Not everything ever written: a log that
+# tries to render six months in one request is a log nobody opens twice.
+ACTIVITY_LIMIT = 500
+
+
+@app.get("/api/activity")
+def activity(user: SignedIn, limit: int = ACTIVITY_LIMIT) -> list[dict[str, object]]:
+    """The audit trail, newest first."""
+    with session() as db:
+        rows = db.scalars(
+            select(Event).order_by(Event.at.desc()).limit(min(max(limit, 1), ACTIVITY_LIMIT))
+        ).all()
+        return [
+            {
+                "id": str(row.id),
+                "at": row.at.isoformat(),
+                "user_id": str(row.user_id) if row.user_id else None,
+                "actor": row.actor,
+                "kind": row.kind,
+                "stage": row.stage,
+                "what": row.what,
+                "subject": row.subject,
+            }
+            for row in rows
+        ]
+
+
 @app.get("/api/style-sets")
 def list_style_sets(settings: SettingsDep, user: SignedIn) -> list[str]:
     """Style numbers with a spec sheet on disk, for the upload dropdown."""
     return list_style_numbers(settings.style_sets_dir)
+
+
+def _last_graded() -> dict[str, float]:
+    """The most recent inspection to be checked against each style.
+
+    Read off the job registry rather than counted in a column: every finished
+    job already records the style it graded against, and a second place to
+    write that down is a second place for it to be wrong.
+    """
+    latest: dict[str, float] = {}
+    for job in store.all():
+        style = job.graded_style_no
+        if style:
+            latest[style] = max(latest.get(style, 0.0), job.started_at)
+    return latest
+
+
+def _sheet_row(path: Path, style, used: float) -> dict[str, object]:
+    """One line of the library table."""
+    if style is None:
+        # Kept in the list. A sheet that cannot be read is exactly the sheet
+        # somebody needs to be told about, and dropping it silently means the
+        # first anybody hears of it is a recording that will not grade.
+        return {
+            "style_no": "",
+            "document": path.name,
+            "readable": False,
+            "description": "This sheet could not be read",
+            "company": "",
+            "season": "",
+            "division": "",
+            "status": "",
+            "base_size": "",
+            "sizes": [],
+            "poms": 0,
+            "tolerance_model": "",
+            "from_scan": False,
+            "last_used": None,
+        }
+    return {
+        "style_no": style.style_no,
+        "document": path.name,
+        "readable": True,
+        "description": style.description,
+        "company": style.company,
+        "season": style.season,
+        "division": style.division,
+        "status": style.status,
+        "base_size": style.base_size,
+        "sizes": list(style.sizes),
+        "poms": len(style.measured_rows()),
+        "tolerance_model": style.tolerance_model,
+        "from_scan": style.from_scan,
+        "last_used": used or None,
+    }
+
+
+@app.get("/api/style-sets/sheets")
+def library(settings: SettingsDep, user: SignedIn) -> list[dict[str, object]]:
+    """The library, one entry per sheet, with what is inside each one.
+
+    Separate from `GET /api/style-sets` on purpose. That one is on the path to
+    recording - it fills the style picker before an inspection starts - and
+    must never wait on a PDF parser. This one is the library screen, where
+    reading the sheets is the job.
+    """
+    used = _last_graded()
+    return [
+        _sheet_row(path, style, used.get(style.style_no if style else "", 0.0))
+        for path, style in read_library(settings.style_sets_dir)
+    ]
+
+
+def _found(style_no: str, settings: Settings):
+    """The sheet filed under `style_no`, or a 404."""
+    for path, style in read_library(settings.style_sets_dir):
+        if style is not None and style.style_no == style_no:
+            return path, style
+    raise HTTPException(status_code=404, detail=f"no sheet for style {style_no} in the library")
+
+
+@app.get("/api/style-sets/sheets/{style_no}")
+def sheet_detail(style_no: str, settings: SettingsDep, user: SignedIn) -> dict[str, object]:
+    """One sheet with its whole graded specification, as the dialog shows it."""
+    path, style = _found(style_no, settings)
+    row = _sheet_row(path, style, _last_graded().get(style_no, 0.0))
+    row["rows"] = [
+        {
+            "pom": pom.pom,
+            "description": pom.description,
+            "minus": format_measurement(pom.tolerance_minus, signed=True)
+            if pom.tolerance_minus is not None
+            else "",
+            "plus": format_measurement(pom.tolerance_plus, signed=True)
+            if pom.tolerance_plus is not None
+            else "",
+            "specs": {
+                size: format_measurement(value) if value is not None else ""
+                for size, value in pom.specs.items()
+            },
+        }
+        for pom in style.rows
+    ]
+    return row
+
+
+@app.get("/api/style-sets/sheets/{style_no}/pdf")
+def sheet_pdf(style_no: str, settings: SettingsDep, user: DownloadsWorking) -> Response:
+    """The buyer's own document, as issued."""
+    path, _ = _found(style_no, settings)
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
+
+
+@app.delete("/api/style-sets/sheets/{style_no}")
+def remove_style_set(style_no: str, settings: SettingsDep, user: ManagesStyles) -> dict[str, str]:
+    """Take a sheet out of the library.
+
+    Reports graded against it keep everything they need: the extraction holds
+    the spec that was used, so an old report is unaffected. What stops is new
+    inspections being checkable against this style.
+    """
+    path, _ = _found(style_no, settings)
+    path.unlink(missing_ok=True)
+    storage.forget(storage.style_set_key(path.name))
+    log.info("style set %s removed by %s", style_no, user.email)
+    trail.record(
+        user, trail.ACCESS, f"Removed {path.name} from the library", subject=style_no
+    )
+    return {"removed": style_no}
+
+
+# A graded sheet is a few hundred kilobytes of vector PDF. Anything at this
+# size is a scan of a scan, which is rejected below anyway for having no text.
+MAX_STYLE_SET_BYTES = 25 * 1024 * 1024
+
+# The style number becomes a filename, and it is read out of a document the
+# server did not write. Digits, letters and a dash - nothing that can climb out
+# of the directory or collide with the `.part` files `storage.fetch` leaves.
+SAFE_STYLE_NO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+
+
+def _style_summary(style, path: Path) -> dict[str, object]:
+    """What the library screen shows back after a sheet is accepted."""
+    return {
+        "style_no": style.style_no,
+        "description": style.description,
+        "season": style.season,
+        "sizes": list(style.sizes),
+        "poms": len(style.measured_rows()),
+        "document": path.name,
+    }
+
+
+@app.post("/api/style-sets", status_code=201)
+async def add_style_set(
+    sheet: UploadFile,
+    settings: SettingsDep,
+    user: ManagesStyles,
+    replace: Annotated[bool, Form()] = False,
+) -> dict[str, object]:
+    """Add a buyer's graded spec sheet to the library.
+
+    The sheet is parsed before it is filed, and the style number comes out of
+    the document rather than off the filename or a form field. Every
+    measurement on every report is rebuilt as a spec from one of these plus the
+    deviation the inspector called, so a sheet that cannot be read, or that is
+    not the style it claims, is worse than no sheet at all - it grades silently
+    and wrongly.
+
+    Scans are refused. `find_style_set` will read one when it is all there is,
+    at the cost of a model and a warning on every report it touches; an upload
+    is the one moment somebody can be told to export the PDF properly instead.
+    """
+    name = Path(sheet.filename or "").name
+    if Path(name).suffix.lower() != ".pdf":
+        raise HTTPException(
+            status_code=415,
+            detail="Style sets are PDFs. Export the graded sheet from the buyer's "
+            "system - a photo, a screenshot or a spreadsheet cannot be graded against.",
+        )
+
+    # Parsed in a scratch directory, because `find_style_set` globs the library
+    # for *.pdf: a sheet dropped there to be validated is a sheet a pipeline
+    # running in the background can pick up half-written.
+    with tempfile.TemporaryDirectory() as scratch:
+        staged = Path(scratch) / "upload.pdf"
+        written = await _save(sheet, staged)
+        if written > MAX_STYLE_SET_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{name} is {written / 1e6:.0f} MB, over the "
+                f"{MAX_STYLE_SET_BYTES / 1e6:.0f} MB limit for a spec sheet.",
+            )
+        try:
+            # No `settings`: that is the switch that lets a sheet be read off an
+            # image, and an upload is refused rather than read that way.
+            style = read_style_set(staged, None)
+        except SpecSheetError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} could not be read as a graded sheet: {exc}",
+            ) from exc
+
+        if not SAFE_STYLE_NO.match(style.style_no or ""):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} does not carry a usable style number"
+                + (f" (it reads {style.style_no!r})" if style.style_no else ""),
+            )
+        if not style.measured_rows():
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} has no points of measure, so nothing could be checked "
+                "against it.",
+            )
+
+        # Any existing sheet whose name carries this number, not just the one
+        # this upload would write: `find_style_set` matches on the digits in the
+        # filename, so `style_9662_clean.pdf` already answers for 9662.
+        clashes = [
+            path
+            for path in style_set_files(settings.style_sets_dir)
+            if style.style_no in set(re.findall(r"\d+", path.stem))
+        ]
+        if clashes and not replace:
+            raise HTTPException(
+                status_code=409,
+                detail=f"style {style.style_no} is already in the library as "
+                f"{', '.join(path.name for path in clashes)}. Upload again with "
+                "replace to overwrite it.",
+            )
+
+        target = settings.style_sets_dir / f"style_{style.style_no}.pdf"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        for path in clashes:
+            if path != target:
+                path.unlink(missing_ok=True)
+        shutil.move(str(staged), target)
+
+    storage.mirror(storage.style_set_key(target.name), target)
+    log.info("style set %s added by %s", style.style_no, user.email)
+    trail.record(
+        user,
+        trail.ACCESS,
+        f"Added {target.name} to the library - {len(style.measured_rows())} points of measure",
+        subject=style.style_no,
+    )
+    return _style_summary(style, target)
 
 
 # How long the browser has to open its session with the minted credential. It
@@ -277,11 +606,68 @@ def list_jobs(user: ViewsAudit) -> list[dict[str, object]]:
 
 
 @app.get("/api/jobs/{job_id}")
-def read_job(job_id: str, user: ViewsAudit) -> dict[str, object]:
+def read_job(job_id: str, settings: SettingsDep, user: ViewsAudit) -> dict[str, object]:
     job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
-    return job.as_dict()
+    _rehydrate(job, settings)
+    payload = job.as_dict()
+    payload["transcript"] = bool(_transcript_path(job, settings))
+    # The client's own wording for each header field, straight off their
+    # workbook — the same labels `pdf_writer` prints. Sent with the job rather
+    # than guessed at in the browser, so the screen and the paper cannot
+    # disagree about what a field is called.
+    payload["form_labels"] = _form_labels(settings)
+    return payload
+
+
+@lru_cache(maxsize=4)
+def _labels_from(template_path: Path) -> dict[str, str]:
+    from services.csv_filler.report_template import ALL_FIELD_LABELS, load_template
+
+    template = load_template(template_path)
+    return {field: template.display_label(field) for field in ALL_FIELD_LABELS}
+
+
+def _form_labels(settings: Settings) -> dict[str, str]:
+    """Field name to printed label, or {} when the template is not readable.
+
+    Cached on the path: it is the client's blank workbook and does not change
+    between requests, and reading an .xls per poll would be absurd.
+    """
+    try:
+        return _labels_from(settings.form_template_path)
+    except Exception:  # noqa: BLE001 - a missing label is cosmetic
+        log.warning("could not read the form template for its labels")
+        return {}
+
+
+def _rehydrate(job, settings: Settings) -> None:
+    """Rebuild the report's detail tables if a restart dropped them.
+
+    The counts are columns and survive; the rows behind them are derived from
+    the saved extraction and are not stored (see `detail_rows`). Without this
+    a revived job says "2 measurements out of tolerance" above an empty table,
+    which reads as a bug in the grading rather than in the bookkeeping.
+
+    Done here rather than on the job list: it reads the extraction and the
+    style set off disk, which is far too much for an endpoint the browser
+    polls every two seconds. Once per job, then the lists are on the object.
+    """
+    if job.status != DONE or not job.graded:
+        return
+    if job.unconfirmed_rows or job.failed_rows or job.flagged_rows:
+        return
+    if not (job.unconfirmed or job.out_of_tolerance or job.flagged):
+        return
+    try:
+        sheet, style = _graded_sheet(job, settings)
+        detail_rows(job, sheet, align(sheet, style))
+    except (HTTPException, StyleSetNotFound, OSError, ValueError):
+        # The report still renders with its counts and its verdict. A missing
+        # extraction is already reported by the audit view, which is the screen
+        # that cannot do without it.
+        log.warning("could not rebuild the detail rows for job %s", job.id)
 
 
 @app.post("/api/jobs", status_code=202)
@@ -292,6 +678,7 @@ async def create_job(
     user: Records,
     style_no: Annotated[str, Form()] = "",
     live_transcript: Annotated[str, Form()] = "",
+    location: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     """Accept a recording and queue it. Returns immediately with a job to poll.
 
@@ -338,6 +725,18 @@ async def create_job(
         log.info("saved live transcript %s (%d chars)", saved.name, len(live_transcript))
 
     job = store.create(destination.name, style_no=chosen)
+    # Provenance, captured at the only moment anything knows it: the signed-in
+    # account that sent the file, and whichever bench the operator typed.
+    job.recorded_by_id = user.id
+    job.recorded_by = user.name
+    job.location = location.strip()[:128]
+    trail.record(
+        user,
+        trail.RECORD,
+        f"Recorded an inspection - {name}"
+        + (f", checked against style {chosen}" if chosen else ""),
+        subject=job.name or chosen,
+    )
     background.add_task(process, job, destination, settings, store)
     log.info("queued job %s for %s (style %s)", job.id, destination.name, chosen or "as announced")
     return job.as_dict()
@@ -491,6 +890,13 @@ def settle_sheet(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     apply_result(job, result)
+    trail.record(
+        user,
+        trail.CORRECTION,
+        f"Settled {len(edits)} reading{'' if len(edits) == 1 else 's'} by hand"
+        + (f" - {len(misplaced)} did not align back" if misplaced else ""),
+        subject=job.name or job.graded_style_no,
+    )
     sheet, style = _graded_sheet(job, settings)
     return {
         "job": job.as_dict(),
@@ -530,6 +936,12 @@ def regrade(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     apply_result(job, result)
+    trail.record(
+        user,
+        trail.CORRECTION,
+        f"Regraded the sheet from {from_size} to {to_size} - every row rebuilt",
+        subject=job.name or job.graded_style_no,
+    )
     sheet, style = _graded_sheet(job, settings)
     return {"job": job.as_dict(), "sheet": audit_grid(align(sheet, style), style, sheet)}
 
@@ -624,6 +1036,37 @@ def playback_cues(job_id: str, settings: SettingsDep, user: ViewsAudit) -> dict[
 VENDOR_DOWNLOADS = {"report", "graded"}
 
 
+def _transcript_path(job, settings: Settings) -> Path | None:
+    """The saved transcript for this inspection, if one was written.
+
+    The batch transcript, not the live monitor's: this is the text the report
+    was actually extracted from, which is what somebody checks a disputed
+    measurement against.
+    """
+    for candidate in (
+        settings.transcripts_dir / f"{job.name}.txt",
+        settings.transcripts_dir / f"{Path(job.filename).stem}.txt",
+    ):
+        if job.name and candidate.is_file():
+            return candidate
+    return None
+
+
+@app.get("/api/jobs/{job_id}/transcript")
+def transcript(job_id: str, settings: SettingsDep, user: ViewsAudit) -> Response:
+    """The transcript the report was built from, as plain text."""
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    found = _transcript_path(job, settings)
+    if found is None:
+        raise HTTPException(
+            status_code=404,
+            detail="no transcript was saved for this inspection",
+        )
+    return FileResponse(found, media_type="text/plain; charset=utf-8", filename=found.name)
+
+
 @app.get("/api/jobs/{job_id}/download/{kind}")
 def download(job_id: str, kind: str, user: SignedIn) -> Response:
     job = store.get(job_id)
@@ -649,6 +1092,16 @@ def download(job_id: str, kind: str, user: SignedIn) -> Response:
         )
     if not path.is_file():
         raise HTTPException(status_code=410, detail=f"{path.name} is no longer on disk")
+    if kind in VENDOR_DOWNLOADS:
+        # Only the vendor documents. Every working file is downloaded a dozen
+        # times while a sheet is being settled, and a trail that records all of
+        # them buries the one line that matters - the copy that left the building.
+        trail.record(
+            user,
+            trail.ACCESS,
+            f"Downloaded the {kind} for a vendor",
+            subject=job.name or job.graded_style_no,
+        )
     return FileResponse(path, media_type=DOWNLOADS[kind][1], filename=path.name)
 
 
@@ -797,6 +1250,11 @@ def _user(person: User) -> dict[str, object]:
     }
 
 
+def _roles_said(roles: dict) -> str:
+    """"sizeset: inspector, final: approver" - the roster change, in words."""
+    return ", ".join(f"{stage}: {role}" for stage, role in sorted(roles.items()))
+
+
 @app.get("/api/users")
 def list_users(user: ManagesPeople) -> dict[str, object]:
     """The roster, plus what the screen needs to render a role picker.
@@ -835,7 +1293,16 @@ def add_user(body: NewUser, user: ManagesPeople) -> dict[str, object]:
         except auth.AuthError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         db.flush()
-        return _user(created)
+        made = _user(created)
+    trail.record(
+        user,
+        trail.ACCESS,
+        f"Added {made['name']} to the roster"
+        + (" as an administrator" if made["admin"] else "")
+        + (f" - {_roles_said(made['roles'])}" if made["roles"] else ""),
+        subject=made["email"],
+    )
+    return made
 
 
 @app.patch("/api/users/{user_id}")
@@ -899,7 +1366,14 @@ def update_user(user_id: str, body: UserPatch, user: ManagesPeople) -> dict[str,
         if narrowed:
             auth.sign_out_everywhere(db, person.id)
         db.flush()
-        return _user(person)
+        changed = _user(person)
+    trail.record(
+        user,
+        trail.ACCESS,
+        f"Changed {changed['name']}: {', '.join(sorted(body.model_dump(exclude_unset=True)))}",
+        subject=changed["email"],
+    )
+    return changed
 
 
 @app.delete("/api/users/{user_id}")
@@ -908,8 +1382,9 @@ def remove_user(user_id: str, user: ManagesPeople) -> dict[str, str]:
 
     Its sessions go with it, by the foreign key. An account that has already
     touched an inspection should be disabled instead, so the record keeps
-    pointing at somebody — the audit trail of phase 5 is what will make that a
-    rule the server enforces rather than a convention.
+    pointing at somebody. The audit trail survives either way: an event keeps
+    a snapshot of the name as well as the pointer, so removing an account
+    leaves the log readable rather than full of blanks.
     """
     if user_id == str(user.id):
         raise HTTPException(
@@ -922,7 +1397,9 @@ def remove_user(user_id: str, user: ManagesPeople) -> dict[str, str]:
         if auth.last_admin(db, person.id):
             raise HTTPException(status_code=409, detail=LAST_ADMIN)
         gone = person.email
+        name = person.name
         db.delete(person)
+    trail.record(user, trail.ACCESS, f"Removed {name} from the roster", subject=gone)
     return {"detail": f"{gone} removed"}
 
 

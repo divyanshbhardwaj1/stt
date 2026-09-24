@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import cache
 from pathlib import Path
 
 from .spec_sheet import SpecSheetError, StyleSet, read_style_set
@@ -46,6 +47,40 @@ def list_style_numbers(directory: Path) -> list[str]:
     for path in style_set_files(directory):
         numbers.update(_numbers_in(path.stem))
     return sorted(numbers)
+
+
+@cache
+def _parsed(path: Path, fingerprint: tuple[int, int]) -> StyleSet | None:
+    """One sheet, parsed once.
+
+    Keyed on the file's size and modification time as well as its path, so a
+    replaced sheet is re-read and a cached one is never stale. `None` for a
+    sheet that will not parse - the library screen lists it as unreadable
+    rather than omitting it, because a sheet nobody can see is a sheet nobody
+    fixes.
+    """
+    del fingerprint  # part of the cache key, not the work
+    try:
+        return read_style_set(path, None)
+    except SpecSheetError as exc:
+        log.warning("%s could not be read: %s", path.name, exc)
+        return None
+
+
+def read_library(directory: Path) -> list[tuple[Path, StyleSet | None]]:
+    """Every sheet in `directory`, parsed, newest-first by style number.
+
+    ponytail: parses each file once and caches on (path, size, mtime). Triburg
+    run three to four thousand styles, so the first call on a cold process pays
+    for all of them - fine at the few dozen a unit actually keeps on hand, and
+    the point at which it stops being fine is the point to put this index in
+    the database rather than in a dict.
+    """
+    out = []
+    for path in style_set_files(directory):
+        stat = path.stat()
+        out.append((path, _parsed(path, (stat.st_size, stat.st_mtime_ns))))
+    return out
 
 
 def find_style_set(style_no: str, directory: Path, settings=None) -> StyleSet:

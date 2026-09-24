@@ -295,6 +295,15 @@ canvas.wave { display: block; width: 100%; }
    reviewer has scrolled up and the newest line is off-screen. */
 .feed-body { max-height: 244px; overflow-y: auto; }
 
+/* With nothing picked the dropzone draws the dashed box, and the wrapper
+   around it has to stop drawing a second one. `.opts` keeps its hairline,
+   which then reads as the divider under the zone. */
+.intake.plain {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
 /* The drop target. app.css has `.intake`; only the drag state is ours. */
 .intake.dragging {
   border-color: var(--color-ink);
@@ -420,3 +429,96 @@ table.grid:not(.readonly) td.cell > button:hover {
    other two, the fix is a deeper violet rather than more of this one. */
 td.cell.fail { background: var(--cell-fail); }
 td.cell.unconfirmed { background: var(--cell-open); }
+
+
+/* Show/hide inside the password field. The prototype has no such control -
+   it ships with the password prefilled - and a shared floor terminal needs
+   one. Positioned over the input rather than beside it so the field keeps the
+   full width every other field on the screen has. */
+.reveal {
+  position: relative;
+  display: flex;
+}
+.reveal > input {
+  flex: 1;
+  padding-right: 58px;
+}
+.reveal > button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font: var(--text-caption);
+}
+
+/* app.css styles `input[type="text"]` and leaves every other text-entry type
+   to the browser, which draws its own inset black border. The prototype never
+   showed it because the only typed fields it ships are text; the real app has
+   an email and a password on the first screen anybody sees. Same declarations,
+   applied to the types that were missed. */
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="number"],
+input[type="tel"] {
+  height: 44px;
+  padding: 0 var(--space-md);
+  font: var(--text-body-sm);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color .15s ease;
+  width: 100%;
+  font-family: var(--font-body);
+}
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus {
+  border-color: var(--color-ink);
+}
+
+/* The sign-in screen at a larger scale than the workspace.
+   The root runs at 0.75 so a dense grid fits a laptop; this screen is one
+   form and one panel, read standing up, often on a shared terminal. 1.25 on
+   top of the root lands it at 0.9375 - a quarter larger, without touching a
+   single token. Dropped back on a narrow window, where the extra scale would
+   cost the two-column layout its room before the 675px breakpoint fires. */
+.auth-screen {
+  zoom: 1.25;
+  /* What "fill the window" is worth inside this element. `--screen` is 100vh
+     divided back out of the root's 0.75; this divides out the 1.25 on top of
+     it, because a viewport unit resolves against the window and neither zoom
+     changes that. Restated in the media query below, where the zoom is 1. */
+  --auth-fill: calc(var(--screen) / 1.25);
+}
+@media (max-width: 1100px) {
+  .auth-screen {
+    zoom: 1;
+    --auth-fill: var(--screen);
+  }
+}
+
+/* One form, centred, with nothing beside it. */
+.auth-solo {
+  display: grid;
+  place-items: center;
+  /* Less the 64px topbar, so the form sits in the middle of what is left
+     rather than the middle of the document. */
+  min-height: calc(var(--auth-fill) - 64px);
+  padding: 48px var(--space-xl) 64px;
+}
+.auth-solo .auth-form {
+  width: 100%;
+  max-width: 460px;
+}
+
+/* Last word on the padding: the type rules above re-state the shorthand and
+   would otherwise reclaim the room the Show button sits in. */
+.reveal > input[type="password"],
+.reveal > input[type="text"] {
+  padding-right: 58px;
+}

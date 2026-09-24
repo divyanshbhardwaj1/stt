@@ -10,9 +10,13 @@ import { useSession } from "../session";
  * and an unknown address, and the same cost in time. So the form is the
  * prototype's, and the id list is not here.
  *
- * The panel beside it is the prototype's too, and it earns its place: what is
- * behind this door is client audio, buyer spec sheets marked proprietary, and
- * graded sheets stamped for AEO. This is the only screen everybody sees.
+ * The prototype puts a panel beside the form describing what the account
+ * reaches. It is gone: it is the longest thing on the screen and nobody signing
+ * in for the eighth time that day reads it. What it said that actually binds -
+ * that edits are attributed and sessions expire - belongs in the places that
+ * enforce it, which is the audit trail and the session itself.
+ *
+ * So the form stands alone and centred.
  */
 export function SignIn() {
   const { signIn } = useSession();
@@ -20,6 +24,15 @@ export function SignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  /**
+   * Caps Lock, called out before the attempt rather than after it.
+   *
+   * The single most common reason a password typed correctly is rejected, and
+   * on a shared floor terminal nobody owns the keyboard well enough to notice
+   * the light. The alternative is an account locked out by the third try.
+   */
+  const [caps, setCaps] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -36,18 +49,23 @@ export function SignIn() {
   // Only a credentials failure gets the credentials advice. "You are not on
   // any stage" is not fixed by resetting a password.
   const credentials = /do not match/i.test(error);
+  // Both fields, or there is nothing to check. A blank submit costs a round
+  // trip and a scrypt hash on the server to tell somebody what the form
+  // already knows.
+  const ready = Boolean(email.trim() && password) && !busy;
+
+  const watchCaps = (event: React.KeyboardEvent<HTMLInputElement>) =>
+    setCaps(event.getModifierState?.("CapsLock") ?? false);
 
   return (
-    <>
+    // The one screen with no rail beside it, and the one screen a person
+    // stands at rather than works in. It gets its own scale.
+    <div className="auth-screen">
       <nav className="topbar">
         <span className="mark">Triburg&nbsp;QA</span>
-        <span className="spacer" />
-        <span className="muted" style={{ font: "var(--text-caption)" }}>
-          Shivalika QA · Gurugram
-        </span>
       </nav>
 
-      <div className="auth-split">
+      <div className="auth-solo">
         <div className="auth-form">
           <h1 className="display-md">Sign in</h1>
           <p className="lede" style={{ margin: "16px 0 28px" }}>
@@ -79,24 +97,57 @@ export function SignIn() {
                 spellCheck={false}
                 autoFocus
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setError("");
+                }}
                 disabled={busy}
               />
             </div>
-            <div className="field" style={{ marginBottom: 24 }}>
+            <div className="field" style={{ marginBottom: caps ? 8 : 24 }}>
               <label className="lbl" htmlFor="password">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={busy}
-              />
+              <div className="reveal">
+                <input
+                  type={reveal ? "text" : "password"}
+                  id="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setError("");
+                  }}
+                  onKeyDown={watchCaps}
+                  onKeyUp={watchCaps}
+                  onBlur={() => setCaps(false)}
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => setReveal((on) => !on)}
+                  aria-pressed={reveal}
+                  // A shared terminal and a password somebody else set: being
+                  // able to see what was typed is the difference between one
+                  // attempt and three.
+                  aria-label={reveal ? "Hide the password" : "Show the password"}
+                >
+                  {reveal ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
-            <button className="btn lg" type="submit" style={{ width: "100%" }} disabled={busy}>
+            {caps && (
+              <p className="hint" style={{ marginBottom: 24 }} role="status">
+                Caps Lock is on.
+              </p>
+            )}
+            <button
+              className="btn lg"
+              type="submit"
+              style={{ width: "100%" }}
+              disabled={!ready}
+            >
               {busy ? "Signing in…" : "Sign in"}
             </button>
           </form>
@@ -107,32 +158,7 @@ export function SignIn() {
           </p>
         </div>
 
-        <div className="card cream auth-aside">
-          <span className="eyebrow">What this account reaches</span>
-          <h2 className="display-sm" style={{ margin: "18px 0 20px", textWrap: "pretty" }}>
-            Graded sheets are vendor records, not drafts.
-          </h2>
-          <dl className="kv" style={{ marginBottom: 28 }}>
-            <dt>Recordings</dt>
-            <dd>Client audio from the inspection floor</dd>
-            <dt>Spec sheets</dt>
-            <dd>Buyer measurement sheets, marked proprietary</dd>
-            <dt>Reports</dt>
-            <dd>Stamped and sent under your name</dd>
-          </dl>
-          <p className="lede" style={{ margin: 0 }}>
-            Every graded sheet carries the line <i>“Subject to Legal Action if Disclosed
-            Without Authorization from AEO.”</i> Sessions end after 12 hours on a shared
-            device, and corrections are attributed to whoever was signed in when they were
-            saved.
-          </p>
-          <div className="files" style={{ marginTop: 24 }}>
-            <span className="pill">12-hour sessions</span>
-            <span className="pill">Attributed edits</span>
-            <span className="pill">Roles set by an administrator</span>
-          </div>
-        </div>
       </div>
-    </>
+    </div>
   );
 }

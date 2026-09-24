@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { DOWNLOAD_TITLES, VENDOR_DOWNLOADS, audioUrl, downloadUrl, fetchSheet } from "../api";
+import {
+  DOWNLOAD_TITLES,
+  VENDOR_DOWNLOADS,
+  audioUrl,
+  downloadUrl,
+  fetchSheet,
+  transcriptUrl,
+} from "../api";
 import { useSession } from "../session";
 import type { GradedSheet, Job, SheetCell } from "../types";
 
@@ -11,13 +18,12 @@ import type { GradedSheet, Job, SheetCell } from "../types";
  * the deviations were, and which size carried the trouble. Nothing here is
  * actionable, and it should not pretend to be.
  *
- * Every figure is counted from the graded sheet the server returns. The
- * prototype's provenance block asks for four things the server does not record
- * yet — who took it, on which bench, the season, and the transcript — and
- * those say so rather than being filled with something plausible. A stats
- * screen that invents its own provenance is worse than one that admits the
- * gap, because provenance is exactly what gets checked when a vendor disputes
- * a measurement months later.
+ * Every figure is counted from the graded sheet the server returns, and the
+ * provenance is recorded rather than guessed: who signed in and sent the file,
+ * which bench they typed, when it ran, which sheet it was graded against, and
+ * the transcript it was extracted from. Provenance is exactly what gets
+ * checked when a vendor disputes a measurement months later, so nothing here
+ * is inferred — an inspection taken before attribution existed says so.
  */
 
 const CONF_BUCKETS = ["100%", "95–99%", "90–94%", "85–89%", "under 85%"];
@@ -79,6 +85,7 @@ export function Stats({ job }: { job: Job }) {
   const { can } = useSession();
   const [sheet, setSheet] = useState<GradedSheet | null>(null);
   const [error, setError] = useState("");
+  const taken = job.started_at ? new Date(job.started_at * 1000) : null;
 
   useEffect(() => {
     if (!job.graded) return;
@@ -150,11 +157,23 @@ export function Stats({ job }: { job: Job }) {
           <h2>Where this came from</h2>
         </div>
         <p className="lede">
-          Everything a disputed measurement gets checked against: when it was taken, off which
-          file, and through which transcript.
+          Everything a disputed measurement gets checked against: when it was taken, by whom, on
+          which bench, against which sheet, off which file and through which transcript.
         </p>
 
         <dl className="readout">
+          <div>
+            <dt>Date</dt>
+            <dd className="sizes">{taken ? taken.toLocaleDateString() : "—"}</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd className="sizes">
+              {taken
+                ? taken.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "—"}
+            </dd>
+          </div>
           <div>
             <dt>Duration</dt>
             <dd className="sizes">
@@ -164,10 +183,6 @@ export function Stats({ job }: { job: Job }) {
             </dd>
           </div>
           <div>
-            <dt>Stage</dt>
-            <dd className="sizes">Size set</dd>
-          </div>
-          <div>
             <dt>Style</dt>
             <dd className="sizes">{job.graded_style_no || job.announced_style_no || "none"}</dd>
           </div>
@@ -175,10 +190,37 @@ export function Stats({ job }: { job: Job }) {
 
         <div className="dash-split" style={{ marginTop: 16 }}>
           <div className="card">
+            <span className="eyebrow">Who</span>
+            <div className="me" style={{ padding: "12px 0 0", pointerEvents: "none" }}>
+              <span className="avatar">{(job.recorded_by || "?").slice(0, 1)}</span>
+              <div className="grow">
+                <b>{job.recorded_by || "Not recorded"}</b>
+                <span>
+                  {job.recorded_by
+                    ? "recorded this inspection"
+                    : "taken before inspections were attributed"}
+                </span>
+              </div>
+            </div>
+            <dl className="kv" style={{ margin: "16px 0 0" }}>
+              <dt>Location</dt>
+              <dd>{job.location || <span className="dim">not stated</span>}</dd>
+              <dt>Stage</dt>
+              <dd>Size set</dd>
+              <dt>Style</dt>
+              <dd>
+                {job.graded_style_no
+                  ? `${job.graded_style_no} — checked against its graded sheet`
+                  : "none picked"}
+              </dd>
+            </dl>
+          </div>
+
+          <div className="card">
             <span className="eyebrow">Recording</span>
             <div
               className="row"
-              style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0 4px" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0 8px" }}
             >
               <b
                 className="pom"
@@ -198,16 +240,21 @@ export function Stats({ job }: { job: Job }) {
             ) : (
               <p className="lede">Playback is for the QA team.</p>
             )}
-          </div>
 
-          <div className="card">
-            <span className="eyebrow">Not recorded yet</span>
-            <p className="lede" style={{ margin: "12px 0 0" }}>
-              Who took this inspection, on which bench, and the transcript it was built from are
-              not written down anywhere yet. They arrive with the audit trail. Rather than show a
-              name this app cannot stand behind, it shows none — provenance is the one thing on
-              this screen that has to be true.
+            <span className="eyebrow" style={{ display: "block", marginTop: 18 }}>
+              Transcript
+            </span>
+            <p className="lede" style={{ margin: "8px 0 10px" }}>
+              The text the report was extracted from — not the live monitor&apos;s, which is
+              tuned for latency and drops short words.
             </p>
+            {job.transcript === false ? (
+              <span className="dim">No transcript was saved for this inspection.</span>
+            ) : (
+              <a className="btn secondary sm" href={transcriptUrl(job.id)} target="_blank" rel="noreferrer">
+                Open the transcript
+              </a>
+            )}
           </div>
         </div>
       </section>

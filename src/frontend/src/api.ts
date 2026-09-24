@@ -7,6 +7,122 @@ export async function fetchStyleSets(): Promise<string[]> {
   return response.json();
 }
 
+/** One line of the audit trail. */
+export interface Event {
+  id: string;
+  /** ISO 8601, from the server. */
+  at: string;
+  user_id: string | null;
+  /** The name as it was when this happened, so a deleted account still reads. */
+  actor: string;
+  kind: string;
+  stage: string;
+  what: string;
+  subject: string;
+}
+
+/** The trail, newest first. */
+export async function fetchActivity(): Promise<Event[]> {
+  const response = await fetch("/api/activity");
+  if (!response.ok) throw new Error(await detail(response, "Could not read the log."));
+  return response.json();
+}
+
+/** One line of the style set library. */
+export interface LibrarySheet {
+  style_no: string;
+  document: string;
+  readable: boolean;
+  description: string;
+  company: string;
+  season: string;
+  division: string;
+  status: string;
+  base_size: string;
+  sizes: string[];
+  poms: number;
+  tolerance_model: string;
+  from_scan: boolean;
+  /** Epoch seconds of the last inspection graded against it, or null. */
+  last_used: number | null;
+}
+
+/** A sheet plus its whole graded specification. */
+export interface LibrarySheetDetail extends LibrarySheet {
+  rows: {
+    pom: string;
+    description: string;
+    minus: string;
+    plus: string;
+    specs: Record<string, string>;
+  }[];
+}
+
+/** The library, with what is inside each sheet. */
+export async function fetchLibrary(): Promise<LibrarySheet[]> {
+  const response = await fetch("/api/style-sets/sheets");
+  if (!response.ok) throw new Error(await detail(response, "Could not read the library."));
+  return response.json();
+}
+
+export async function fetchLibrarySheet(styleNo: string): Promise<LibrarySheetDetail> {
+  const response = await fetch(`/api/style-sets/sheets/${encodeURIComponent(styleNo)}`);
+  if (!response.ok) throw new Error(await detail(response, "Could not read that sheet."));
+  return response.json();
+}
+
+export async function removeStyleSet(styleNo: string): Promise<void> {
+  const response = await fetch(`/api/style-sets/sheets/${encodeURIComponent(styleNo)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await detail(response, "The sheet was not removed."));
+}
+
+export const sheetPdfUrl = (styleNo: string) =>
+  `/api/style-sets/sheets/${encodeURIComponent(styleNo)}/pdf`;
+
+/** What the server read out of an accepted sheet. */
+export interface StyleSetAdded {
+  style_no: string;
+  description: string;
+  season: string;
+  sizes: string[];
+  poms: number;
+  document: string;
+}
+
+/**
+ * Put a buyer's graded sheet in the library.
+ *
+ * Nothing is typed alongside it: the style number, the sizes and the
+ * tolerances are read out of the PDF, and a sheet that will not parse is
+ * refused rather than filed and discovered at grading time.
+ */
+export async function uploadStyleSet(file: File, replace = false): Promise<StyleSetAdded> {
+  const form = new FormData();
+  form.append("sheet", file);
+  if (replace) form.append("replace", "true");
+  const response = await fetch("/api/style-sets", { method: "POST", body: form });
+  if (!response.ok) throw new Error(await detail(response, "The sheet was not accepted."));
+  return response.json();
+}
+
+/**
+ * One job, in full.
+ *
+ * The list endpoint cannot carry everything the report needs. The three detail
+ * tables are derived from the saved extraction and are not stored, the field
+ * labels come off the client's own template, and rebuilding either means
+ * reading files - far too much for an endpoint the browser polls every two
+ * seconds against every inspection. So the report asks for the one job it is
+ * showing, and the list stays cheap.
+ */
+export async function fetchJob(jobId: string): Promise<Job> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+  if (!response.ok) throw new Error(await detail(response, "Could not read that inspection."));
+  return response.json();
+}
+
 /** Every job, newest first. */
 export async function fetchJobs(): Promise<Job[]> {
   const response = await fetch("/api/jobs");
@@ -49,12 +165,14 @@ export function uploadRecording(
   styleNo: string,
   liveTranscript: string,
   onProgress: (fraction: number) => void,
+  location = "",
 ): Promise<Job> {
   return new Promise((resolve, reject) => {
     const body = new FormData();
     body.append("recording", file);
     body.append("style_no", styleNo);
     body.append("live_transcript", liveTranscript);
+    if (location) body.append("location", location);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/jobs");
@@ -138,6 +256,9 @@ export async function regradeSize(
 }
 
 export const audioUrl = (jobId: string) => `/api/jobs/${jobId}/audio`;
+
+/** The transcript the report was extracted from — not the live monitor's. */
+export const transcriptUrl = (jobId: string) => `/api/jobs/${jobId}/transcript`;
 
 /** Where each reading sits in the recording. Built on first ask, then cached. */
 export async function fetchCues(jobId: string): Promise<PlaybackCues> {

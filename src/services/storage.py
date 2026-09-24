@@ -52,6 +52,7 @@ log = logging.getLogger(__name__)
 RECORDINGS = "recordings"
 PLAYBACK = "playback"
 OUTPUTS = "outputs"
+STYLE_SETS = "style-sets"
 
 # How long a signed link stays good. It is handed to a browser, so it lands in
 # history, in any proxy log on the way, and in whatever mirrors those. Long
@@ -153,6 +154,12 @@ def playback_key(filename: str) -> str:
     replacement. The original is what was captured on the floor and what the
     word index was built from; this one exists only so a browser can seek."""
     return f"{PLAYBACK}/{Path(filename).stem}.mp3"
+
+
+def style_set_key(filename: str) -> str:
+    """A buyer's graded spec sheet. Named for the style, so re-uploading the
+    same style replaces the object rather than accumulating copies."""
+    return f"{STYLE_SETS}/{Path(filename).name}"
 
 
 def output_key(name: str, filename: str) -> str:
@@ -275,6 +282,30 @@ def fetch(key: str, destination: Path) -> bool:
         return False
 
 
+def pull_all(prefix: str, directory: Path) -> int:
+    """Fill `directory` with everything under `prefix` that is not there yet.
+
+    The style set library is the one thing a container must have before it can
+    grade anything, and on a platform with an ephemeral disk an uploaded sheet
+    would otherwise last until the next deploy. Existing files are left alone:
+    the bucket is the durable copy, not the authority.
+    """
+    if not enabled():
+        return 0
+    directory.mkdir(parents=True, exist_ok=True)
+    pulled = 0
+    try:
+        pages = client().get_paginator("list_objects_v2")
+        for page in pages.paginate(Bucket=bucket(), Prefix=f"{prefix}/"):
+            for item in page.get("Contents", ()):
+                name = Path(item["Key"]).name
+                if name and not (directory / name).is_file():
+                    pulled += fetch(item["Key"], directory / name)
+    except Exception:  # noqa: BLE001 - unreachable bucket; disk is still served
+        log.warning("could not list %s", prefix)
+    return pulled
+
+
 def ensure_local(key: str, path: Path) -> bool:
     """`path`, present. Already there, or pulled from the bucket.
 
@@ -301,6 +332,22 @@ def presign(key: str, *, filename: str = "", download: bool = False) -> str:
 
 def delete(key: str) -> None:
     client().delete_object(Bucket=bucket(), Key=key)
+
+
+def forget(key: str) -> bool:
+    '''Delete an object, swallowing failure - the counterpart to `mirror`.
+
+    The local file is already gone by the time this runs. An unreachable bucket
+    must not turn a completed removal into a 500 the operator retries.
+    '''
+    if not enabled():
+        return False
+    try:
+        delete(key)
+        return True
+    except Exception:  # noqa: BLE001 - the disk copy is already gone
+        log.warning('could not delete %s from the bucket', key)
+        return False
 
 
 # ---------------------------------------------------------------------- check

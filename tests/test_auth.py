@@ -326,7 +326,9 @@ def test_every_api_endpoint_refuses_an_anonymous_caller(anonymous):
         for method in sorted(methods):
             if path == "/api/session" :
                 continue
-            url = path.format(job_id="whatever", kind="report", user_id="somebody")
+            url = path.format(
+                    job_id="whatever", kind="report", user_id="somebody", style_no="7270"
+                )
             response = anonymous.request(method, url, json={})
             checked += 1
             if response.status_code != 401:
@@ -652,3 +654,22 @@ def test_an_unknown_address_costs_the_same_work_as_a_known_one(app_db, monkeypat
         unknown = len(calls)
 
     assert known == unknown == 1
+
+
+def test_uploading_a_style_set_needs_manage_styles(sign_in_as):
+    """An inspector can read the library and must not be able to change it: the
+    spec sheet is what every measurement is graded against."""
+    inspector = sign_in_as("inspector")
+
+    assert inspector.get("/api/style-sets").status_code == 200
+    refused = inspector.post(
+        "/api/style-sets",
+        files={"sheet": ("graded.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    assert refused.status_code == 403
+
+
+def test_removing_a_style_set_needs_manage_styles(sign_in_as):
+    inspector = sign_in_as("inspector")
+
+    assert inspector.delete("/api/style-sets/sheets/7270").status_code == 403

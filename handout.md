@@ -976,7 +976,7 @@ cd src\frontend; npm run build; cd ..\..
 python src\main.py serve
 
 # checks
-.\venv\Scripts\python.exe -m pytest                     # 419
+.\venv\Scripts\python.exe -m pytest                     # 420
 .\venv\Scripts\python.exe -m ruff check src tests migrations
 .\venv\Scripts\python.exe -m alembic check              # models vs schema
 .\venv\Scripts\python.exe src\services\storage.py      # round-trips the real bucket
@@ -1624,10 +1624,92 @@ a part and got applied to the whole.
 
 | Item | State |
 |---|---|
-| **Nobody has reviewed this on a real screen but the author of the prototype** | Several defects in §38.5 were invisible to 57 passing tests. jsdom cannot tell you a colour is missing. |
+| **Nobody has reviewed this on a real screen but the author of the prototype** | Several defects in §38.5 were invisible to 57 passing tests, and both bugs in §39 were invisible to all 476. jsdom cannot tell you a colour is missing, and no test in the suite simulates a process that has already been running. |
 | No audit trail | Activity, the Stats provenance card and "who settled this cell" all wait on it. Phase 5. |
 | No release endpoint | `release` is enforced, guards nothing. |
 | No style set upload | `manage.styles` likewise. The Upload button is present and dead, with the reason on it. |
 | Three stages have no pipeline | PPM, Interim and Final carry nav and roles; standing in one shows an honest panel rather than an empty dashboard. |
 | `src/api/index.html` | The legacy single-file UI, now very far behind. It is still what a checkout that has never run `npm run build` serves. |
 | The bucket and the database hold demo data | `triburg` has five users; the Railway bucket has whatever has been uploaded since §35. |
+
+---
+
+## 39. Two bugs a restart found
+
+**Date:** 24 September 2026. Continues §38.
+
+**Tests:** 419 → **420** Python, 57 frontend. `ruff` and `alembic check` clean.
+Head is now `09662e9820c9`.
+
+Both of these had been in the code since phase 1 and neither could be seen
+until a running server was killed and started again — which happened by
+accident, when the machine ran low on memory.
+
+### 39.1 The output name was never persisted
+
+**Symptom.** After the restart, opening the graded sheet answered
+`410 {"detail": ".json is no longer on disk"}`. The server log gave it away
+exactly: `could not fetch outputs//.json` — the double slash is an empty name.
+
+**Cause.** `Job.name` is the output base name: every file an inspection
+produces is called `<name>.pdf`, `<name>.json` and so on, and `_graded_sheet`
+finds the saved extraction by looking up `<name>.json`. The `inspections` table
+had **no column for it**. `_apply` never wrote it and `_revive` never restored
+it, so a job that came back from the database had `name == ""` and went looking
+for a file called `.json`.
+
+It worked perfectly until the first restart. Everything the operator needed was
+on disk the whole time.
+
+**Fix.** `inspections.name`, written on save and restored on revive, plus
+migration `09662e9820c9`. The migration **backfills** rather than leaving old
+rows blank: `outputs` already holds the full path of every file the inspection
+wrote, so the name is the stem of any one of them.
+
+Worth recording what the backfill turned up on the one real row:
+
+```
+name     = 'rec_2463(20)'
+filename = 'rec_2463(16).mp3'
+```
+
+They are not the same, and they are not meant to be — the pipeline versions a
+name that is already taken. So deriving the name from the recording's filename,
+which is the obvious shortcut, would have been quietly wrong. `outputs` was the
+only honest source.
+
+`test_a_finished_job_is_still_there_after_a_restart` now asserts `back.name`.
+
+### 39.2 A failure outlived its cause, in the browser
+
+**Symptom.** The fix above was verified from the server — 200, 27 rows — while
+the browser went on showing the same 410. Two more restarts did not shift it.
+
+**Cause.** **410 Gone is a cacheable response by default**, and so is 404. The
+browser had stored the failure and was entitled to keep serving it without
+asking again. Nothing under `/api` set any cache policy at all; only the HTML
+shell did, because a stale shell had bitten us before (§index).
+
+The diagnosis that settled it: the page worked on `127.0.0.1:8100` and failed
+on `localhost:8100`. Same server, same data — separate browser origins, and the
+bad response was stored under only one of them.
+
+**Fix.** One middleware: everything under `/api` sends
+`Cache-Control: no-store, must-revalidate`. Every answer there is about state
+that changes — a job's progress, a graded sheet, who is signed in — and none of
+it is worth caching while some of it is actively harmful to cache.
+`test_api_answers_are_never_cached` pins it, including on a 404.
+
+**The part worth keeping.** A transient server fault became a permanent client
+fault, with nothing on screen able to say the cause had already gone. That is a
+worse failure than the original bug, because it defeats the ordinary way of
+checking whether a fix worked: try it again.
+
+### 39.3 Two notes for whoever runs this next
+
+- `localhost` and `127.0.0.1` are **different origins**. Separate caches and
+  separate cookies, so signing in on one does not sign you in on the other. A
+  surprise trip to the sign-in screen is usually this.
+- These were both found by restarting, not by testing. 57 frontend and 419
+  Python tests were green throughout §39.1, because nothing in the suite
+  simulated a process that had already been running.

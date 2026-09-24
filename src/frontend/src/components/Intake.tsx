@@ -39,6 +39,51 @@ interface Props {
  * Sticky, because it is the primary action and because a running waveform
  * should stay visible while a reviewer scrolls the report underneath it.
  */
+/**
+ * A street address for a fix, from OpenStreetMap's public reverse geocoder.
+ *
+ * The browser knows where it is and nothing else; turning that into something
+ * a person can read is somebody else's dataset. Nominatim is the one that
+ * needs no key and no account, at the price of telling openstreetmap.org
+ * roughly where the inspection is happening.
+ *
+ * Composed from the address parts rather than Nominatim's `display_name`,
+ * which leads with a house number and a building name and runs past the 128
+ * characters the column holds. Returns "" on anything going wrong — the
+ * caller keeps the coordinates, which are worse to read and just as true.
+ */
+async function placeName(latitude: number, longitude: number): Promise<string> {
+  const url =
+    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&" +
+    new URLSearchParams({ lat: String(latitude), lon: String(longitude) });
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return "";
+    const found = (await response.json()) as { address?: Record<string, string> };
+    const at = found.address ?? {};
+    const parts = [
+      at.road || at.neighbourhood || at.industrial,
+      at.suburb || at.city_district,
+      at.city || at.town || at.village || at.county,
+      at.state,
+      at.postcode,
+    ];
+    // Nominatim repeats itself freely - a suburb and a city district are often
+    // the same word - and a location that says "Gurugram, Gurugram" reads as a
+    // bug rather than a place.
+    const seen = new Set<string>();
+    return parts
+      .filter((part): part is string => Boolean(part) && !seen.has(part!) && !!seen.add(part!))
+      .join(", ")
+      .slice(0, 128);
+  } catch {
+    return "";
+  }
+}
+
 export function Intake({ onQueued }: Props) {
   const [take, setTake] = useState<Take | null>(null);
   /**
@@ -67,12 +112,62 @@ export function Intake({ onQueued }: Props) {
   const [recovering, setRecovering] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [styleNo, setStyleNo] = useState("");
+  /**
+   * Where the inspection happened. The browser is asked first - an operator
+   * who has to type the bench every take types it once and then stops. Typing
+   * is the fallback for a denied prompt, a desk with no fix, or http.
+   */
+  const [location, setLocation] = useState(() => {
+    try {
+      return window.localStorage.getItem("location") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [locating, setLocating] = useState(() => "geolocation" in navigator);
+  /** True once the browser answered, which is what makes the field secondary. */
+  const [located, setLocated] = useState(false);
+  /** The raw fix. Kept for the hint, and used as the location until the
+      address resolves - or for good, if it never does. */
+  const [coords, setCoords] = useState("");
+  /** Metres, for the hint. Never part of the stored location. */
+  const [accuracy, setAccuracy] = useState(0);
   const [styleSets, setStyleSets] = useState<string[] | null>(null);
   const [styleError, setStyleError] = useState("");
   const [progress, setProgress] = useState(-1); // -1 = not uploading
   const [uploadError, setUploadError] = useState("");
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
+
+  // ponytail: coordinates, not a place name - a name needs a reverse-geocoding
+  // service, and sending a client's inspection floor to a third party to be
+  // told "Gurugram" is not a trade worth making.
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    let live = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!live) return;
+        const { latitude, longitude, accuracy: metres } = position.coords;
+        setCoords(latitude.toFixed(5) + ", " + longitude.toFixed(5));
+        setAccuracy(metres);
+        setLocated(true);
+        setLocating(false);
+        // The address is a second, slower answer. The fix is shown the moment
+        // it lands so the screen is never waiting on a service we do not run.
+        void placeName(latitude, longitude).then((place) => {
+          if (live && place) setLocation(place);
+        });
+      },
+      // Denied, unavailable, or timed out: all the same answer to us, which is
+      // that the operator gets the box to type in.
+      () => live && setLocating(false),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 300_000 },
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const liveHeard = useRef<Utterance[]>([]);
 
@@ -219,7 +314,19 @@ export function Intake({ onQueued }: Props) {
       // A recovered take has no live session behind it, so its monitor text
       // comes back off the stored recording instead.
       const monitor = heard.length ? transcriptText(heard) : savedTranscript;
-      const job = await uploadRecording(pending, styleNo, monitor, setProgress);
+      try {
+        // A typed bench is the same tomorrow; yesterday's coordinates are not.
+        if (!located) window.localStorage.setItem("location", location);
+      } catch {
+        /* the upload still carries it */
+      }
+      const job = await uploadRecording(
+        pending,
+        styleNo,
+        monitor,
+        setProgress,
+        location || coords,
+      );
       setProgress(-1);
       clear();
       onQueued(job);
@@ -227,7 +334,7 @@ export function Intake({ onQueued }: Props) {
       setProgress(-1);
       setUploadError(cause instanceof Error ? cause.message : "Upload failed.");
     }
-  }, [pending, styleNo, heard, savedTranscript, clear, onQueued]);
+  }, [pending, styleNo, location, coords, located, heard, savedTranscript, clear, onQueued]);
 
   const onDrop = (event: React.DragEvent) => {
     event.preventDefault();
@@ -364,7 +471,7 @@ export function Intake({ onQueued }: Props) {
         </section>
       ) : (
         <section style={{ marginTop: 24 }}>
-          <div className={`intake${dragging ? " dragging" : ""}`}>
+          <div className={`intake${take || picked ? (dragging ? " dragging" : "") : " plain"}`}>
             {take ? (
               <>
                 <div className="row">
@@ -409,35 +516,41 @@ export function Intake({ onQueued }: Props) {
                 </button>
               </div>
             ) : (
-              <div className="row">
-                <button
-                  className="btn"
-                  onClick={() => void recorder.start()}
-                  disabled={!recorder.supported}
-                  title={recorder.supported ? undefined : recorder.blockedReason}
-                >
-                  {recorder.supported ? "Record inspection" : "Recording unavailable here"}
-                </button>
-                <span className="hint">
-                  {recorder.supported ? (
-                    <>
-                      or{" "}
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={() => fileInput.current?.click()}
-                      >
-                        choose a recording
-                      </button>{" "}
-                      &mdash; drop one anywhere here
-                    </>
-                  ) : (
-                    <>
-                      Open the app on <b>127.0.0.1</b> to record, or drop a file.
-                    </>
-                  )}
-                </span>
-              </div>
+              <>
+                <div className="row">
+                  <button
+                    className="btn"
+                    onClick={() => void recorder.start()}
+                    disabled={!recorder.supported}
+                    title={recorder.supported ? undefined : recorder.blockedReason}
+                  >
+                    {recorder.supported ? "Record inspection" : "Recording unavailable here"}
+                  </button>
+                  <span className="hint">
+                    {recorder.supported
+                      ? "The microphone is the normal path. The zone below is for a take from another device."
+                      : "Open the app on 127.0.0.1 to record, or bring a file in below."}
+                  </span>
+                </div>
+
+                {/* The library's upload zone, which is the shape this product
+                    already uses for "a file goes here". The input lives inside
+                    the label, so there is no stray "No file chosen" control
+                    parked at the bottom of the screen. */}
+                <label className={`dropzone${dragging ? " over" : ""}`} style={{ marginTop: 16 }}>
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept=".mp3,.mp4,.m4a,.wav,.webm,.mpeg,.mpga"
+                    onChange={(e) => choose(e.target.files?.[0])}
+                    hidden
+                  />
+                  <span className="big">Drop a recording here</span>
+                  <span className="small">
+                    or click to choose a file &middot; mp3, m4a, wav, webm
+                  </span>
+                </label>
+              </>
             )}
 
             <div className="opts">
@@ -466,12 +579,54 @@ export function Intake({ onQueued }: Props) {
               </span>
             </div>
 
+            <div className="opts">
+              <label htmlFor="where">Where</label>
+              {locating ? (
+                <span className="hint">Asking this device&hellip;</span>
+              ) : located ? (
+                <>
+                  <span className="pill">{location || coords}</span>
+                  <span className="hint">
+                    {coords}
+                    {accuracy ? <> &middot; to within {Math.round(accuracy)} m</> : null} &middot;{" "}
+                    <button type="button" className="link" onClick={() => setLocated(false)}>
+                      type it instead
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <input
+                    id="where"
+                    placeholder="e.g. Unit 2, bench 4"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    style={{ maxWidth: 240 }}
+                  />
+                  <span className="hint">Recorded with the inspection, for the audit trail</span>
+                </>
+              )}
+            </div>
+
             {progress >= 0 && (
               <div className="bar" style={{ marginTop: 12 }}>
                 <i style={{ width: `${progress * 100}%` }} />
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {!live && !pending && (
+        <section>
+          <div className="section-head">
+            <h2>Before you start</h2>
+          </div>
+          <p className="lede">
+            Recording is local. The take is written to this device a second at a time, so a
+            closed tab or a flat battery costs you the tail of it and not the inspection.
+            Nothing reaches the server until you press Process.
+          </p>
         </section>
       )}
 
@@ -546,12 +701,6 @@ export function Intake({ onQueued }: Props) {
         </div>
       )}
 
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".mp3,.mp4,.m4a,.wav,.webm,.mpeg,.mpga"
-        onChange={(e) => choose(e.target.files?.[0])}
-      />
     </div>
   );
 }

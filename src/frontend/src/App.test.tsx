@@ -64,7 +64,9 @@ test("with nothing recorded the dashboard says so and offers the recorder", asyn
   render(<App />);
 
   // The dashboard is the stage's home, as demo/teams.js has it.
-  await waitFor(() => expect(screen.getByText("Nothing recorded yet")).toBeDefined());
+  await waitFor(() =>
+    expect(screen.getByText("No inspections on this stage")).toBeDefined(),
+  );
   expect(screen.getAllByRole("link", { name: "Record inspection" }).length).toBeGreaterThan(0);
 });
 
@@ -72,7 +74,7 @@ test("the hero answers whether anything is waiting on you", async () => {
   render(<App />);
 
   await waitFor(() =>
-    expect(screen.getByText(/Record an inspection, or drop a recording/)).toBeDefined(),
+    expect(screen.getByText(/Record one, or drop a recording you already have/)).toBeDefined(),
   );
 });
 
@@ -194,19 +196,61 @@ test("a failure that is not about credentials does not offer a password reset", 
   expect(screen.getByRole("alert").textContent).not.toContain("passwords cannot be recovered");
 });
 
-test("the sign-in screen says what the account reaches", async () => {
+test("the sign-in screen is the form and nothing else", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) })),
+  );
+
+  const { container } = render(<App />);
+
+  await waitFor(() => expect(screen.getByLabelText("Email")).toBeDefined());
+  // It must never enumerate who has an account — that is a prototype
+  // affordance and undoes what the server does to keep the roster private.
+  expect(screen.queryByText(/admin@triburg.com/)).toBeNull();
+  // Nor carry the panel the prototype puts beside it. Nobody signing in for
+  // the eighth time today reads it, and it is the longest thing on the page.
+  expect(screen.queryByText(/Subject to Legal Action/)).toBeNull();
+  expect(container.querySelector(".auth-aside")).toBeNull();
+  expect(container.querySelector(".auth-solo")).not.toBeNull();
+});
+
+
+test("the sign-in form will not send a half-filled attempt", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(() => Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) })),
   );
 
   render(<App />);
-
   await waitFor(() => expect(screen.getByLabelText("Email")).toBeDefined());
-  // The confidentiality panel is the content half of this screen, not decoration.
-  expect(screen.getByText(/Subject to Legal Action/)).toBeDefined();
-  expect(screen.getByText("12-hour sessions")).toBeDefined();
-  // And it must never enumerate who has an account — that is a prototype
-  // affordance and undoes what the server does to keep the roster private.
-  expect(screen.queryByText(/admin@triburg.com/)).toBeNull();
+
+  const submit = screen.getByRole("button", { name: "Sign in" });
+  expect(submit).toHaveProperty("disabled", true);
+
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.com" } });
+  expect(submit).toHaveProperty("disabled", true);
+
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter22" } });
+  expect(submit).toHaveProperty("disabled", false);
+});
+
+test("the password can be read back, and Caps Lock is called out first", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({}) })),
+  );
+
+  render(<App />);
+  await waitFor(() => expect(screen.getByLabelText("Password")).toBeDefined());
+  const password = screen.getByLabelText("Password");
+
+  // A shared terminal and a password somebody else set.
+  expect(password.getAttribute("type")).toBe("password");
+  fireEvent.click(screen.getByRole("button", { name: "Show the password" }));
+  expect(password.getAttribute("type")).toBe("text");
+
+  // Said before the attempt, not after the account is locked out.
+  fireEvent.keyDown(password, { key: "a", modifierCapsLock: true });
+  expect(screen.getByText("Caps Lock is on.")).toBeDefined();
 });
