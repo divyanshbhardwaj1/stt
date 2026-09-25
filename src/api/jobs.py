@@ -123,6 +123,10 @@ class Job:
             # that only knows how long a job took cannot say when.
             "started_at": round(self.started_at, 3),
             "recorded_by": self.recorded_by,
+            # The pointer as well as the name. "Your recordings" has to mean
+            # the signed-in account, and two people called R. Menon is not a
+            # hypothetical on a floor that hires seasonally.
+            "recorded_by_id": str(self.recorded_by_id) if self.recorded_by_id else "",
             "location": self.location,
         }
 

@@ -28,6 +28,26 @@ import type { Job } from "../types";
 
 const DAY = 86_400_000;
 
+/** Midnight, thirteen days back: the left edge of the fortnight chart. */
+function startOfFortnight(): number {
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  return midnight.getTime() - 13 * DAY;
+}
+
+/** "12 – 25 Sep", so nobody has to work out which fortnight this is. */
+function fortnightSpan(): string {
+  const day = (at: number, withMonth: boolean) =>
+    new Date(at).toLocaleDateString(
+      undefined,
+      withMonth ? { day: "numeric", month: "short" } : { day: "numeric" },
+    );
+  const from = startOfFortnight();
+  const to = Date.now();
+  const sameMonth = new Date(from).getMonth() === new Date(to).getMonth();
+  return `${day(from, !sameMonth)} – ${day(to, true)}`;
+}
+
 /** One letter per day on the fortnight axis. The tooltip carries the rest. */
 const WEEKDAY = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -48,12 +68,16 @@ const SEVERITY: Record<string, [string, string]> = {
 
 interface Props {
   jobs: Job[];
+  /** The stage being stood in. The role is read off it, not off sizeset. */
+  stage: string;
   onOpen: (jobId: string) => void;
 }
 
-export function Dashboard({ jobs, onOpen }: Props) {
+export function Dashboard({ jobs, stage, onOpen }: Props) {
   const { me, can } = useSession();
-  const role = me?.admin ? "admin" : (me?.roles?.sizeset ?? "inspector");
+  // Off the stage in the rail. Reading `roles.sizeset` regardless meant an
+  // approver on final was shown a reviewer's queue the moment they switched.
+  const role = me?.admin ? "admin" : (me?.roles?.[stage] ?? "inspector");
 
   /**
    * The newest five lines of this stage's log.
@@ -63,6 +87,10 @@ export function Dashboard({ jobs, onOpen }: Props) {
    * append-only and a dashboard left open does not need it every two seconds.
    */
   const [trail, setTrail] = useState<Event[] | null>(null);
+  // Re-read when the job list grows or a job changes state, which is when the
+  // trail has something new in it. Not on every poll: the log is append-only
+  // and a dashboard left open does not need it every two seconds.
+  const pulse = jobs.map((job) => job.status).join(",");
   useEffect(() => {
     let live = true;
     fetchActivity(5)
@@ -73,7 +101,13 @@ export function Dashboard({ jobs, onOpen }: Props) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [pulse]);
+
+  /* The fourteen days the chart draws, so the figures beside it mean what the
+     heading says. They were lifetime totals under a heading that reads "This
+     fortnight", which is the one kind of wrong a dashboard cannot afford. */
+  const since14 = startOfFortnight();
+  const fortnight = jobs.filter((job) => job.started_at * 1000 >= since14);
 
   const done = jobs.filter((job) => job.status === "done");
   const running = jobs.filter((job) => job.status === "queued" || job.status === "running");
@@ -83,6 +117,11 @@ export function Dashboard({ jobs, onOpen }: Props) {
     (job) => job.graded && !job.unconfirmed && !job.out_of_tolerance,
   );
   const outOfTol = done.reduce((count, job) => count + job.out_of_tolerance, 0);
+
+  const fortnightDone = done.filter((job) => job.started_at * 1000 >= since14);
+  const fortnightOpen = open.filter((job) => job.started_at * 1000 >= since14);
+  const fortnightSignoff = signoff.filter((job) => job.started_at * 1000 >= since14);
+  const fortnightFailed = failed.filter((job) => job.started_at * 1000 >= since14);
 
   /* The six figures the floor asks for.
      Total splits three ways and nothing is counted twice: an inspection is
@@ -113,6 +152,11 @@ export function Dashboard({ jobs, onOpen }: Props) {
     ? Math.round((passed / judgedJobs.length) * 100)
     : null;
 
+  /* What this account recorded. Matched on the id, not the name: the heading
+     says "Your recordings" and it has to be true, and anything predating
+     attribution carries no id and is nobody\'s. */
+  const mine = jobs.filter((job) => me && job.recorded_by_id === me.id);
+
   /* Whose queue this is. Ordered by what it costs to leave alone: a reading
      with no verdict outranks a measurement that failed, because a failure has
      been ruled on and a gap has not. */
@@ -120,7 +164,7 @@ export function Dashboard({ jobs, onOpen }: Props) {
     role === "approver"
       ? signoff
       : role === "inspector"
-        ? jobs.slice(0, 8)
+        ? mine.slice(0, 8)
         : [...open, ...failed, ...done.filter((job) => job.out_of_tolerance && !job.unconfirmed)];
 
   const framing = queueFraming();
@@ -182,6 +226,15 @@ export function Dashboard({ jobs, onOpen }: Props) {
             <dt>Pass %</dt>
             <dd>{passRate === null ? "—" : `${passRate}%`}</dd>
           </div>
+          {/* Only when there are any. Total splits into pending, done and
+              failed, so without this the three do not add up and nothing on
+              the strip says why. */}
+          {failed.length > 0 && (
+            <div className="warm">
+              <dt>Failed to process</dt>
+              <dd>{failed.length}</dd>
+            </div>
+          )}
         </dl>
         <p className="lede" style={{ marginTop: 12, fontSize: 12.5 }}>
           <b>Overdue</b> is a pending inspection more than 24 hours old — there is no due date
@@ -306,40 +359,49 @@ export function Dashboard({ jobs, onOpen }: Props) {
 
           <div>
             <div className="section-head">
-              <h2>This fortnight</h2>
+              <h2>The last 14 days</h2>
+              <span className="pill">{fortnightSpan()}</span>
             </div>
             <p className="lede">
-              Inspections processed, and how many left with every verdict captured.
+              One column per day. How tall it is, is how many inspections were processed that
+              day. The teal part is how many came back with <b>every</b> point of measure ruled
+              on; the amber part is how many left a gap for somebody to fill in.
             </p>
             <div className="card">
               <Fortnight jobs={jobs} />
               <div className="legend">
                 <span>
-                  <i className="sw teal" /> Complete
+                  <i className="sw teal" /> Every verdict captured
                 </span>
                 <span>
                   <i className="sw ochre" /> Left a gap
                 </span>
+                <span className="spacer" />
+                <span>Today is on the right</span>
               </div>
               <dl className="kv" style={{ margin: "20px 0 0", maxWidth: "none" }}>
-                <dt>Processed</dt>
+                <dt>Inspections recorded</dt>
                 <dd>
-                  <b>{jobs.length}</b> inspection{jobs.length === 1 ? "" : "s"}
+                  <b>{fortnight.length}</b> in these 14 days
                 </dd>
-                <dt>Complete first time</dt>
+                <dt>Came back complete</dt>
                 <dd>
-                  <b>{signoff.length}</b>
-                  {done.length
-                    ? ` · ${Math.round((signoff.length / done.length) * 100)}%`
+                  <b>{fortnightSignoff.length}</b>
+                  {fortnightDone.length
+                    ? ` of ${fortnightDone.length} finished · ${Math.round(
+                        (fortnightSignoff.length / fortnightDone.length) * 100,
+                      )}%`
                     : ""}
                 </dd>
-                <dt>Still open</dt>
+                <dt>Still waiting on a reviewer</dt>
                 <dd>
-                  <b>{open.length}</b> waiting on a reviewer
+                  <b>{fortnightOpen.length}</b>
+                  {fortnightOpen.length ? " with a point of measure unanswered" : ""}
                 </dd>
-                <dt>Failed to process</dt>
+                <dt>Never finished processing</dt>
                 <dd>
-                  <b>{failed.length}</b>
+                  <b>{fortnightFailed.length}</b>
+                  {fortnightFailed.length ? " — nothing was produced for these" : ""}
                 </dd>
               </dl>
             </div>
@@ -504,6 +566,7 @@ function Fortnight({ jobs }: { jobs: Job[] }) {
     };
   });
   const tallest = Math.max(1, ...days.map((day) => day.total));
+  const latest = days[days.length - 1].start;
 
   return (
     <div className="bars">
@@ -518,6 +581,7 @@ function Fortnight({ jobs }: { jobs: Job[] }) {
           day: "numeric",
           month: "long",
         });
+        const last = day.start === latest;
         return (
           <div
             className="bar"
@@ -530,14 +594,21 @@ function Fortnight({ jobs }: { jobs: Job[] }) {
                 : `${date} — nothing processed`
             }
           >
-            <div
-              className="stack"
-              style={{ height: `${Math.round((day.total / tallest) * 100)}%` }}
-            >
-              <div className="gap" style={{ height: `${100 - good}%` }} />
-              <div className="good" style={{ height: `${good}%` }} />
+            {/* The count on the column, because a tooltip is not an answer on
+                a tablet and this is read standing up. */}
+            <span className="n">{day.total || ""}</span>
+            <div className="track">
+              <div
+                className="stack"
+                style={{ height: `${Math.round((day.total / tallest) * 100)}%` }}
+              >
+                <div className="gap" style={{ height: `${100 - good}%` }} />
+                <div className="good" style={{ height: `${good}%` }} />
+              </div>
             </div>
-            <span>{WEEKDAY[when.getDay()]}</span>
+            <span className={last ? "now" : undefined}>
+              {last ? "Today" : WEEKDAY[when.getDay()]}
+            </span>
           </div>
         );
       })}

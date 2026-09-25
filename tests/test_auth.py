@@ -131,15 +131,41 @@ def test_an_ordinary_address_is_accepted():
         assert auth.check_email(good) == good.lower()
 
 
-def test_an_invited_user_cannot_sign_in(app_db):
+def test_an_account_needs_a_password_to_exist(app_db):
+    """There is no invite email to follow up with.
+
+    An account made without one could not be signed in to until somebody
+    remembered to come back to it, and what happened was nobody did.
+    """
     from services.db import session
 
-    with session() as db:
+    with session() as db, pytest.raises(auth.AuthError, match="Set a password"):
         auth.create_user(
             db, "invitee@example.com", "Invited Person", roles={"sizeset": "inspector"}
         )
+
+
+def test_an_account_with_no_password_cannot_sign_in(app_db):
+    """`invited` is still a real state for rows made before that rule.
+
+    Constructed directly rather than through `create_user`, which now refuses
+    to make one — the guard against an empty hash matching an empty password
+    has to stay regardless of how the row got there.
+    """
+    from services.db import session
+    from services.db.models import User, UserState
+
+    with session() as db:
+        db.add(
+            User(
+                email="legacy@example.com",
+                name="Made Before The Rule",
+                password_hash="",
+                state=UserState.invited.value,
+            )
+        )
     with session() as db, pytest.raises(auth.AuthError):
-        auth.sign_in(db, "invitee@example.com", "")
+        auth.sign_in(db, "legacy@example.com", "")
 
 
 def test_a_disabled_user_cannot_sign_in(app_db):
@@ -577,7 +603,12 @@ def test_an_address_that_is_not_an_address_is_refused(client):
 def test_a_made_up_role_is_refused(client):
     refused = client.post(
         "/api/users",
-        json={"email": "sneaky@example.com", "name": "Sneaky", "roles": {"sizeset": "superuser"}},
+        json={
+            "email": "sneaky@example.com",
+            "name": "Sneaky",
+            "password": FLOOR_PASSWORD,
+            "roles": {"sizeset": "superuser"},
+        },
     )
 
     assert refused.status_code == 400
@@ -673,3 +704,212 @@ def test_removing_a_style_set_needs_manage_styles(sign_in_as):
     inspector = sign_in_as("inspector")
 
     assert inspector.delete("/api/style-sets/sheets/7270").status_code == 403
+
+
+# ------------------------------------------------- permissions above the role
+def test_a_capability_can_be_granted_on_top_of_a_role(app_db, settings):
+    """The reviewer who is also the only one keeping the library current.
+
+    Without this an administrator has four shapes to fit a floor into, and what
+    happens instead is the person gets promoted to the role that happens to
+    contain the one thing they need — along with everything else in it.
+    """
+    from services.db import session
+
+    with session() as db:
+        person = auth.create_user(
+            db,
+            "keeper@example.com",
+            "The Keeper",
+            password=FLOOR_PASSWORD,
+            roles={"sizeset": "inspector"},
+            overrides={"sizeset": {"manage.styles": True}},
+        )
+        assert auth.can(person, "manage.styles") is True
+        # And nothing else came with it.
+        assert auth.can(person, "audit.edit") is False
+        assert auth.can(person, "manage.people") is False
+
+
+def test_a_capability_can_be_withheld_from_a_role(app_db):
+    """The line where corrections are made by somebody else."""
+    from services.db import session
+
+    with session() as db:
+        person = auth.create_user(
+            db,
+            "hands.off@example.com",
+            "Hands Off",
+            password=FLOOR_PASSWORD,
+            roles={"sizeset": "reviewer"},
+            overrides={"sizeset": {"audit.edit": False}},
+        )
+        assert auth.can(person, "audit.view") is True
+        assert auth.can(person, "audit.edit") is False
+
+
+def test_only_the_differences_are_stored(app_db):
+    """Ticking what the role already carries is not an exception.
+
+    Storing it would freeze this person's permissions at today's definition of
+    the role — the next change to what a reviewer is would silently not reach
+    them.
+    """
+    from services.db import session
+
+    with session() as db:
+        person = auth.create_user(
+            db,
+            "preset@example.com",
+            "On The Preset",
+            password=FLOOR_PASSWORD,
+            roles={"sizeset": "reviewer"},
+            overrides={"sizeset": {"audit.edit": True, "record": True}},
+        )
+        db.flush()
+        assert person.memberships[0].overrides == {}
+
+
+def test_dropping_a_stage_drops_what_was_granted_on_it(app_db):
+    from services.db import session
+
+    with session() as db:
+        person = auth.create_user(
+            db,
+            "moved@example.com",
+            "Moved On",
+            password=FLOOR_PASSWORD,
+            roles={"sizeset": "inspector"},
+            overrides={"sizeset": {"manage.styles": True}},
+        )
+        db.flush()
+        auth.set_roles(db, person, {"final": "inspector"}, {})
+        db.flush()
+
+        assert auth.can(person, "manage.styles", "final") is False
+        assert auth.overrides_on(person, "sizeset") == {}
+
+
+def test_the_administrator_flag_is_not_overridable(app_db):
+    """It is the way back in when a permission has been got wrong, and a flag
+    that can be whittled down is not that."""
+    from services.db import session
+
+    with session() as db:
+        boss = auth.create_user(
+            db, "boss@example.com", "The Boss", password=FLOOR_PASSWORD, is_admin=True
+        )
+        assert auth.can(boss, "manage.people") is True
+        assert sorted(auth.capabilities(boss)) == sorted(auth.ALL_CAPABILITIES)
+
+
+def test_a_permission_that_is_not_one_is_refused(app_db):
+    from services.db import session
+
+    with session() as db:
+        person = auth.create_user(
+            db,
+            "typo@example.com",
+            "Typo",
+            password=FLOOR_PASSWORD,
+            roles={"sizeset": "inspector"},
+        )
+        db.flush()
+        with pytest.raises(auth.AuthError, match="is not a permission"):
+            auth.set_roles(db, person, {"sizeset": "inspector"}, {"sizeset": {"manage.all": True}})
+        with pytest.raises(auth.AuthError, match="hold no role there"):
+            auth.set_roles(db, person, {"sizeset": "inspector"}, {"final": {"record": True}})
+
+
+def test_a_granted_capability_opens_the_endpoint(sign_in_as):
+    """The rule that matters is the one the server enforces on the way in."""
+    inspector = sign_in_as("inspector")
+    assert (
+        inspector.post(
+            "/api/style-sets", files={"sheet": ("x.pdf", b"%PDF-1.4", "application/pdf")}
+        ).status_code
+        == 403
+    )
+
+    admin = sign_in_as(admin=True)
+    changed = admin.patch(
+        f"/api/users/{inspector.user_id}",
+        json={
+            "roles": {"sizeset": "inspector"},
+            "permissions": {"sizeset": {"manage.styles": True}},
+        },
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["permissions"] == {"sizeset": {"manage.styles": True}}
+
+    # Changing what somebody may do ends their sessions, so the new answer is
+    # the only one live anywhere.
+    assert inspector.get("/api/me").status_code == 401
+    assert (
+        inspector.post(
+            "/api/session", json={"email": inspector.email, "password": FLOOR_PASSWORD}
+        ).status_code
+        == 200
+    )
+
+    # Not 403 any more. 422 is the upload refusing the bytes, which is the next
+    # check along and proof the permission gate was passed.
+    again = inspector.post(
+        "/api/style-sets", files={"sheet": ("x.pdf", b"not a pdf", "application/pdf")}
+    )
+    assert again.status_code == 422
+
+
+def test_a_withheld_capability_closes_one(sign_in_as):
+    reviewer = sign_in_as("reviewer")
+    admin = sign_in_as(admin=True)
+
+    admin.patch(
+        f"/api/users/{reviewer.user_id}",
+        json={
+            "roles": {"sizeset": "reviewer"},
+            "permissions": {"sizeset": {"audit.edit": False}},
+        },
+    )
+    reviewer.post("/api/session", json={"email": reviewer.email, "password": FLOOR_PASSWORD})
+
+    blocked = reviewer.post("/api/jobs/whatever/sheet", json={"edits": [{}]})
+    assert blocked.status_code == 403
+    # Still a reviewer in every other respect.
+    assert reviewer.get("/api/jobs").status_code == 200
+
+
+def test_a_permission_change_alone_ends_the_sessions(sign_in_as):
+    """Sending only `permissions`, with no role change, still has to cut them.
+
+    Otherwise the capability an administrator just withheld stays live in
+    whatever session that person is holding until it expires on its own.
+    """
+    reviewer = sign_in_as("reviewer")
+    admin = sign_in_as(admin=True)
+    assert reviewer.get("/api/me").status_code == 200
+
+    admin.patch(
+        f"/api/users/{reviewer.user_id}",
+        json={"permissions": {"sizeset": {"audit.edit": False}}},
+    )
+
+    assert reviewer.get("/api/me").status_code == 401
+
+
+def test_the_api_refuses_an_account_with_no_password(client):
+    refused = client.post(
+        "/api/users",
+        json={
+            "email": "nopass@example.com",
+            "name": "No Password",
+            "roles": {"sizeset": "inspector"},
+        },
+    )
+
+    assert refused.status_code == 400
+    assert "Set a password" in refused.json()["detail"]
+    assert all(
+        person["email"] != "nopass@example.com"
+        for person in client.get("/api/users").json()["users"]
+    )

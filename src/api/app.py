@@ -1278,6 +1278,10 @@ class NewUser(BaseModel):
     email: str
     name: str
     roles: dict[str, str] = {}
+    # {stage: {capability: granted}} - only where this person differs from the
+    # role. Validated in `auth.set_roles`, which is the one place that knows
+    # what a capability is.
+    permissions: dict[str, dict[str, bool]] = {}
     admin: bool = False
     password: str = ""
 
@@ -1286,6 +1290,7 @@ class UserPatch(BaseModel):
     email: str | None = None
     name: str | None = None
     roles: dict[str, str] | None = None
+    permissions: dict[str, dict[str, bool]] | None = None
     admin: bool | None = None
     state: str | None = None
     password: str | None = None
@@ -1301,6 +1306,18 @@ def _user(person: User) -> dict[str, object]:
         "admin": person.is_admin,
         "state": person.state,
         "roles": {member.stage: member.role for member in person.memberships},
+        # Only where they differ from the role. The screen draws the role's own
+        # capabilities from the role table and applies these on top, so a role
+        # whose definition changes still moves everybody left on the preset.
+        "permissions": {
+            member.stage: dict(member.overrides or {})
+            for member in person.memberships
+            if member.overrides
+        },
+        "can_by_stage": {
+            stage: sorted(auth.capabilities(person, stage))
+            for stage in auth.stages_of(person)
+        },
         "stages": auth.stages_of(person),
         "created_at": person.created_at.isoformat() if person.created_at else None,
         "last_seen_at": person.last_seen_at.isoformat() if person.last_seen_at else None,
@@ -1345,6 +1362,7 @@ def add_user(body: NewUser, user: ManagesPeople) -> dict[str, object]:
                 body.name,
                 password=body.password,
                 roles=body.roles,
+                overrides=body.permissions,
                 is_admin=body.admin,
             )
         except auth.AuthError as exc:
@@ -1400,7 +1418,12 @@ def update_user(user_id: str, body: UserPatch, user: ManagesPeople) -> dict[str,
             if body.roles is not None or body.admin is not None:
                 # An administrator holds every stage by the flag, so their
                 # membership rows are cleared rather than kept in step.
-                auth.set_roles(db, person, {} if person.is_admin else (body.roles or {}))
+                auth.set_roles(
+                    db,
+                    person,
+                    {} if person.is_admin else (body.roles or {}),
+                    {} if person.is_admin else (body.permissions or {}),
+                )
             if not person.is_admin and not person.memberships:
                 raise auth.AuthError(
                     "Give them a role on at least one stage, or make them an administrator."
@@ -1418,7 +1441,14 @@ def update_user(user_id: str, body: UserPatch, user: ManagesPeople) -> dict[str,
         # Anything that narrows what somebody may do takes effect now, not
         # whenever the token they are holding happens to run out.
         narrowed = bool(
-            body.password or losing_admin or body.roles is not None or being_disabled
+            body.password
+            or losing_admin
+            or body.roles is not None
+            # Withholding a capability narrows as surely as removing a role,
+            # and an administrator who only touches the permissions must not
+            # leave the old answer live in a session somebody is holding.
+            or body.permissions is not None
+            or being_disabled
         )
         if narrowed:
             auth.sign_out_everywhere(db, person.id)

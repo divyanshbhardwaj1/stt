@@ -265,12 +265,78 @@
    has .teamchip and the select; this is only the row that pairs them. */
 .rolerow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
+  /* Stage, role, the link that opens the permissions, and the badge that says
+     this person is off the preset. */
+  grid-template-columns: minmax(0, 1fr) 150px auto auto;
   align-items: center;
   gap: var(--space-sm);
   margin-top: 6px;
 }
 .rolerow select { width: 100%; }
+
+/* Four stages on one line, as tabs. app.css draws `.tabs button`; these carry
+   a tile and a marker as well as a word, so they need the flex and the
+   padding tightened to fit four across a 460px dialog. */
+.stagetabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.stagetabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px 5px 5px;
+}
+.stagetabs .tile {
+  width: 24px;
+  height: 20px;
+  font-size: 9.5px;
+  border-radius: 5px;
+}
+/* A stage they hold no role on. Greyed, never disabled: it is still the way
+   in to granting one, and a control that cannot be clicked is a dead end
+   rather than a hint. Four tabs that look identical until you click each one
+   is a dialog that hides its own state. */
+.stagetabs button.off .tile {
+  opacity: 0.3;
+}
+.stagetabs button.off span {
+  color: var(--color-muted-soft);
+}
+/* Selected still reads as selected, greyed or not: app.css paints the
+   background off `aria-selected`, and the word comes back to full ink so the
+   pane below plainly belongs to this tab. */
+.stagetabs button.off[aria-selected="true"] span {
+  color: var(--color-muted);
+}
+
+/* The selected stage: its role, then what that role carries. */
+.stagepane .rolerow {
+  margin-top: 0;
+}
+.stagepane .lbl {
+  font: var(--text-caption);
+  color: var(--color-body-strong);
+}
+
+/* The per-capability list, open for one stage at a time. Indented under its
+   role row so it is plainly an exception to that row and not a second set of
+   rules standing on its own. */
+.perms {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 8px 0 12px 12px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--color-hairline);
+  background: var(--color-surface-soft);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.perms .hint { margin-bottom: 4px; }
+.perms .check { justify-content: flex-start; gap: 10px; }
+.perms .check .pill { margin-left: auto; }
 
 /* ============================================================
    The recorder's live parts
@@ -629,4 +695,33 @@ input[type="tel"]:focus {
   color: var(--ink);
   border-radius: 2px;
   padding: 0 1px;
+}
+
+/* A count over each column of the fortnight chart, and a track to hang the
+   stack in.
+   The prototype puts the numbers in a `title`, which is not an answer on the
+   tablet this is read on and not an answer to anybody who does not know a
+   tooltip is there. The track takes the leftover height so the stack\'s
+   percentage still resolves against a full column with a label above it. */
+.bar > .n {
+  font: var(--text-caption);
+  font-size: 10px;
+  text-align: center;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  min-height: 13px;
+}
+.bar > .track {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
+}
+.bar > .track > .stack {
+  width: 100%;
+}
+/* Which end is now. Without it the axis is fourteen letters that could start
+   anywhere. */
+.bar > span.now {
+  color: var(--color-ink);
 }

@@ -287,6 +287,14 @@ export interface User {
   admin: boolean;
   state: string;
   roles: Record<string, string>;
+  /**
+   * Where they differ from the role, per stage: {stage: {capability: granted}}.
+   * Only the differences — the role's own capabilities come from the role
+   * table, so changing what a role means still moves everybody left on it.
+   */
+  permissions: Record<string, Record<string, boolean>>;
+  /** What that actually adds up to, per stage. The server's own answer. */
+  can_by_stage: Record<string, string[]>;
   stages: string[];
   created_at: string | null;
   last_seen_at: string | null;
@@ -325,6 +333,7 @@ export const addUser = (draft: {
   email: string;
   name: string;
   roles: Record<string, string>;
+  permissions: Record<string, Record<string, boolean>>;
   admin: boolean;
   password: string;
 }) => ask<User>("/api/users", { method: "POST", ...asJson(draft) });
@@ -335,6 +344,7 @@ export const patchUser = (
     email: string;
     name: string;
     roles: Record<string, string>;
+    permissions: Record<string, Record<string, boolean>>;
     admin: boolean;
     state: string;
     password: string;

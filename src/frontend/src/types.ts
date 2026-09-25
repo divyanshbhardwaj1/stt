@@ -79,6 +79,8 @@ export interface Job {
   form_labels?: Record<string, string>;
   /** Who recorded it. Resolved from the account, never stored as a name. */
   recorded_by: string;
+  /** The account that recorded it. "" for anything predating attribution. */
+  recorded_by_id: string;
   /** Which bench or floor, typed by the operator at upload. */
   location: string;
   /** Whether a transcript was saved. Only on the single-job read. */

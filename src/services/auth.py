@@ -219,8 +219,34 @@ def check_email(value: str) -> str:
 
 
 def capabilities(user: User, stage: str = DEFAULT_STAGE) -> frozenset[str]:
-    """What this user may do on this stage."""
-    return ROLES.get(role_on(user, stage) or "", frozenset())
+    """What this user may do on this stage: the role, plus their exceptions.
+
+    The administrator flag is unconditional and is not overridable - it is the
+    way back in when a permission has been got wrong, and a flag that can be
+    whittled down is not that.
+    """
+    if user.is_admin:
+        return ALL_CAPABILITIES
+    role = role_on(user, stage)
+    if role is None:
+        return frozenset()
+    allowed = set(ROLES.get(role, frozenset()))
+    for capability, granted in overrides_on(user, stage).items():
+        if capability not in ALL_CAPABILITIES:
+            continue  # a capability that has since been removed from the product
+        if granted:
+            allowed.add(capability)
+        else:
+            allowed.discard(capability)
+    return frozenset(allowed)
+
+
+def overrides_on(user: User, stage: str = DEFAULT_STAGE) -> dict[str, bool]:
+    """Where this person differs from their role on one stage."""
+    for membership in user.memberships:
+        if membership.stage == stage:
+            return dict(membership.overrides or {})
+    return {}
 
 
 def role_on(user: User, stage: str = DEFAULT_STAGE) -> str | None:
@@ -271,6 +297,12 @@ def describe(user: User, stage: str = DEFAULT_STAGE) -> dict[str, object]:
         "stages": stages_of(user),
         "can": sorted(capabilities(user, stage)),
         "roles": {stage_name: role_on(user, stage_name) for stage_name in stages_of(user)},
+        # Per stage, so the rail can say "you can do this here but not there"
+        # without a request per stage.
+        "can_by_stage": {
+            stage_name: sorted(capabilities(user, stage_name))
+            for stage_name in stages_of(user)
+        },
     }
 
 
@@ -383,12 +415,30 @@ def last_admin(db, user_id) -> bool:
     return len(admins) == 1 and admins[0] == user_id
 
 
-def set_roles(db, user: User, roles: dict[str, str]) -> None:
-    """Replace every membership with `{stage: role}`.
+def set_roles(
+    db,
+    user: User,
+    roles: dict[str, str],
+    overrides: dict[str, dict[str, bool]] | None = None,
+) -> None:
+    """Replace every membership with `{stage: role}`, and its exceptions.
 
     Wholesale, never merged: a patch that only adds is how somebody keeps a
-    role on a stage they were supposed to have been taken off.
+    role on a stage they were supposed to have been taken off. The same goes
+    for the overrides - dropping a stage drops what was granted on it, rather
+    than leaving a grant behind for the next time they are added back.
     """
+    overrides = overrides or {}
+    for stage, given in overrides.items():
+        if stage not in roles:
+            raise AuthError(
+                f"Cannot set permissions on {stage!r}: they hold no role there."
+            )
+        for capability, value in given.items():
+            if capability not in ALL_CAPABILITIES:
+                raise AuthError(f"{capability!r} is not a permission.")
+            if not isinstance(value, bool):
+                raise AuthError(f"{capability!r} must be granted or withheld, not {value!r}.")
     for stage, role in roles.items():
         if stage not in {member.value for member in Stage}:
             raise AuthError(f"There is no {stage!r} stage.")
@@ -404,7 +454,19 @@ def set_roles(db, user: User, roles: dict[str, str]) -> None:
     # hold trips the unique constraint instead of changing anything.
     db.flush()
     user.memberships = [
-        Membership(user_id=user.id, stage=stage, role=role)
+        Membership(
+            user_id=user.id,
+            stage=stage,
+            role=role,
+            # Only the differences. A grant that matches what the role already
+            # carries is not an exception and must not be stored as one, or a
+            # later change to the role silently stops reaching this person.
+            overrides={
+                capability: value
+                for capability, value in sorted(overrides.get(stage, {}).items())
+                if value != (capability in ROLES.get(role, frozenset()))
+            },
+        )
         for stage, role in sorted(roles.items())
     ]
 
@@ -416,6 +478,7 @@ def create_user(
     *,
     password: str = "",
     roles: dict[str, str] | None = None,
+    overrides: dict[str, dict[str, bool]] | None = None,
     is_admin: bool = False,
 ) -> User:
     email = check_email(email)
@@ -428,18 +491,26 @@ def create_user(
         raise AuthError(
             "Give them a role on at least one stage, or make them an administrator."
         )
+    # Every account is usable the moment it exists. There is no invite email to
+    # follow up with, so an account made without a password was an account
+    # nobody could sign in to until somebody remembered to come back to it —
+    # and what actually happened was nobody did.
+    if not password:
+        raise AuthError("Set a password. An account without one cannot be signed in to.")
 
     user = User(
         email=email,
         name=name.strip(),
         is_admin=is_admin,
-        password_hash=hash_password(password) if password else "",
-        state=UserState.active.value if password else UserState.invited.value,
+        password_hash=hash_password(password),
+        # `invited` remains a real state for accounts made before this was
+        # required. Nothing reaches it any more.
+        state=UserState.active.value,
     )
     db.add(user)
     db.flush()  # the memberships need the id, which is generated on the flush
     # An administrator holds every stage by the flag, so rows would only go
     # stale. See Role.
-    set_roles(db, user, {} if is_admin else roles)
+    set_roles(db, user, {} if is_admin else roles, {} if is_admin else overrides)
     log.info("user created: %s%s", email, " (admin)" if is_admin else "")
     return user

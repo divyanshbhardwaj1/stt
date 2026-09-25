@@ -250,7 +250,7 @@ def command_user_add(args: argparse.Namespace, settings: Settings) -> int:
     from services import auth
     from services.db import session
 
-    password = "" if args.invite else _ask_password()
+    password = _ask_password()
     with session() as db:
         user = auth.create_user(
             db,
@@ -383,11 +383,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="STAGE:ROLE",
         help="e.g. sizeset:reviewer. Repeatable. Ignored for --admin",
-    )
-    add_cmd.add_argument(
-        "--invite",
-        action="store_true",
-        help="create without a password; they cannot sign in until one is set",
     )
     add_cmd.set_defaults(handler=command_user_add)
 

@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
+import { Dashboard } from "./components/Dashboard";
+import { SessionProvider } from "./SessionProvider";
 import { Intake } from "./components/Intake";
 import type { Job } from "./types";
 
@@ -81,6 +83,7 @@ const JOB: Job = {
   elapsed: 42.5,
   started_at: Date.now() / 1000 - 3600,
   recorded_by: "R. Menon",
+  recorded_by_id: "0b5ed7f4-8a2c-4b91-9a5e-2f7d1c3e4a6b",
   location: "Unit 2, bench 4",
 };
 
@@ -116,7 +119,18 @@ const ROSTER = {
     { id: "approver", label: "Approver", can: ["audit.view", "release"] },
     { id: "admin", label: "Administrator", can: ["record"] },
   ],
-  capabilities: [{ id: "record", label: "Record and upload inspections" }],
+  // The real eight, because the member dialog draws a row per capability and
+  // a fixture with one cannot tell a working list from an empty one.
+  capabilities: [
+    { id: "record", label: "Record and upload inspections" },
+    { id: "audit.view", label: "Open the graded sheet" },
+    { id: "audit.edit", label: "Correct readings and save" },
+    { id: "download.working", label: "Download working files (CSV, JSON)" },
+    { id: "download.vendor", label: "Download vendor documents (PDF)" },
+    { id: "release", label: "Release a report to the vendor" },
+    { id: "manage.styles", label: "Manage the style set library" },
+    { id: "manage.people", label: "Manage people and roles" },
+  ],
 };
 
 /** What `GET /api/jobs/<id>` returns, when a test wants it to differ. */
@@ -691,4 +705,266 @@ test("the dashboard counts every inspection exactly once", async () => {
   );
   expect(document.querySelector(".feed li .avatar")).not.toBeNull();
   expect(document.querySelector(".feed li .when .pom")).not.toBeNull();
+});
+
+
+/** Read one figure out of the readout strip, by its exact label. */
+const figureOf = (label: string) =>
+  [...document.querySelectorAll("dl.readout > div")]
+    .find((box) => box.querySelector("dt")?.textContent === label)
+    ?.querySelector("dd")?.textContent;
+
+test("an inspector's queue is the inspector's own recordings", async () => {
+  serve(INSPECTOR, [
+    { ...JOB, id: "mine", filename: "mine.m4a", recorded_by_id: INSPECTOR.id },
+    // Somebody else's. "Your recordings" has to be true, and matching on the
+    // name would put both R. Menons in the same queue.
+    {
+      ...JOB,
+      id: "theirs",
+      filename: "theirs.m4a",
+      recorded_by: "R. Menon",
+      recorded_by_id: "11111111-2222-3333-4444-555555555555",
+    },
+    // Recorded before attribution existed: nobody's, not everybody's.
+    { ...JOB, id: "older", filename: "older.m4a", recorded_by: "", recorded_by_id: "" },
+  ]);
+
+  window.location.hash = "";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Your recordings")).toBeDefined());
+  expect(screen.getByText("mine.m4a")).toBeDefined();
+  expect(screen.queryByText("theirs.m4a")).toBeNull();
+  expect(screen.queryByText("older.m4a")).toBeNull();
+});
+
+test("the role comes off the stage being stood in", async () => {
+  // Held two stages with different roles on each, and the dashboard read
+  // `roles.sizeset` regardless — so an approver on final was handed a
+  // reviewer\'s queue the moment they switched in the rail.
+  //
+  // Driven through the component rather than the app, because sizeset is the
+  // only stage with a pipeline today: `App` shows the not-built screen for
+  // final and the dashboard never renders. The wiring is still wrong to ship,
+  // and this is the seam it is wrong at.
+  const both = {
+    ...INSPECTOR,
+    stages: ["sizeset", "final"],
+    roles: { sizeset: "inspector", final: "approver" },
+    can: ["record", "audit.view", "release"],
+  };
+  serve(both, [JOB]);
+
+  render(
+    <SessionProvider>
+      <Dashboard jobs={[JOB]} stage="sizeset" onOpen={() => {}} />
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(screen.getByText("Your recordings")).toBeDefined());
+
+  cleanup();
+  render(
+    <SessionProvider>
+      <Dashboard jobs={[JOB]} stage="final" onOpen={() => {}} />
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(screen.getByText("Waiting for sign-off")).toBeDefined());
+});
+
+test("the fortnight panel counts the fortnight, not everything ever", async () => {
+  const day = 86_400_000;
+  serve(ADMIN, [
+    { ...JOB, id: "recent", unconfirmed: 0, out_of_tolerance: 0 },
+    // Six weeks old: on the books, off the chart, and it must be off the
+    // figures printed beside the chart too.
+    {
+      ...JOB,
+      id: "ancient",
+      unconfirmed: 0,
+      out_of_tolerance: 0,
+      started_at: (Date.now() - 42 * day) / 1000,
+    },
+  ]);
+
+  window.location.hash = "";
+  render(<App />);
+
+  // The strip is lifetime and says so.
+  await waitFor(() => expect(figureOf("Total inspections")).toBe("2"));
+  // The panel under "This fortnight" is not.
+  const processed = await screen.findByText("Inspections recorded");
+  expect(processed.nextElementSibling?.textContent).toBe("1 in these 14 days");
+});
+
+test("a failed inspection is accounted for on the strip", async () => {
+  serve(ADMIN, [
+    { ...JOB, id: "ok", unconfirmed: 0, out_of_tolerance: 0 },
+    { ...JOB, id: "broken", status: "failed", error: "no measurements found" },
+  ]);
+
+  window.location.hash = "";
+  render(<App />);
+
+  await waitFor(() => expect(figureOf("Total inspections")).toBe("2"));
+  // Total splits into pending, done and failed. Without the third tile the
+  // arithmetic on screen is short by one and nothing says why.
+  const total = Number(figureOf("Total inspections"));
+  const parts =
+    Number(figureOf("Pending")) + Number(figureOf("Done")) + Number(figureOf("Failed to process"));
+  expect(parts).toBe(total);
+});
+
+
+test("the member dialog edits one stage at a time, and sends only the exceptions", async () => {
+  const sent: unknown[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && String(url) === "/api/users") {
+        sent.push(JSON.parse(String(init.body)));
+        return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({}) });
+      }
+      const answer =
+        String(url).startsWith("/api/users") ? ROSTER
+        : String(url).startsWith("/api/me") ? ADMIN
+        : String(url).startsWith("/api/jobs") ? []
+        : [];
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer) });
+    }),
+  );
+
+  window.location.hash = "#/users";
+  render(<App />);
+  await waitFor(() => expect(screen.getByText("Add member")).toBeDefined());
+  fireEvent.click(screen.getByText("Add member"));
+
+  // Scoped to the dialog: the rail carries the same four stage names, and a
+  // global text query cannot tell a tab from a nav link.
+  const tab = (name: string) =>
+    [...document.querySelectorAll(".stagetabs button")].find((one) =>
+      one.textContent?.includes(name),
+    ) as HTMLElement;
+  const pane = () => document.querySelector(".stagepane") as HTMLElement;
+  const check = (label: string) =>
+    [...pane().querySelectorAll("label.check")]
+      .find((one) => one.textContent?.startsWith(label))
+      ?.querySelector("input") as HTMLInputElement;
+
+  // Four stages on one line, and only the selected one has a pane under it.
+  expect(document.querySelectorAll(".stagetabs button").length).toBe(4);
+  expect(document.querySelectorAll(".stagepane").length).toBe(1);
+  expect(pane().textContent).toContain("Role on Size set");
+  // A new member holds nothing, so every tab is greyed — and still clickable,
+  // because granting access is the reason to go there.
+  expect(document.querySelectorAll(".stagetabs button.off").length).toBe(4);
+  expect([...document.querySelectorAll(".stagetabs button[disabled]")].length).toBe(0);
+
+  // Switchable, and a stage with no role says so instead of showing an empty
+  // permission list somebody might read as "allowed nothing".
+  fireEvent.click(tab("Interim"));
+  expect(pane().textContent).toContain("Role on Interim");
+  expect(pane().textContent).toContain("No access to Interim");
+  fireEvent.click(tab("Size set"));
+
+  fireEvent.change(pane().querySelector("select") as HTMLSelectElement, {
+    target: { value: "inspector" },
+  });
+  // Given a role, that tab stops being greyed. The other three stay.
+  expect(tab("Size set").classList.contains("off")).toBe(false);
+  expect(document.querySelectorAll(".stagetabs button.off").length).toBe(3);
+
+  // An inspector does not manage the library, so granting it is an exception.
+  expect(check("Manage the style set library").checked).toBe(false);
+  fireEvent.click(check("Manage the style set library"));
+  expect(pane().textContent).toContain("granted");
+
+  // Ticking something the role already carries is not an exception and must
+  // not be stored as one — otherwise a later change to what an inspector
+  // means silently stops reaching this person.
+  expect(check("Record and upload inspections").checked).toBe(true);
+  fireEvent.click(check("Record and upload inspections"));
+  fireEvent.click(check("Record and upload inspections"));
+
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@triburg.com" } });
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New Person" } });
+
+  const add = () =>
+    [...document.querySelectorAll(".dialog-foot button")].find((one) =>
+      ["Add member", "Invite"].includes(one.textContent ?? ""),
+    ) as HTMLButtonElement;
+
+  // An account with no password cannot sign in, so the form does not let one
+  // be made by leaving a field alone.
+  expect(add().disabled).toBe(true);
+  fireEvent.change(document.querySelector("#md-password") as HTMLInputElement, {
+    target: { value: "a good long password" },
+  });
+  expect(add().disabled).toBe(false);
+  fireEvent.click(add());
+
+  await waitFor(() => expect(sent.length).toBe(1));
+  expect((sent[0] as { permissions: unknown }).permissions).toEqual({
+    sizeset: { "manage.styles": true },
+  });
+});
+
+
+test("a member cannot be added without a password", async () => {
+  const sent: unknown[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && String(url) === "/api/users") {
+        sent.push(JSON.parse(String(init.body)));
+        return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({}) });
+      }
+      const answer =
+        String(url).startsWith("/api/users") ? ROSTER
+        : String(url).startsWith("/api/me") ? ADMIN
+        : [];
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer) });
+    }),
+  );
+
+  window.location.hash = "#/users";
+  render(<App />);
+  await waitFor(() => expect(screen.getByText("Add member")).toBeDefined());
+  fireEvent.click(screen.getByText("Add member"));
+
+  const add = () =>
+    [...document.querySelectorAll(".dialog-foot button")].find(
+      (one) => one.textContent === "Add member",
+    ) as HTMLButtonElement;
+
+  // There is no invite email to follow up with, so there is no way to make an
+  // account nobody can sign in to.
+  expect(screen.queryByText(/Invite/)).toBeNull();
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@triburg.com" } });
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New Person" } });
+  expect(add().disabled).toBe(true);
+
+  // And the server\'s own minimum, not a different one invented here.
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "short" } });
+  expect(add().disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "a good long password" },
+  });
+  expect(add().disabled).toBe(false);
+
+  fireEvent.click(add());
+  await waitFor(() => expect(sent.length).toBe(1));
+  expect((sent[0] as { password: string }).password).toBe("a good long password");
+});
+
+test("an account left without a password says so on the roster", async () => {
+  // `invited` only reaches the roster from rows made before a password was
+  // required. The line is what stops somebody wondering for three weeks why
+  // that person cannot get in.
+  serve(ADMIN);
+  window.location.hash = "#/users";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("invited")).toBeDefined());
+  expect(screen.getByText("Cannot sign in — no password set")).toBeDefined();
 });

@@ -298,7 +298,13 @@ function Workspace() {
         return <Account stage={stage} onStage={setStage} />;
 
       default:
-        return <Dashboard jobs={jobs} onOpen={(id) => go(href("inspection", id))} />;
+        return (
+          <Dashboard
+            jobs={jobs}
+            stage={stage}
+            onOpen={(id) => go(href("inspection", id))}
+          />
+        );
     }
   }
 }

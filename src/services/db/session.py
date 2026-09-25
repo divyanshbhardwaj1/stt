@@ -39,7 +39,27 @@ def database_url() -> str:
     connection string is the one setting that also has to be available to a
     migration running in CI with no OpenAI key in sight.
     """
-    return os.getenv("DATABASE_URL", "").strip()
+    return _with_driver(os.getenv("DATABASE_URL", "").strip())
+
+
+def _with_driver(url: str) -> str:
+    """Name the driver, because the platform handing out the URL does not.
+
+    Railway, Heroku and Fly all inject a bare `postgresql://` (Heroku still
+    `postgres://`). SQLAlchemy resolves that to psycopg2, which is not what
+    this project runs on, and the failure is a `ModuleNotFoundError` at engine
+    construction — nowhere near the connection string, and on a platform where
+    the first sight of it is a container that will not boot.
+
+    Anything that already names a driver is left alone, so a URL written by
+    hand still means exactly what it says.
+    """
+    if url.startswith("postgres://"):  # the old spelling, still handed out
+        url = "postgresql://" + url[len("postgres://") :]
+    scheme, sep, rest = url.partition("://")
+    if sep and scheme == "postgresql":
+        return f"postgresql+psycopg://{rest}"
+    return url
 
 
 def configure(url: str | None = None, *, echo: bool = False) -> Engine | None:

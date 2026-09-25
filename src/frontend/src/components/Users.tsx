@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { addUser, fetchRoster, patchUser, removeUser, type Roster, type User } from "../api";
+import { plural } from "../format";
 import { useSession } from "../session";
 import { STAGES, stageOf } from "../stages";
 
@@ -22,6 +23,26 @@ const ROLE_LABELS: Record<string, string> = {
   reviewer: "QA reviewer",
   approver: "Approver",
 };
+
+/**
+ * What a role carries, plus this person's exceptions.
+ *
+ * The role is a preset and the exceptions are the differences from it, so a
+ * role whose definition changes still moves everybody who was left on it.
+ */
+function effective(
+  roster: Roster,
+  role: string,
+  overrides: Record<string, boolean> | undefined,
+): Set<string> {
+  const preset = roster.roles.find((one) => one.id === role);
+  const out = new Set(preset?.can ?? []);
+  for (const [capability, granted] of Object.entries(overrides ?? {})) {
+    if (granted) out.add(capability);
+    else out.delete(capability);
+  }
+  return out;
+}
 
 export function Users() {
   const { me } = useSession();
@@ -161,7 +182,13 @@ export function Users() {
                   {person.state === "active" ? (
                     <span className="pill success">active</span>
                   ) : person.state === "invited" ? (
-                    <span className="pill warning">invited</span>
+                    <>
+                      <span className="pill warning">invited</span>
+                      {/* There is no invite email. Somebody has to set the
+                          password and tell them, and the roster is where that
+                          gets noticed rather than three weeks later. */}
+                      <div className="why">Cannot sign in — no password set</div>
+                    </>
                   ) : (
                     <span className="pill error">disabled</span>
                   )}
@@ -200,6 +227,7 @@ export function Users() {
       {(adding || editing) && (
         <MemberDialog
           member={editing ?? undefined}
+          roster={roster}
           busy={busy}
           onClose={() => {
             setAdding(false);
@@ -212,6 +240,7 @@ export function Users() {
                     email: draft.email,
                     name: draft.name,
                     roles: draft.roles,
+                    permissions: draft.permissions,
                     admin: draft.admin,
                     state: draft.state,
                     ...(draft.password ? { password: draft.password } : {}),
@@ -222,6 +251,7 @@ export function Users() {
                     email: draft.email,
                     name: draft.name,
                     roles: draft.roles,
+                    permissions: draft.permissions,
                     admin: draft.admin,
                     password: draft.password,
                   }),
@@ -241,6 +271,8 @@ interface Draft {
   email: string;
   name: string;
   roles: Record<string, string>;
+  /** Only where this person differs from the role. {stage: {cap: granted}}. */
+  permissions: Record<string, Record<string, boolean>>;
   admin: boolean;
   state: string;
   password: string;
@@ -248,11 +280,13 @@ interface Draft {
 
 function MemberDialog({
   member,
+  roster,
   busy,
   onClose,
   onSave,
 }: {
   member?: User;
+  roster: Roster;
   busy: boolean;
   onClose: () => void;
   onSave: (draft: Draft) => void;
@@ -261,10 +295,37 @@ function MemberDialog({
     email: member?.email ?? "",
     name: member?.name ?? "",
     roles: member?.roles ?? {},
+    permissions: member?.permissions ?? {},
     admin: member?.admin ?? false,
     state: member?.state ?? "invited",
     password: "",
   });
+  /**
+   * The stage being edited. One at a time rather than four stacked rows:
+   * eight permissions across four stages is thirty-two controls in a dialog,
+   * and nobody sets more than one stage at a time anyway.
+   *
+   * Opens on a stage they already hold, so editing somebody does not begin by
+   * looking at a stage they have nothing to do with.
+   */
+  const [stageId, setStageId] = useState(
+    () => Object.keys(member?.roles ?? {})[0] ?? STAGES[0].id,
+  );
+
+  /** Tick or clear one capability for one stage, storing only differences. */
+  function toggle(stage: string, capability: string, on: boolean) {
+    const role = draft.roles[stage] ?? "";
+    const carries = (roster.roles.find((one) => one.id === role)?.can ?? []).includes(
+      capability,
+    );
+    const forStage = { ...(draft.permissions[stage] ?? {}) };
+    if (on === carries) delete forStage[capability];
+    else forStage[capability] = on;
+    const next = { ...draft.permissions };
+    if (Object.keys(forStage).length) next[stage] = forStage;
+    else delete next[stage];
+    setDraft({ ...draft, permissions: next });
+  }
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -279,7 +340,7 @@ function MemberDialog({
         <p className="sub">
           {member
             ? "Anything that narrows what they may do signs them out everywhere, at once."
-            : "They will be invited, and can sign in once a password is set."}
+            : "They can sign in as soon as you save — a password is set here, not invited for."}
         </p>
 
         <div className="field" style={{ marginBottom: 14 }}>
@@ -324,30 +385,104 @@ function MemberDialog({
         {!draft.admin && (
           <div className="field" style={{ marginBottom: 14 }}>
             <span className="lbl">Role on each stage</span>
-            {STAGES.map((stage) => (
-              <div key={stage.id} className="rolerow">
-                <span className="teamchip">
-                  <i className={`tile ${stage.fill}`}>{stage.tag}</i>
-                  {stage.name}
-                </span>
-                <select
-                  value={draft.roles[stage.id] ?? ""}
-                  onChange={(event) => {
-                    const next = { ...draft.roles };
-                    if (event.target.value) next[stage.id] = event.target.value;
-                    else delete next[stage.id];
-                    setDraft({ ...draft, roles: next });
-                  }}
-                >
-                  <option value="">No access</option>
-                  {Object.entries(ROLE_LABELS).map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+            <p className="hint" style={{ marginBottom: 8 }}>
+              A role is a starting point, not a cage — anything it carries can be granted or
+              withheld for this person on this stage.
+            </p>
+            {/* One line of stages, switchable. A stage they hold no role on
+                is greyed, so a glance answers "where do they work" without
+                opening each in turn — but still clickable, because granting
+                access is the whole reason to go there. */}
+            <div className="tabs stagetabs">
+              {STAGES.map((stage) => {
+                const held = Boolean(draft.roles[stage.id]);
+                return (
+                  <button
+                    type="button"
+                    key={stage.id}
+                    className={held ? undefined : "off"}
+                    aria-selected={stageId === stage.id}
+                    onClick={() => setStageId(stage.id)}
+                  >
+                    <i className={`tile ${stage.fill}`}>{stage.tag}</i>
+                    <span>{stage.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {STAGES.filter((stage) => stage.id === stageId).map((stage) => {
+              const role = draft.roles[stage.id] ?? "";
+              const changed = Object.keys(draft.permissions[stage.id] ?? {}).length;
+              const has = effective(roster, role, draft.permissions[stage.id]);
+              const preset = roster.roles.find((one) => one.id === role)?.can ?? [];
+              return (
+                <div className="stagepane" key={stage.id}>
+                  <div className="rolerow">
+                    <span className="lbl">Role on {stage.name}</span>
+                    <select
+                      value={role}
+                      onChange={(event) => {
+                        const next = { ...draft.roles };
+                        const permissions = { ...draft.permissions };
+                        if (event.target.value) next[stage.id] = event.target.value;
+                        else delete next[stage.id];
+                        // Exceptions belong to the role they were exceptions
+                        // to. Carrying them onto a different role, or onto no
+                        // role at all, is how somebody keeps a permission
+                        // after being moved off the job that needed it.
+                        delete permissions[stage.id];
+                        setDraft({ ...draft, roles: next, permissions });
+                      }}
+                    >
+                      <option value="">No access</option>
+                      {Object.entries(ROLE_LABELS).map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    {changed > 0 && (
+                      <span className="pill warning">{plural(changed, "change")}</span>
+                    )}
+                  </div>
+
+                  {role ? (
+                    <div className="perms">
+                      <p className="hint">
+                        {ROLE_LABELS[role]} carries the ticks below. Change any of them for
+                        this person on {stage.name} alone — the role itself is untouched.
+                      </p>
+                      {roster.capabilities.map((capability) => {
+                        const on = has.has(capability.id);
+                        const standard = preset.includes(capability.id);
+                        return (
+                          <label className="check" key={capability.id}>
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              onChange={(event) =>
+                                toggle(stage.id, capability.id, event.target.checked)
+                              }
+                            />
+                            <span>{capability.label}</span>
+                            {on !== standard && (
+                              <span className="pill warning">
+                                {on ? "granted" : "withheld"}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="hint" style={{ marginTop: 8 }}>
+                      No access to {stage.name}. Give them a role here to set permissions.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -362,35 +497,69 @@ function MemberDialog({
               onChange={(event) => setDraft({ ...draft, state: event.target.value })}
             >
               <option value="active">Active</option>
-              <option value="invited">Invited</option>
+              {/* Only for accounts made before a password was required. It
+                  cannot be chosen, because nothing can put an account back
+                  into a state it cannot be signed in to except taking the
+                  password away, and Disabled is how that is said. */}
+              {member?.state === "invited" && <option value="invited">Invited</option>}
               <option value="disabled">Disabled</option>
             </select>
           </div>
         )}
 
-        <div className="field">
-          <label className="lbl" htmlFor="md-password">
-            {member ? "New password" : "Password"}
-          </label>
-          <input
-            id="md-password"
-            type="password"
-            autoComplete="new-password"
-            value={draft.password}
-            onChange={(event) => setDraft({ ...draft, password: event.target.value })}
-          />
-          <span className="hint">
-            {member
-              ? "Leave blank to keep the current one. Setting it signs them out everywhere."
-              : "Leave blank to invite them — they hold their roles but cannot sign in until a password is set."}
-          </span>
-        </div>
+        {member ? (
+          <div className="field">
+            <label className="lbl" htmlFor="md-password">
+              New password
+            </label>
+            {member.state === "invited" && (
+              <div className="notice warn" style={{ marginBottom: 8 }}>
+                <b>This account cannot sign in yet.</b> It holds its roles but has no
+                password. Set one here and tell them — there is no invite email.
+              </div>
+            )}
+            <input
+              id="md-password"
+              type="password"
+              autoComplete="new-password"
+              value={draft.password}
+              onChange={(event) => setDraft({ ...draft, password: event.target.value })}
+            />
+            <span className="hint">
+              Leave blank to keep the current one. Setting it signs them out everywhere.
+            </span>
+          </div>
+        ) : (
+          /* Required. There is no invite email to follow up with, so an
+             account made without a password is an account nobody can sign in
+             to until somebody remembers to come back to it. */
+          <div className="field">
+            <label className="lbl" htmlFor="md-password">
+              Password
+            </label>
+            <input
+              id="md-password"
+              type="password"
+              autoComplete="new-password"
+              value={draft.password}
+              onChange={(event) => setDraft({ ...draft, password: event.target.value })}
+            />
+            <span className="hint">
+              At least 8 characters. They can sign in with it straight away — tell them what
+              it is, and they can change it from their own account screen.
+            </span>
+          </div>
+        )}
 
         <div className="dialog-foot">
           <button className="btn secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <button className="btn" onClick={() => onSave(draft)} disabled={busy}>
+          <button
+            className="btn"
+            onClick={() => onSave(draft)}
+            disabled={busy || (!member && draft.password.length < 8)}
+          >
             {busy ? "Saving…" : member ? "Save changes" : "Add member"}
           </button>
         </div>

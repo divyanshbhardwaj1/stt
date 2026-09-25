@@ -308,3 +308,41 @@ def test_the_report_tables_come_back_after_a_restart(db, settings, monkeypatch):
 
     assert rebuilt == [("sheet", "alignment")]
     assert detail_rows is not None  # the one implementation both paths share
+
+
+# ------------------------------------------------------------ the URL Railway gives
+def test_a_platform_url_gets_the_driver_it_needs(monkeypatch):
+    """Railway hands out a bare `postgresql://` and Heroku a `postgres://`.
+
+    SQLAlchemy resolves both to psycopg2. This project runs on psycopg 3, so
+    the failure is a ModuleNotFoundError at engine construction — nowhere near
+    the connection string, on a platform whose first sign of trouble is a
+    container that will not boot.
+    """
+    # The module, not `services.db.session` — that name is the session
+    # factory in the package's __init__ and shadows it.
+    from services.db.session import database_url
+
+    for given in (
+        "postgresql://u:p@host.proxy.rlwy.net:44403/railway",
+        "postgres://u:p@host.proxy.rlwy.net:44403/railway",
+    ):
+        monkeypatch.setenv("DATABASE_URL", given)
+        assert database_url().startswith("postgresql+psycopg://")
+        assert database_url().endswith("@host.proxy.rlwy.net:44403/railway")
+
+
+def test_a_url_that_names_its_driver_is_left_alone(monkeypatch):
+    """Written by hand, it means what it says."""
+    # The module, not `services.db.session` — that name is the session
+    # factory in the package's __init__ and shadows it.
+    from services.db.session import database_url
+
+    for given in (
+        "postgresql+psycopg://u:p@localhost:5432/triburg",
+        "postgresql+asyncpg://u:p@localhost:5432/triburg",
+        "sqlite:///./local.db",
+        "",
+    ):
+        monkeypatch.setenv("DATABASE_URL", given)
+        assert database_url() == given
