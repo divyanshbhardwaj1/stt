@@ -47,6 +47,14 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M17.2 14.2a5.5 5.5 0 0 1 3.3 5.3" />
     </>
   ),
+  // A bell, drawn on the same 24-grid and with the same open-stroke weight as
+  // the rest: a rim, a shoulder, and the clapper under it.
+  flag: (
+    <>
+      <path d="M18 16H6l1.4-2.2V10a4.6 4.6 0 0 1 9.2 0v3.8L18 16Z" />
+      <path d="M10.6 19a1.6 1.6 0 0 0 2.8 0" />
+    </>
+  ),
   log: (
     <>
       <path d="M12 7v5l3 2" />

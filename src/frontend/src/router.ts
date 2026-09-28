@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 export type Screen =
   | "dashboard"
   | "activity"
+  | "alerts"
   | "inspections"
   | "record"
   | "inspection"
@@ -28,11 +29,14 @@ export interface Route {
   id?: string;
   /** Which tab of it: the report, or the graded sheet. */
   tab?: "report" | "sheet";
+  /** One stage of that style, for the screen that lists all of its checks. */
+  stage?: string;
 }
 
 const SCREENS: Screen[] = [
   "dashboard",
   "activity",
+  "alerts",
   "inspections",
   "record",
   "inspection",
@@ -52,7 +56,16 @@ export function parse(hash: string): Route {
   }
   // One style, and its four stages. Without the id there is no style to show,
   // so it falls through to the list rather than rendering an empty page.
-  if (head === "style" && id) return { screen: "style", id: decodeURIComponent(id) };
+  // `#/style/2463` is the four stages; `#/style/2463/sizeset` is every check
+  // at one of them. The second is a page rather than a panel that unfolds,
+  // because it is where somebody lands from a link and expects a back button.
+  if (head === "style" && id) {
+    return {
+      screen: "style",
+      id: decodeURIComponent(id),
+      stage: tab ? decodeURIComponent(tab) : undefined,
+    };
+  }
   // An unknown hash lands on the register rather than on a blank pane. Somebody
   // arriving from a stale bookmark should see the list, not nothing.
   return { screen: (SCREENS.includes(head as Screen) ? head : "dashboard") as Screen };
@@ -60,7 +73,8 @@ export function parse(hash: string): Route {
 
 export function href(screen: Screen, id?: string, tab?: string): string {
   if (screen === "inspection" && id) return `#/inspection/${id}${tab ? `/${tab}` : ""}`;
-  if (screen === "style" && id) return `#/style/${encodeURIComponent(id)}`;
+  if (screen === "style" && id)
+    return `#/style/${encodeURIComponent(id)}${tab ? `/${encodeURIComponent(tab)}` : ""}`;
   return screen === "dashboard" ? "#/" : `#/${screen}`;
 }
 

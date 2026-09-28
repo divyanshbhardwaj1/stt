@@ -34,6 +34,7 @@ for _name in (
 
 
 import shutil
+from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
@@ -293,3 +294,53 @@ def stub_pipeline(monkeypatch):
             SHEET_PAYLOAD
         ),
     )
+
+
+# The password every fixture-made floor account gets. Not the administrator's:
+# a test that signs in as somebody else has to be unable to do it by accident.
+FLOOR_PASSWORD = "floor-password"
+
+
+@pytest.fixture
+def sign_in_as(settings, app_db):
+    """Make a user with a given role, and return a client signed in as it.
+
+    Here rather than in one test module because more than one needs it: the
+    alert rules are routed by capability, so checking that an approver is not
+    shown a correction means signing in as an approver.
+    """
+    from fastapi.testclient import TestClient
+
+    from api import app as api
+    from services import auth
+    from services.db import session
+
+    api.app.dependency_overrides[api.settings_dependency] = lambda: settings
+    made = 0
+    with ExitStack() as stack:
+
+        def make(role: str | None = None, *, admin: bool = False, roles=None):
+            nonlocal made
+            made += 1
+            email = f"floor{made}@example.com"
+            with session() as db:
+                created = auth.create_user(
+                    db,
+                    email,
+                    f"Floor {made}",
+                    password=FLOOR_PASSWORD,
+                    roles=roles if roles is not None else ({"sizeset": role} if role else {}),
+                    is_admin=admin,
+                )
+                user_id = str(created.id)
+            client = stack.enter_context(TestClient(api.app))
+            opened = client.post(
+                "/api/session", json={"email": email, "password": FLOOR_PASSWORD}
+            )
+            assert opened.status_code == 200, opened.text
+            client.user_id = user_id
+            client.email = email
+            return client
+
+        yield make
+    api.app.dependency_overrides.clear()

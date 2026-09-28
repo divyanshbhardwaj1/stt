@@ -12,6 +12,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pipeline
@@ -80,6 +81,20 @@ class Job:
     failed_rows: list[dict[str, object]] = field(default_factory=list)
     # Who recorded it and where. The id is the pointer the audit trail
     # keeps; the name is resolved for display and never stored on the job.
+    # What the operator called it. `label()` is what anything on screen uses.
+    title: str = ""
+    # The reviewer's verdict on the sheet: "", "pass", "comment" or "fail".
+    # Not the measurement result, which is arithmetic - this is the call a
+    # person makes about the garment.
+    review: str = ""
+    review_note: str = ""
+    reviewed_at: float = 0.0
+    reviewed_by: str = ""
+    reviewed_by_id: object = None
+    # Signed off. `None` until an approver says so - the pipeline finishing is
+    # not the same thing as the report being finished.
+    released_at: float = 0.0
+    released_by: str = ""
     recorded_by_id: object = None
     recorded_by: str = ""
     location: str = ""
@@ -122,6 +137,13 @@ class Job:
             # Unix seconds. The dashboard groups by day, and a client
             # that only knows how long a job took cannot say when.
             "started_at": round(self.started_at, 3),
+            "title": self.title,
+            "review": self.review,
+            "review_note": self.review_note,
+            "reviewed_at": round(self.reviewed_at, 3) if self.reviewed_at else None,
+            "reviewed_by": self.reviewed_by,
+            "released_at": round(self.released_at, 3) if self.released_at else None,
+            "released_by": self.released_by,
             "recorded_by": self.recorded_by,
             # The pointer as well as the name. "Your recordings" has to mean
             # the signed-in account, and two people called R. Menon is not a
@@ -337,6 +359,36 @@ def _record_grading(job: Job, result) -> None:
     job.judged = len(alignment.judged)
     job.out_of_tolerance = len(alignment.failures)
     job.unconfirmed = len(alignment.unconfirmed)
+
+
+def default_title(style_no: str, when: datetime | None = None) -> str:
+    """Style, date and time - the name an inspection gets if nobody types one.
+
+    The browser fills the same thing into the box, and this is the answer for
+    everything that does not come through the browser: an upload from a
+    script, a recovered take, anything a later release adds. A name that is
+    only set on one path is a name half the rows do not have.
+
+    Sortable on purpose. A list of `2463 - 2026-09-25 - 14:32` reads in order
+    anywhere that sorts by name, which a locale-formatted date does not.
+    """
+    moment = when or datetime.now(UTC).astimezone()
+    stamp = f"{moment:%Y-%m-%d} - {moment:%H:%M}"
+    return f"{style_no.strip()} - {stamp}" if style_no.strip() else stamp
+
+
+def slug(text: str) -> str:
+    """A title as a filename. Never empty, and safe on every filesystem.
+
+    A colon is illegal on Windows and a slash is a directory everywhere, so
+    the name a vendor receives has to be flattened - but it should still read
+    as the name somebody gave the inspection.
+    """
+    kept = [c if (c.isalnum() or c in "-_") else ("-" if c in " .:/\\" else "") for c in text]
+    out = "".join(kept)
+    while "--" in out:
+        out = out.replace("--", "-")
+    return out.strip("-")
 
 
 def detail_rows(job: Job, sheet, alignment) -> None:

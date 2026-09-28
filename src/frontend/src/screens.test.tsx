@@ -62,6 +62,13 @@ const JOB: Job = {
   status: "done",
   message: "12 rows, 1 needs review",
   name: "Recording_20",
+  title: "",
+  review: "",
+  review_note: "",
+  reviewed_at: null,
+  reviewed_by: "",
+  released_at: null,
+  released_by: "",
   rows: 12,
   flagged: 1,
   sizes: ["S", "M"],
@@ -150,6 +157,8 @@ function serve(me: object, jobs: Job[] = [JOB]) {
         // read is the one that carries the report's detail tables and labels.
         : /^\/api\/jobs\/[^/]+$/.test(url) ? (DETAIL ?? jobs[0])
         : url.startsWith("/api/jobs") ? jobs
+        : url.startsWith("/api/alert-rules") ? RULES
+        : url.startsWith("/api/alerts") ? ALERTS
         : url.startsWith("/api/activity") ? TRAIL
         // One sheet is a different answer from the library, exactly as
         // `/api/jobs/<id>` is from `/api/jobs`. Returning the list for both
@@ -163,6 +172,56 @@ function serve(me: object, jobs: Job[] = [JOB]) {
     }),
   );
 }
+
+/** The catalogue plus this floor's settings, as the page edits it. */
+const RULES = {
+  rules: [
+    {
+      key: "processing_failed",
+      label: "Processing failed",
+      blurb: "Nothing was written and nothing was sent anywhere.",
+      severity: "act",
+      unit: "hours",
+      enabled: true,
+      amount: null,
+      ways: ["inapp", "email"],
+      default_amount: null,
+      default_ways: ["inapp", "email"],
+    },
+    {
+      key: "unanswered_stale",
+      label: "Readings with no verdict",
+      blurb: "Heard, never ruled on.",
+      severity: "act",
+      unit: "hours",
+      enabled: true,
+      amount: 4,
+      ways: ["inapp"],
+      default_amount: 24,
+      default_ways: ["inapp", "email"],
+    },
+  ],
+  channels: [
+    { id: "inapp", label: "In the app" },
+    { id: "email", label: "Email" },
+  ],
+  email_ready: false,
+};
+
+/** One open alert, as `GET /api/alerts` returns it. */
+const ALERTS = [
+  {
+    id: "al-1",
+    rule: "unanswered_stale",
+    severity: "act",
+    stage: "sizeset",
+    needs: "audit.edit",
+    subject_id: "abc123",
+    title: "rec_2463(21): 1 point of measure still has no verdict",
+    detail: "Recorded over 24 hours ago on style 2463. These are not passes.",
+    raised_at: "2026-09-27T09:12:00+00:00",
+  },
+];
 
 /** The audit trail, as the server sends it. */
 const TRAIL = [
@@ -967,4 +1026,493 @@ test("an account left without a password says so on the roster", async () => {
 
   await waitFor(() => expect(screen.getByText("invited")).toBeDefined());
   expect(screen.getByText("Cannot sign in — no password set")).toBeDefined();
+});
+
+
+test("the alerts screen names the thing to do, and the rail carries the count", async () => {
+  window.location.hash = "#/alerts";
+  render(<App />);
+
+  await waitFor(() =>
+    expect(screen.getByText(/1 point of measure still has no verdict/)).toBeDefined(),
+  );
+  // Every row says what to go and do, not just that something is wrong.
+  expect(screen.getByText("Open the graded sheet")).toBeDefined();
+  expect(screen.getByText("Dismiss")).toBeDefined();
+  // And the count rides the rail entry, so it is seen without opening it.
+  expect(document.querySelector(".navlink .tally")?.textContent).toBe("1");
+});
+
+test("a clear floor has nothing blinking at it", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(String(url).startsWith("/api/me") ? ADMIN : []),
+      }),
+    ),
+  );
+
+  window.location.hash = "#/alerts";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText(/Nothing is stuck on size set/)).toBeDefined());
+  expect(document.querySelector(".navlink .tally")).toBeNull();
+});
+
+
+test("the alert settings show the catalogue and mark what was changed", async () => {
+  window.location.hash = "#/alerts";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Settings")).toBeDefined());
+  fireEvent.click(screen.getByText("Settings"));
+
+  await waitFor(() => expect(screen.getByText("Readings with no verdict")).toBeDefined());
+
+  // The threshold is typed in the rule's own unit, not converted to hours.
+  const hours = screen.getByLabelText(
+    "Readings with no verdict threshold in hours",
+  ) as HTMLInputElement;
+  expect(hours.value).toBe("4");
+  // And the page says it is not the shipped answer.
+  expect(screen.getByText("was 24")).toBeDefined();
+
+  // A rule that fires on the spot has no number to argue about.
+  expect(screen.getByText("immediately")).toBeDefined();
+
+  // Two ways out per rule, and who it goes to is not a question any more.
+  expect(screen.queryByText("Who it goes to")).toBeNull();
+  expect(screen.getByText("How it goes out")).toBeDefined();
+  expect(screen.getAllByText("In the app").length).toBe(2);
+  expect(screen.getAllByText("Email").length).toBe(2);
+
+  // Email has nowhere to go, so the boxes are off and dead, and the page says
+  // why instead of offering a switch that quietly does nothing.
+  const emailBoxes = [...document.querySelectorAll(".ways label.check")]
+    .filter((one) => one.textContent === "Email")
+    .map((one) => one.querySelector("input") as HTMLInputElement);
+  expect(emailBoxes.every((box) => box.disabled && !box.checked)).toBe(true);
+  expect(screen.getByText(/Email is not set up/)).toBeDefined();
+  expect(screen.getByText("SMTP_HOST")).toBeDefined();
+
+  // This rule has been taken off email, and the page marks it as changed.
+  expect(screen.getByText("not the usual way")).toBeDefined();
+});
+
+test("the settings are not offered to somebody who cannot change them", async () => {
+  serve(INSPECTOR);
+  window.location.hash = "#/alerts";
+  render(<App />);
+
+  // The rail carries the word too, so the heading is matched, not the link.
+  await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Alerts"));
+  expect(screen.queryByText("Settings")).toBeNull();
+});
+
+
+test("a stage's count opens a page of every inspection it stands for", async () => {
+  const day = 86_400_000;
+  serve(ADMIN, [
+    { ...JOB, id: "one", filename: "rec_7270(1).m4a", recorded_by: "R. Menon" },
+    {
+      ...JOB,
+      id: "two",
+      filename: "rec_7270(2).m4a",
+      recorded_by: "S. Iqbal",
+      unconfirmed: 2,
+      started_at: (Date.now() - day) / 1000,
+    },
+  ]);
+
+  window.location.hash = "#/inspections";
+  render(<App />);
+
+  // The register says two and nothing else — which two is its own page.
+  const count = await screen.findByRole("link", {
+    name: /Show all 2 Size set inspections for style 7270/,
+  });
+  expect(screen.queryByText("rec_7270(1).m4a")).toBeNull();
+  expect(count.getAttribute("href")).toBe("#/style/7270/sizeset");
+
+  window.location.hash = "#/style/7270/sizeset";
+  await waitFor(() => expect(screen.getByText("rec_7270(1).m4a")).toBeDefined());
+  expect(screen.getByText("rec_7270(2).m4a")).toBeDefined();
+  // Described exactly as the style screen describes them, from one helper.
+  expect(screen.getByText(/2 points of measure with no verdict/)).toBeDefined();
+  expect(screen.getAllByText("Open report").length).toBe(2);
+  // And a way back, because this is a page somebody can arrive at cold.
+  expect(screen.getByText("Back to the style")).toBeDefined();
+});
+
+test("a stage with nothing in it has nothing to open", async () => {
+  // A recording whose style nobody could determine. It gets a row, because
+  // dropping it would hide the inspection — but there is no style behind it,
+  // so nothing links out of its cells.
+  serve(ADMIN, [
+    {
+      ...JOB,
+      id: "loose",
+      style_no: "",
+      graded_style_no: "",
+      announced_style_no: "",
+      form: {},
+      graded: false,
+    },
+  ]);
+
+  window.location.hash = "#/inspections";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("No style recorded")).toBeDefined());
+  // Scoped to that row: the library's own styles are listed too, and their
+  // cells do link out.
+  const loose = screen.getByText("No style recorded").closest("tr") as HTMLElement;
+  expect(loose.querySelectorAll("a.link").length).toBe(0);
+  // The count is still shown — it is the way to it that does not exist.
+  expect(loose.querySelector("td.num")?.textContent).toBe("1");
+});
+
+test("the style screen shows the newest few and sends you on for the rest", async () => {
+  const day = 86_400_000;
+  serve(
+    ADMIN,
+    [0, 1, 2, 3, 4].map((n) => ({
+      ...JOB,
+      id: `j${n}`,
+      filename: `rec_7270(${n}).m4a`,
+      started_at: (Date.now() - n * day) / 1000,
+    })),
+  );
+
+  window.location.hash = "#/style/7270";
+  render(<App />);
+
+  // Three of five, newest first: one busy stage must not scroll the other
+  // three off a screen whose job is to show all four at once.
+  await waitFor(() => expect(screen.getByText("rec_7270(0).m4a")).toBeDefined());
+  expect(screen.getByText("rec_7270(2).m4a")).toBeDefined();
+  expect(screen.queryByText("rec_7270(3).m4a")).toBeNull();
+  expect(screen.getByText(/2 more inspections at this stage/)).toBeDefined();
+
+  // Show all sits at the right of the heading, and goes to the stage's page.
+  const all = screen.getByRole("link", {
+    name: /Show all 5 Size set inspections for style 7270/,
+  });
+  expect(all.textContent).toBe("Show all");
+  expect(all.getAttribute("href")).toBe("#/style/7270/sizeset");
+});
+
+
+test("alerts are split by the stage the work is at", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) => {
+      const answer =
+        String(url).startsWith("/api/me") ? ADMIN
+        : String(url).startsWith("/api/alert-rules") ? RULES
+        : String(url).startsWith("/api/alerts")
+          ? [
+              ALERTS[0],
+              {
+                ...ALERTS[0],
+                id: "al-2",
+                stage: "final",
+                rule: "awaiting_signoff",
+                title: "7122(4) has been waiting for sign-off",
+              },
+            ]
+          : [];
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer) });
+    }),
+  );
+
+  window.location.hash = "#/alerts";
+  render(<App />);
+
+  // Opens on the stage in the rail, showing only that stage's work.
+  await waitFor(() =>
+    expect(screen.getByText(/1 point of measure still has no verdict/)).toBeDefined(),
+  );
+  expect(screen.queryByText(/waiting for sign-off/)).toBeNull();
+
+  const tab = (name: string) =>
+    [...document.querySelectorAll(".stagetabs button")].find((one) =>
+      one.textContent?.includes(name),
+    ) as HTMLElement;
+
+  // Four stages, each carrying its own count, and one selected.
+  expect(document.querySelectorAll(".stagetabs button").length).toBe(4);
+  expect(tab("Size set").querySelector(".tally")?.textContent).toBe("1");
+  expect(tab("Final").querySelector(".tally")?.textContent).toBe("1");
+  // A stage with nothing open is greyed, and still clickable.
+  expect(tab("PPM").classList.contains("off")).toBe(true);
+  expect(tab("Final").classList.contains("off")).toBe(false);
+
+  fireEvent.click(tab("Final"));
+  expect(screen.getByText(/waiting for sign-off/)).toBeDefined();
+  expect(screen.queryByText(/1 point of measure still has no verdict/)).toBeNull();
+
+  // An empty stage says so, and says where the rest are rather than reading
+  // as "nothing is wrong anywhere".
+  fireEvent.click(tab("PPM"));
+  expect(screen.getByText(/Nothing is stuck on ppm/)).toBeDefined();
+  expect(screen.getByText(/2 alerts are open on another stage/)).toBeDefined();
+
+  // The rail keeps the total: it is the number somebody sees without opening
+  // the screen, and a per-stage count there would hide the other three.
+  expect(document.querySelector(".navlink .tally")?.textContent).toBe("2");
+});
+
+
+test("an inspection is named after its style, the date and the time", async () => {
+  const { defaultTitle } = await import("./types");
+
+  // Sortable on purpose: a list of these reads in order anywhere that sorts
+  // by name, which a locale-formatted date does not.
+  const when = new Date(2026, 8, 25, 14, 32);
+  expect(defaultTitle("2463", when)).toBe("2463 - 2026-09-25 - 14:32");
+  // Midnight and a single-digit month still line up.
+  expect(defaultTitle("7122", new Date(2026, 0, 3, 9, 5))).toBe("7122 - 2026-01-03 - 09:05");
+  // No style announced yet is not a gap to fill with a placeholder.
+  expect(defaultTitle("", when)).toBe("2026-09-25 - 14:32");
+});
+
+test("the name a person gives an inspection is what every screen shows", async () => {
+  serve(ADMIN, [
+    { ...JOB, id: "named", title: "Henley re-check — bench 4", filename: "rec_9.m4a" },
+  ]);
+
+  window.location.hash = "#/inspection/named";
+  render(<App />);
+
+  await waitFor(() =>
+    expect(document.querySelector("h1")?.textContent).toBe("Henley re-check — bench 4"),
+  );
+});
+
+test("an inspection recorded before naming falls back to its recording", async () => {
+  serve(ADMIN, [{ ...JOB, id: "old", title: "", filename: "rec_2463(16).mp3" }]);
+
+  window.location.hash = "#/inspection/old";
+  render(<App />);
+
+  await waitFor(() =>
+    expect(document.querySelector("h1")?.textContent).toBe("rec_2463(16).mp3"),
+  );
+});
+
+
+/** The four roles as the server describes them, from `auth.ROLES`. */
+const ROLE_FIXTURES = {
+  inspector: ["record", "audit.view"],
+  reviewer: ["record", "audit.view", "audit.edit", "download.working"],
+  approver: ["audit.view", "download.working", "download.vendor", "release"],
+};
+
+test("no role is shown a rail entry it could never use", async () => {
+  // The rail is the first thing a role sees, and a row that opens an empty
+  // screen teaches people to ignore the whole thing. Checked per role rather
+  // than per screen: it is the combination that goes wrong.
+  const expected: Record<string, string[]> = {
+    inspector: ["Dashboard", "Record inspection", "Inspection", "Style sets", "Activity"],
+    reviewer: ["Dashboard", "Record inspection", "Inspection", "Style sets", "Activity"],
+    // No recording: an approver signs off what other people measured.
+    approver: ["Dashboard", "Inspection", "Style sets", "Activity"],
+  };
+
+  for (const [role, can] of Object.entries(ROLE_FIXTURES)) {
+    cleanup();
+    serve({
+      ...INSPECTOR,
+      name: `A ${role}`,
+      admin: false,
+      role,
+      can,
+      roles: { sizeset: role },
+    });
+    window.location.hash = "";
+    render(<App />);
+
+    await waitFor(() => expect(document.querySelector(".rail-nav")).not.toBeNull());
+    const rows = [...document.querySelectorAll(".rail-nav .navlink")].map(
+      (one) => one.querySelector(".lbl")?.textContent ?? "",
+    );
+
+    // Stages is on every rail; it is how somebody moves between them.
+    expect(rows).toEqual([...expected[role], "Stages"]);
+    // Alerts go to the administrators, so nobody else is offered the screen.
+    expect(rows).not.toContain("Alerts");
+    // And the roster is an administrator's.
+    expect(rows).not.toContain("Members");
+  }
+});
+
+test("an administrator is shown the two rows the others are not", async () => {
+  serve(ADMIN);
+  window.location.hash = "";
+  render(<App />);
+
+  await waitFor(() => expect(document.querySelector(".rail-nav")).not.toBeNull());
+  const rows = [...document.querySelectorAll(".navlink")].map(
+    (one) => one.querySelector(".lbl")?.textContent ?? "",
+  );
+
+  expect(rows).toContain("Alerts");
+  expect(rows).toContain("Members");
+});
+
+
+test("a sheet with an unanswered reading offers no verdict to give", async () => {
+  // The server refuses one, so the screen must not offer it. Before this it
+  // did, and the answer came back as a 409 nobody read.
+  serve(ADMIN, [{ ...JOB, id: "gap", unconfirmed: 1, review: "" }]);
+
+  window.location.hash = "#/inspection/gap";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Size set inspection result")).toBeDefined());
+  expect(screen.getByText(/has no verdict, so there is nothing to rule on yet/)).toBeDefined();
+  // No buttons to press, and a way to the screen that unblocks it.
+  expect(screen.queryByRole("button", { name: "Pass with comment" })).toBeNull();
+  // The verdict card has its own; the page already carries one higher up.
+  const toSheet = document.querySelector(
+    '.notice.warn a[href="#/inspection/gap/sheet"]',
+  );
+  expect(toSheet).not.toBeNull();
+});
+
+test("a settled sheet offers the three verdicts", async () => {
+  serve(ADMIN, [{ ...JOB, id: "clear", unconfirmed: 0, review: "" }]);
+
+  window.location.hash = "#/inspection/clear";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Size set inspection result")).toBeDefined());
+  for (const wording of ["Pass", "Pass with comment", "Fail"]) {
+    expect(screen.getByRole("button", { name: wording })).toBeDefined();
+  }
+  expect(screen.getByText("Nobody has ruled on this sheet yet.")).toBeDefined();
+});
+
+test("release waits for the reviewer, and says it is waiting", async () => {
+  serve(ADMIN, [{ ...JOB, id: "unruled", unconfirmed: 0, review: "" }]);
+
+  window.location.hash = "#/inspection/unruled";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Sign-off")).toBeDefined());
+  const release = screen.getByRole("button", { name: "Release to the vendor" });
+  expect(release).toHaveProperty("disabled", true);
+  expect(screen.getByText(/No reviewer has ruled on this sheet yet/)).toBeDefined();
+});
+
+
+test("the verdict a sheet already has is not offered as a change", async () => {
+  serve(ADMIN, [
+    { ...JOB, id: "passed", unconfirmed: 0, review: "pass", reviewed_by: "S. Iqbal" },
+  ]);
+
+  window.location.hash = "#/inspection/passed";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Size set inspection result")).toBeDefined());
+  // The two it is not, and not the one it is.
+  expect(screen.getByRole("button", { name: "Change to pass with comment" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Change to fail" })).toBeDefined();
+  expect(screen.queryByRole("button", { name: "Change to pass" })).toBeNull();
+});
+
+test("a reviewer's verdict is the state everywhere, not just on the report", async () => {
+  const day = 86_400_000;
+  serve(ADMIN, [
+    { ...JOB, id: "a", unconfirmed: 0, review: "pass", reviewed_by: "S. Iqbal" },
+    {
+      ...JOB,
+      id: "b",
+      unconfirmed: 0,
+      review: "comment",
+      review_note: "Add missing side-seam notch",
+      reviewed_by: "S. Iqbal",
+      started_at: (Date.now() - day) / 1000,
+    },
+    {
+      ...JOB,
+      id: "c",
+      unconfirmed: 0,
+      review: "fail",
+      review_note: "Chest is out across every size",
+      reviewed_by: "S. Iqbal",
+      started_at: (Date.now() - 2 * day) / 1000,
+    },
+    { ...JOB, id: "d", unconfirmed: 0, review: "", started_at: (Date.now() - 3 * day) / 1000 },
+  ]);
+
+  window.location.hash = "#/style/7270/sizeset";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getAllByText("Waiting for sign-off").length).toBe(2));
+  // A failed sheet reads as failed, not as "waiting for sign-off".
+  expect(screen.getByText("Failed")).toBeDefined();
+  // And one nobody has ruled on is a reviewer's job, not an approver's.
+  expect(screen.getByText("Needs review")).toBeDefined();
+  // The reviewer's own words carry into the register.
+  expect(screen.getByText(/Passed with comment by S. Iqbal — Add missing side-seam notch/))
+    .toBeDefined();
+});
+
+test("a released report says so wherever it appears", async () => {
+  serve(ADMIN, [
+    {
+      ...JOB,
+      id: "gone",
+      unconfirmed: 0,
+      review: "pass",
+      reviewed_by: "S. Iqbal",
+      released_at: Date.now() / 1000,
+      released_by: "A. Kaur",
+    },
+  ]);
+
+  window.location.hash = "#/style/7270/sizeset";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("Released")).toBeDefined());
+});
+
+
+test("the alert settings are kept per stage", async () => {
+  const asked: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) => {
+      const at = String(url);
+      if (at.startsWith("/api/alert-rules")) asked.push(at);
+      const answer =
+        at.startsWith("/api/me") ? ADMIN
+        : at.startsWith("/api/alert-rules") ? { ...RULES, stage: at.split("stage=")[1] ?? "" }
+        : [];
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer) });
+    }),
+  );
+
+  window.location.hash = "#/alerts";
+  render(<App />);
+  await waitFor(() => expect(screen.getByText("Settings")).toBeDefined());
+  fireEvent.click(screen.getByText("Settings"));
+
+  // Opens on the stage in the rail.
+  await waitFor(() => expect(asked.at(-1)).toBe("/api/alert-rules?stage=sizeset"));
+  expect(screen.getByText(/These are the size set settings/)).toBeDefined();
+
+  // Switching asks the server again: the two stages are different answers,
+  // and showing one stage's numbers under another's tab would be a lie.
+  const tab = [...document.querySelectorAll(".stagetabs button")].find((one) =>
+    one.textContent?.includes("Final"),
+  ) as HTMLElement;
+  fireEvent.click(tab);
+  await waitFor(() => expect(asked.at(-1)).toBe("/api/alert-rules?stage=final"));
 });

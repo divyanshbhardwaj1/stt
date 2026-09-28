@@ -28,12 +28,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from pipeline import resize_inspection, settle_inspection
-from services import auth, storage, trail
+from services import alerts as alert_rules_module
+from services import auth, mail, storage, trail
 from services.audit import SettleError, audit_grid
 from services.config import ConfigError, Settings, load_env_file
 from services.csv_filler import load_json
 from services.db import session
-from services.db.models import Event, Stage, User, UserState
+from services.db.models import Alert, Event, Stage, User, UserState, utcnow
 from services.measurements import format_measurement
 from services.playback import cues, playable_copy, playable_path_for
 from services.style_set import (
@@ -60,9 +61,11 @@ from .jobs import (
     DOWNLOADS,
     JobStore,
     apply_result,
+    default_title,
     detail_rows,
     process,
     process_transcript,
+    slug,
 )
 from .security import (
     SESSION_COOKIE,
@@ -71,6 +74,7 @@ from .security import (
     ManagesPeople,
     ManagesStyles,
     Records,
+    Releases,
     SignedIn,
     ViewsAudit,
     clear_cookie,
@@ -290,6 +294,190 @@ def activity(user: SignedIn, limit: int = ACTIVITY_LIMIT) -> list[dict[str, obje
             }
             for row in rows
         ]
+
+
+# -------------------------------------------------------------------- alerts
+@app.get("/api/alerts")
+def list_alerts(user: SignedIn) -> list[dict[str, object]]:
+    """What needs attention, and only what this account could act on.
+
+    The time-based rules are swept here rather than on a timer. An absence
+    cannot be event-driven - there is no moment at which "nothing happened for
+    a day" fires - so something has to wake up and look, and until there is a
+    scheduler the thing that wakes up is somebody opening the list. The cost is
+    that nothing fires while nobody is looking, which is exactly the limit that
+    stops mattering the day an outbound channel is added.
+    """
+    alert_rules_module.sweep(store.all())
+    with session() as db:
+        live = db.scalars(
+            select(Alert).where(Alert.resolved_at.is_(None)).order_by(Alert.raised_at.desc())
+        ).all()
+        return [
+            _alert(row)
+            for row in live
+            # Addressed to a capability, resolved to people here. An approver
+            # is never shown a correction to make: they are not allowed to make
+            # it, and an alert nobody can act on teaches people to skim.
+            if auth.can(user, row.needs, row.stage)
+        ]
+
+
+def _alert(row: Alert) -> dict[str, object]:
+    return {
+        "id": str(row.id),
+        "rule": row.rule,
+        "severity": row.severity,
+        "stage": row.stage,
+        "needs": row.needs,
+        "subject_id": row.subject_id,
+        "title": row.title,
+        "detail": row.detail,
+        "raised_at": row.raised_at.isoformat(),
+    }
+
+
+@app.post("/api/alerts/{alert_id}/dismiss")
+def dismiss_alert(alert_id: str, user: SignedIn) -> dict[str, str]:
+    """Close one by hand.
+
+    The exception, not the way alerts normally end: a rule whose condition has
+    gone closes itself on the next sweep. Dismissing is somebody deciding it
+    does not matter, which is a decision, so it goes in the trail.
+    """
+    with session() as db:
+        row = db.get(Alert, uuid.UUID(alert_id)) if _is_uuid(alert_id) else None
+        if row is None or row.resolved_at is not None:
+            raise HTTPException(status_code=404, detail="no such alert")
+        if not auth.can(user, row.needs, row.stage):
+            raise HTTPException(
+                status_code=403,
+                detail="Only somebody who could act on this can dismiss it.",
+            )
+        row.resolved_at = utcnow()
+        row.resolved_by_id = user.id
+        row.resolution = "dismissed"
+        said = row.title
+    trail.record(user, trail.ACCESS, f"Dismissed an alert: {said}", subject=alert_id[:8])
+    return {"dismissed": alert_id}
+
+
+class RulePatch(BaseModel):
+    # Which stage this setting is for. The stages are not the same job: a
+    # reading with no verdict on size set is a garment still on the table, and
+    # the same gap on a final inspection is a lot already packed.
+    stage: str = Stage.sizeset.value
+    enabled: bool | None = None
+    # In the rule's own unit - minutes, hours or days - because a page that
+    # makes somebody convert to hours is a page that gets it wrong.
+    amount: float | None = None
+    # "inapp", "email", or both.
+    ways: list[str] | None = None
+
+
+@app.get("/api/alert-rules")
+def alert_rules(user: ManagesPeople, stage: str = Stage.sizeset.value) -> dict[str, object]:
+    """What is watched, and how this floor has set it.
+
+    The catalogue comes from the code and the settings from the database, so a
+    rule added in a release appears here with its default already sensible and
+    nothing has to be migrated for it.
+    """
+    if stage not in {one.value for one in Stage}:
+        raise HTTPException(status_code=404, detail=f"There is no {stage!r} stage.")
+    settled = alert_rules_module.policy(stage)
+    return {
+        "rules": [
+            {
+                "key": rule.key,
+                "label": rule.label,
+                "blurb": rule.blurb,
+                "severity": rule.severity,
+                "unit": rule.unit,
+                "enabled": settled[rule.key]["enabled"],
+                "amount": alert_rules_module.in_unit(rule, settled[rule.key]["hours"]),
+                "ways": settled[rule.key]["ways"],
+                # So the page can say which of these is not the shipped answer.
+                "default_amount": alert_rules_module.in_unit(rule, rule.hours),
+                "default_ways": list(rule.ways),
+            }
+            for rule in alert_rules_module.CATALOGUE
+        ],
+        "stage": stage,
+        "channels": [{"id": key, "label": label} for key, label in alert_rules_module.CHANNELS],
+        # Whether email can go anywhere. The page says so rather than offering
+        # a switch that quietly does nothing.
+        "email_ready": mail.enabled(),
+    }
+
+
+@app.patch("/api/alert-rules/{rule_key}")
+def set_alert_rule(rule_key: str, body: RulePatch, user: ManagesPeople) -> dict[str, object]:
+    try:
+        if body.stage not in {one.value for one in Stage}:
+            raise HTTPException(status_code=404, detail=f"There is no {body.stage!r} stage.")
+        now = alert_rules_module.configure(
+            rule_key,
+            enabled=body.enabled,
+            amount=body.amount,
+            ways=body.ways,
+            stage=body.stage,
+        )
+    except alert_rules_module.AlertError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    rule = alert_rules_module.BY_KEY[rule_key]
+    trail.record(
+        user,
+        trail.ACCESS,
+        f"Changed the {rule.label} alert on {body.stage}: "
+        + ", ".join(sorted(set(body.model_dump(exclude_unset=True)) - {"stage"})),
+        subject=rule_key,
+    )
+    return {
+        "key": rule_key,
+        "stage": body.stage,
+        "enabled": now["enabled"],
+        "amount": alert_rules_module.in_unit(rule, now["hours"]),
+        "ways": now["ways"],
+    }
+
+
+@app.post("/api/alert-rules/test", status_code=201)
+def test_alert(user: ManagesPeople) -> dict[str, object]:
+    """Raise one addressed to whoever pressed the button.
+
+    Half the support load on a system like this is "is it even working". Five
+    seconds to answer that is worth a button.
+    """
+    with session() as db:
+        existing = db.scalar(
+            select(Alert).where(Alert.rule == "test", Alert.resolved_at.is_(None))
+        )
+        if existing is None:
+            db.add(
+                Alert(
+                    key=f"test:{uuid.uuid4().hex[:8]}",
+                    rule="test",
+                    severity="notice",
+                    needs=alert_rules_module.ADMINS,
+                    subject_id="",
+                    title="This is a test alert",
+                    detail=(
+                        "Raised by "
+                        + user.name
+                        + " from the alert settings. Dismiss it - nothing is wrong."
+                    ),
+                )
+            )
+    return {"detail": "a test alert is now open"}
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
 
 
 @app.get("/api/style-sets")
@@ -732,6 +920,8 @@ async def create_job(
     live_transcript: Annotated[str, Form()] = "",
     location: Annotated[str, Form()] = "",
     stage: Annotated[str, Form()] = "",
+    # What a person calls it. Empty falls back to the recording filename.
+    title: Annotated[str, Form()] = "",
 ) -> dict[str, object]:
     """Accept a recording and queue it. Returns immediately with a job to poll.
 
@@ -787,10 +977,14 @@ async def create_job(
     job.recorded_by_id = user.id
     job.recorded_by = user.name
     job.location = location.strip()[:128]
+    # Defaulted here as well as in the browser, so an inspection that arrives
+    # another way still has a name. Nothing downstream has to ask whether it
+    # has one.
+    job.title = title.strip()[:200] or default_title(chosen)
     trail.record(
         user,
         trail.RECORD,
-        f"Recorded an inspection - {name}"
+        f"Recorded an inspection - {job.title or name}"
         + (f", checked against style {chosen}" if chosen else ""),
         subject=job.name or chosen,
     )
@@ -1003,6 +1197,182 @@ def regrade(
     return {"job": job.as_dict(), "sheet": audit_grid(align(sheet, style), style, sheet)}
 
 
+# What a reviewer can decide. The client's own sheet prints "Pass with
+# comment" as a result in its own right, and on a size set it is the usual
+# one - a garment that is fine to make with two things corrected first.
+REVIEW_RESULTS = {
+    "pass": "Pass",
+    "comment": "Pass with comment",
+    "fail": "Fail",
+}
+
+
+class Review(BaseModel):
+    result: str
+    note: str = ""
+
+
+@app.post("/api/jobs/{job_id}/review")
+def review(job_id: str, body: Review, user: EditsAudit) -> dict[str, object]:
+    """The reviewer's verdict on the sheet.
+
+    Not the measurement result. That one is arithmetic - every reading against
+    its tolerance band - and the server has already worked it out. This is a
+    judgement about the garment, and the two can honestly disagree: a sheet
+    with two measurements outside the band is very often a pass with comment,
+    because the deviation is acceptable and the correction is listed. A product
+    that treated the sum as the decision would be making it for them.
+
+    A gap still cannot be passed around. An unanswered point of measure is not
+    a small deviation to be weighed, it is a question nobody answered, and it
+    has to be settled before there is anything to have an opinion about.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    if body.result not in REVIEW_RESULTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{body.result!r} is not a verdict. Use "
+            + ", ".join(sorted(REVIEW_RESULTS)),
+        )
+    if job.status != DONE or not job.graded:
+        raise HTTPException(
+            status_code=409, detail="Only a finished, graded inspection can be reviewed."
+        )
+    if job.released_at:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"This was released by {job.released_by or 'somebody'} and cannot be "
+                "reviewed again. A correction after sign-off is a new inspection."
+            ),
+        )
+    if job.unconfirmed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{job.unconfirmed} point{'' if job.unconfirmed == 1 else 's'} of measure "
+                f"still {'has' if job.unconfirmed == 1 else 'have'} no verdict. Settle "
+                "those first - a gap is not something to have an opinion about."
+            ),
+        )
+    if body.result != "pass" and not body.note.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Say why. A fail or a pass with comment is a message to the factory, and "
+                "one without the reason is a message nobody can act on."
+            ),
+        )
+
+    was = job.review
+    job.review = body.result
+    job.review_note = body.note.strip()[:2000]
+    job.reviewed_at = utcnow().timestamp()
+    job.reviewed_by_id = user.id
+    job.reviewed_by = user.name
+    store.save(job)
+    trail.record(
+        user,
+        trail.APPROVAL if body.result != "fail" else trail.CORRECTION,
+        ("Changed the verdict to " if was else "Reviewed the sheet as ")
+        + REVIEW_RESULTS[body.result]
+        + (f" - {job.review_note[:120]}" if job.review_note else ""),
+        subject=(job.name or job.graded_style_no)[:64],
+    )
+    return job.as_dict()
+
+
+@app.post("/api/jobs/{job_id}/release")
+def release(job_id: str, user: Releases) -> dict[str, object]:
+    """Sign a report off and let it go to the vendor.
+
+    The end of the line. Everything before this is the factory's own working
+    material; this is the moment a document stamped for the buyer becomes
+    something somebody outside is entitled to see.
+
+    Three refusals, and each one is the product's argument rather than a
+    validation rule:
+
+    A gap is not a pass. A point of measure the recording never ruled on is an
+    unanswered question, and a report released around one says a garment was
+    checked when it was not.
+
+    Nobody signs off their own corrections. An approver holds no `audit.edit`,
+    so ordinarily this cannot arise - but an administrator holds both, and the
+    separation has to be real for them too or it is a convention rather than a
+    rule. The trail is what knows, which is the point of keeping it.
+
+    And released once. A second signature on the same report is either a
+    mistake or somebody trying to overwrite the first, and neither should be
+    quiet.
+    """
+    job = store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such job")
+    if job.status != DONE or not job.graded:
+        raise HTTPException(
+            status_code=409,
+            detail="Only a finished, graded inspection can be released.",
+        )
+    if job.released_at:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This was already released by {job.released_by or 'somebody'}.",
+        )
+    if job.unconfirmed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"{job.unconfirmed} point{'' if job.unconfirmed == 1 else 's'} of measure "
+                f"{'has' if job.unconfirmed == 1 else 'have'} no verdict. Those are not "
+                "passes - they have to be listened back to and filled in before this can "
+                "be signed off."
+            ),
+        )
+    if not job.review:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No reviewer has ruled on this sheet yet. An approver signs off what a "
+                "reviewer decided, which is why they are two people."
+            ),
+        )
+
+    subject = (job.name or job.graded_style_no)[:64]
+    with session() as db:
+        mine = db.scalar(
+            select(Event).where(
+                Event.kind == trail.CORRECTION,
+                Event.user_id == user.id,
+                Event.subject == subject,
+            )
+        )
+    if mine is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "You corrected this sheet, so you cannot also sign it off. Ask another "
+                "approver - changing a measurement and approving it in the same hand is "
+                "what the separation exists to prevent."
+            ),
+        )
+
+    job.released_at = utcnow().timestamp()
+    job.released_by_id = user.id
+    job.released_by = user.name
+    store.save(job)
+    trail.record(
+        user,
+        trail.RELEASE,
+        f"Released {job.title or job.name or job.filename} to the vendor"
+        + (f" - style {job.graded_style_no}" if job.graded_style_no else ""),
+        subject=subject,
+    )
+    return job.as_dict()
+
+
 @app.get("/api/jobs/{job_id}/audio")
 def recording_audio(job_id: str, settings: SettingsDep, user: ViewsAudit) -> Response:
     """The inspection recording itself, so a reading can be listened back to.
@@ -1159,7 +1529,15 @@ def download(job_id: str, kind: str, user: SignedIn) -> Response:
             f"Downloaded the {kind} for a vendor",
             subject=job.name or job.graded_style_no,
         )
-    return FileResponse(path, media_type=DOWNLOADS[kind][1], filename=path.name)
+    # Named for the inspection, not for the base the outputs are filed under.
+    # This is the file that leaves the building and gets stored under whatever
+    # it was called when it arrived.
+    called = slug(job.title) or path.stem
+    return FileResponse(
+        path,
+        media_type=DOWNLOADS[kind][1],
+        filename=f"{called}_{kind}{path.suffix}",
+    )
 
 
 async def _save(upload: UploadFile, destination: Path) -> int:

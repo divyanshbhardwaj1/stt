@@ -8,6 +8,7 @@ import {
   transcriptUrl,
 } from "../api";
 import { useSession } from "../session";
+import { label } from "../types";
 import type { GradedSheet, Job, SheetCell } from "../types";
 
 /**
@@ -232,7 +233,7 @@ export function Stats({ job }: { job: Job }) {
                   textOverflow: "ellipsis",
                 }}
               >
-                {job.filename}
+                {label(job)}
               </b>
             </div>
             {can("audit.view") ? (

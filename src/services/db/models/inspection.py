@@ -46,6 +46,12 @@ class Inspection(Base):
     # had `name == ""`, so the audit view went looking for `.json` and answered
     # 410 for a report that was sitting on disk the whole time.
     name: Mapped[str] = mapped_column(String(255), default="")
+    # What a person calls this inspection. Separate from `name`, which is the
+    # base every output on disk is filed under and must not move, and from
+    # `filename`, which is whatever the recorder happened to produce. Empty
+    # falls back to those, so an inspection recorded before this existed still
+    # reads as something.
+    title: Mapped[str] = mapped_column(String(200), default="")
     # The style the operator chose at upload. Empty means "use whatever the
     # recording announces", which is not the same as "none" and has to survive
     # a restart or a re-run grades against a different sheet.
@@ -67,6 +73,37 @@ class Inspection(Base):
     # Which bench, floor or unit. Typed by the operator at upload, because
     # nothing on the machine knows it.
     location: Mapped[str] = mapped_column(String(128), default="")
+
+    # The reviewer's verdict on the whole sheet, which is not the same thing
+    # as the measurement result above it.
+    #
+    # `measurement_result` is arithmetic: every reading against its tolerance
+    # band. This is a judgement about the garment - the client's own sheet
+    # prints both, as MEASUREMENT RESULT and SIZE SET INSPECTION RESULT, and a
+    # size set passes with comment far more often than it passes clean. A
+    # machine cannot make this call, and a product that pretended the sum was
+    # the decision would be making it for them.
+    #
+    # "", "pass", "comment" or "fail".
+    review: Mapped[str] = mapped_column(String(16), default="")
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Signed off, and by whom. The end of the line: an inspection is finished
+    # when an approver says it is, not when the pipeline stops. SET NULL for
+    # the same reason as `recorded_by_id` - losing an account must not unsign
+    # the reports it signed, and the trail keeps the name either way.
+    released_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    released_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     state: Mapped[str] = mapped_column(String(16), default=State.queued.value)
     message: Mapped[str] = mapped_column(String(255), default="waiting to start")
@@ -106,7 +143,15 @@ class Inspection(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    recorded_by: Mapped[User | None] = relationship(lazy="joined")
+    reviewed_by: Mapped[User | None] = relationship(
+        foreign_keys=[reviewed_by_id], lazy="joined"
+    )
+    released_by: Mapped[User | None] = relationship(
+        foreign_keys=[released_by_id], lazy="joined"
+    )
+    recorded_by: Mapped[User | None] = relationship(
+        foreign_keys=[recorded_by_id], lazy="joined"
+    )
 
     readings: Mapped[list[Reading]] = relationship(
         back_populates="inspection",

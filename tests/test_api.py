@@ -886,3 +886,58 @@ def test_the_trail_survives_the_account_being_removed(client):
 
     assert added, "the event is still there"
     assert added[0]["actor"], "and still says who did it"
+
+
+def test_an_inspection_can_be_named(client, template, style_sets, stub_pipeline):
+    """The name is the operator's, and is not the base the outputs are filed
+    under — moving that would lose every file belonging to the inspection."""
+    body = client.post(
+        "/api/jobs",
+        files={"recording": ("Recording_20.m4a", b"audio bytes", "audio/mp4")},
+        data={"style_no": "7270", "title": "2463 - 2026-09-25 - 14:32"},
+    ).json()
+
+    job = client.get(f"/api/jobs/{body['id']}").json()
+
+    assert job["title"] == "2463 - 2026-09-25 - 14:32"
+    assert job["filename"] == "Recording_20.m4a"
+    # The outputs are still filed under the recording, untouched by the name.
+    assert job["name"].startswith("Recording_20")
+
+
+def test_an_unnamed_inspection_still_gets_a_name(client, template, style_sets, stub_pipeline):
+    """Defaulted on the server as well as in the browser, so an upload that
+    never went through a form still has one. A name only set on one path is a
+    name half the rows do not have."""
+    body = upload(client, style_no="7270").json()
+
+    named = client.get(f"/api/jobs/{body['id']}").json()["title"]
+
+    assert named.startswith("7270 - ")
+    # Sortable: year first, then a 24-hour clock.
+    assert len(named.split(" - ")) == 3
+
+
+def test_a_download_is_named_for_the_inspection(client, template, style_sets, stub_pipeline):
+    """This is the file that leaves the building. It should arrive called what
+    the floor called it, not the base the outputs happen to be filed under."""
+    body = client.post(
+        "/api/jobs",
+        files={"recording": ("Recording_20.m4a", b"audio bytes", "audio/mp4")},
+        data={"style_no": "7270", "title": "2463 - 2026-09-25 - 14:32"},
+    ).json()
+
+    got = client.get(f"/api/jobs/{body['id']}/download/report")
+
+    assert got.status_code == 200
+    assert "2463-2026-09-25-14-32_report.pdf" in got.headers["content-disposition"]
+
+
+def test_the_name_is_what_the_trail_records(client, template, style_sets, stub_pipeline):
+    client.post(
+        "/api/jobs",
+        files={"recording": ("Recording_20.m4a", b"audio bytes", "audio/mp4")},
+        data={"style_no": "7270", "title": "Henley re-check"},
+    )
+
+    assert "Henley re-check" in client.get("/api/activity").json()[0]["what"]

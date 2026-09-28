@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { fetchJob } from "./api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchAlerts, fetchJob, type Alert } from "./api";
 import { Account } from "./components/Account";
 import { Activity } from "./components/Activity";
+import { Alerts } from "./components/Alerts";
 import { AuditSheet } from "./components/AuditSheet";
 import { Dashboard } from "./components/Dashboard";
 import { Inspections } from "./components/Inspections";
@@ -9,6 +10,7 @@ import { Intake } from "./components/Intake";
 import { JobDetail } from "./components/JobDetail";
 import { Rail } from "./components/Rail";
 import { SignIn } from "./components/SignIn";
+import { StageInspections } from "./components/StageInspections";
 import { Stages } from "./components/Stages";
 import { StyleSets } from "./components/StyleSets";
 import { StyleStages } from "./components/StyleStages";
@@ -114,6 +116,25 @@ function Workspace() {
    * been restarted, which reads as a bug in the grading rather than in the
    * bookkeeping.
    */
+  /**
+   * What is open, for the count on the rail and for the Alerts screen.
+   *
+   * Once on arrival, then on every navigation — not on the job poll. Reading
+   * the list is what sweeps the time-based rules, and that reads every
+   * inspection and writes to the database; hanging it off a two-second poll
+   * would run it a thousand times an hour to keep one number on a rail
+   * current. A handful of times per session is what the count is worth.
+   */
+  const [alerts, setAlerts] = useState<Alert[] | null>(null);
+  const refreshAlerts = useCallback(() => {
+    fetchAlerts()
+      .then(setAlerts)
+      // A failing sweep must not take the app down with it: everything else on
+      // every screen is still the part somebody came here for.
+      .catch(() => setAlerts([]));
+  }, []);
+  useEffect(refreshAlerts, [refreshAlerts, route.screen]);
+
   const [detail, setDetail] = useState<Job | null>(null);
   useEffect(() => {
     if (!route.id) return;
@@ -165,6 +186,7 @@ function Workspace() {
       <Rail
         route={route}
         stage={stage}
+        alerts={alerts?.length ?? 0}
         onStage={(next) => {
           setStage(next);
           go(href(stageOf(next).home));
@@ -244,7 +266,18 @@ function Workspace() {
 
       // One style and its four checks, between the style list and a report.
       case "style":
-        return route.id ? (
+        // `#/style/2463` is the four stages; `#/style/2463/sizeset` is every
+        // check at one of them, keyed on both so moving between stages is a
+        // fresh component rather than one that has to reset itself.
+        return route.id && route.stage ? (
+          <StageInspections
+            key={`${route.id}/${route.stage}`}
+            styleNo={route.id}
+            stageId={route.stage}
+            jobs={jobs}
+            onOpen={(id) => go(href("inspection", id))}
+          />
+        ) : route.id ? (
           <StyleStages
             key={route.id}
             styleNo={route.id}
@@ -282,6 +315,15 @@ function Workspace() {
 
       case "styles":
         return <StyleSets />;
+      case "alerts":
+        return (
+          <Alerts
+            alerts={alerts}
+            stage={stage}
+            onOpen={(id) => go(href("inspection", id))}
+            onChanged={refreshAlerts}
+          />
+        );
       case "activity":
         return <Activity />;
       case "stages":

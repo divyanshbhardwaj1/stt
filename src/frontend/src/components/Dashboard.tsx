@@ -3,7 +3,7 @@ import { fetchActivity, type Event } from "../api";
 import { kindLabel, kindPill, plural, since } from "../format";
 import { href } from "../router";
 import { useSession } from "../session";
-import type { Job } from "../types";
+import { label, type Job } from "../types";
 
 /**
  * The size-set dashboard — `demo/dashboard.html`.
@@ -113,8 +113,11 @@ export function Dashboard({ jobs, stage, onOpen }: Props) {
   const running = jobs.filter((job) => job.status === "queued" || job.status === "running");
   const failed = jobs.filter((job) => job.status === "failed");
   const open = done.filter((job) => job.graded && job.unconfirmed > 0);
+  /* An approver's queue: ruled on by a reviewer, and not yet signed. A report
+     nobody has ruled on is not waiting for an approver - it is waiting for a
+     reviewer, and putting it here sends the wrong person to it. */
   const signoff = done.filter(
-    (job) => job.graded && !job.unconfirmed && !job.out_of_tolerance,
+    (job) => job.graded && !job.unconfirmed && job.review && !job.released_at,
   );
   const outOfTol = done.reduce((count, job) => count + job.out_of_tolerance, 0);
 
@@ -330,7 +333,7 @@ export function Dashboard({ jobs, stage, onOpen }: Props) {
                           }}
                         >
                           <td>
-                            <b>{job.filename}</b>
+                            <b>{label(job)}</b>
                             <div className="dim pom" style={{ fontSize: 11.5 }}>
                               style {job.graded_style_no || job.announced_style_no || "—"}
                             </div>
@@ -531,9 +534,28 @@ function blocking(job: Job): { why: string; detail: string; severity: string } {
       severity: "fail",
     };
   }
+  if (!job.review) {
+    return {
+      why: "Nobody has ruled on the sheet",
+      detail:
+        "Every reading is settled. A reviewer has to say whether the size set passes "
+        + "before an approver can sign anything off.",
+      severity: "open",
+    };
+  }
+  if (job.released_at) {
+    return {
+      why: "Released",
+      detail: `Signed off by ${job.released_by || "an approver"}.`,
+      severity: "ready",
+    };
+  }
   return {
     why: "Reviewed, waiting for sign-off",
-    detail: "Every verdict captured, all within tolerance.",
+    detail:
+      job.review === "comment"
+        ? `Passed with comment${job.review_note ? ` — ${job.review_note}` : ""}.`
+        : "Passed. Every verdict captured, all within tolerance.",
     severity: "ready",
   };
 }

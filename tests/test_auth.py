@@ -8,7 +8,6 @@ suite that checks the happy path for every role has verified nothing.
 from __future__ import annotations
 
 import uuid
-from contextlib import ExitStack
 from datetime import timedelta
 
 import pytest
@@ -17,48 +16,7 @@ from sqlalchemy import select
 from services import auth
 from services.db.models import Role, Stage, User, UserState
 
-from .conftest import TEST_EMAIL, TEST_PASSWORD
-
-FLOOR_PASSWORD = "floor-password"
-
-
-@pytest.fixture
-def sign_in_as(settings, app_db):
-    """Make a user with a given role, and return a client signed in as it."""
-    from fastapi.testclient import TestClient
-
-    from api import app as api
-    from services.db import session
-
-    api.app.dependency_overrides[api.settings_dependency] = lambda: settings
-    made = 0
-    with ExitStack() as stack:
-
-        def make(role: str | None = None, *, admin: bool = False, roles=None):
-            nonlocal made
-            made += 1
-            email = f"floor{made}@example.com"
-            with session() as db:
-                created = auth.create_user(
-                    db,
-                    email,
-                    f"Floor {made}",
-                    password=FLOOR_PASSWORD,
-                    roles=roles if roles is not None else ({"sizeset": role} if role else {}),
-                    is_admin=admin,
-                )
-                user_id = str(created.id)
-            client = stack.enter_context(TestClient(api.app))
-            opened = client.post(
-                "/api/session", json={"email": email, "password": FLOOR_PASSWORD}
-            )
-            assert opened.status_code == 200, opened.text
-            client.user_id = user_id
-            client.email = email
-            return client
-
-        yield make
-    api.app.dependency_overrides.clear()
+from .conftest import FLOOR_PASSWORD, TEST_EMAIL, TEST_PASSWORD
 
 
 # ----------------------------------------------------------------- passwords
@@ -353,7 +311,12 @@ def test_every_api_endpoint_refuses_an_anonymous_caller(anonymous):
             if path == "/api/session" :
                 continue
             url = path.format(
-                    job_id="whatever", kind="report", user_id="somebody", style_no="7270"
+                    job_id="whatever",
+                    kind="report",
+                    user_id="somebody",
+                    style_no="7270",
+                    alert_id="somealert",
+                    rule_key="unanswered_stale",
                 )
             response = anonymous.request(method, url, json={})
             checked += 1
@@ -913,3 +876,222 @@ def test_the_api_refuses_an_account_with_no_password(client):
         person["email"] != "nopass@example.com"
         for person in client.get("/api/users").json()["users"]
     )
+
+
+# ----------------------------------------------------- the approver's one job
+def test_only_an_approver_can_release(sign_in_as, monkeypatch):
+    """`release` was a capability with nothing behind it. This is the thing."""
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    reviewer = sign_in_as("reviewer")
+    inspector = sign_in_as("inspector")
+    job = _releasable(api, monkeypatch)
+
+    assert inspector.post(f"/api/jobs/{job.id}/release").status_code == 403
+    assert reviewer.post(f"/api/jobs/{job.id}/release").status_code == 403
+
+    signed = approver.post(f"/api/jobs/{job.id}/release")
+    assert signed.status_code == 200, signed.text
+    assert signed.json()["released_by"]
+    assert signed.json()["released_at"]
+
+
+def test_a_gap_cannot_be_released_around(sign_in_as, monkeypatch):
+    """A point of measure nobody ruled on is an unanswered question, and a
+    report released around one says a garment was checked when it was not."""
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    job = _releasable(api, monkeypatch, unconfirmed=2)
+
+    refused = approver.post(f"/api/jobs/{job.id}/release")
+
+    assert refused.status_code == 409
+    assert "no verdict" in refused.json()["detail"]
+    assert "not passes" in refused.json()["detail"]
+
+
+def test_a_report_is_released_once(sign_in_as, monkeypatch):
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    job = _releasable(api, monkeypatch)
+
+    assert approver.post(f"/api/jobs/{job.id}/release").status_code == 200
+    again = approver.post(f"/api/jobs/{job.id}/release")
+
+    assert again.status_code == 409
+    assert "already released" in again.json()["detail"]
+
+
+def test_nobody_signs_off_their_own_corrections(sign_in_as, monkeypatch):
+    """An approver holds no `audit.edit`, so this cannot normally arise - but
+    an administrator holds both, and the separation has to be real for them or
+    it is a convention rather than a rule."""
+    from api import app as api
+    from services import trail
+    from services.db import session
+    from services.db.models import User
+
+    boss = sign_in_as(admin=True)
+    job = _releasable(api, monkeypatch)
+
+    with session() as db:
+        me = db.get(User, uuid.UUID(boss.user_id))
+        trail.record(me, trail.CORRECTION, "Settled 1 reading by hand", subject=job.name)
+
+    refused = boss.post(f"/api/jobs/{job.id}/release")
+
+    assert refused.status_code == 409
+    assert "same hand" in refused.json()["detail"]
+
+
+def test_releasing_is_on_the_record(sign_in_as, monkeypatch):
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    job = _releasable(api, monkeypatch)
+    approver.post(f"/api/jobs/{job.id}/release")
+
+    entry = approver.get("/api/activity").json()[0]
+    assert entry["kind"] == "release"
+    assert "Released 2463 - 2026-09-25 - 14:32 to the vendor" in entry["what"]
+
+
+def _releasable(api, monkeypatch, unconfirmed: int = 0, reviewed: str = "pass"):
+    """A finished, graded inspection sitting in the store.
+
+    Reviewed by default, because that is the state an approver ever sees one
+    in: a report nobody has ruled on is not theirs to sign.
+    """
+    from api.jobs import DONE, Job
+
+    job = Job(id="rel1", filename="rec_2463(21).mp3", style_no="2463")
+    job.name = "rec_2463(21)"
+    job.title = "2463 - 2026-09-25 - 14:32"
+    job.status = DONE
+    job.rows = 87
+    job.graded = True
+    job.graded_style_no = "2463"
+    job.judged = 87
+    job.unconfirmed = unconfirmed
+    job.out_of_tolerance = 0
+    job.review = reviewed
+    job.reviewed_by = "A Reviewer"
+    monkeypatch.setattr(api.store, "get", lambda job_id: job if job_id == job.id else None)
+    monkeypatch.setattr(api.store, "save", lambda one: None)
+    monkeypatch.setattr(api.store, "all", lambda: [job])
+    return job
+
+
+# ------------------------------------------------------ the reviewer's verdict
+def test_a_reviewer_rules_on_the_sheet(sign_in_as, monkeypatch):
+    """Not the measurement result, which is arithmetic. This is the call about
+    the garment, and on a size set it is usually "pass with comment"."""
+    from api import app as api
+
+    reviewer = sign_in_as("reviewer")
+    job = _releasable(api, monkeypatch, reviewed="")
+
+    said = reviewer.post(
+        f"/api/jobs/{job.id}/review",
+        json={"result": "comment", "note": "Add missing side-seam notch"},
+    )
+
+    assert said.status_code == 200, said.text
+    assert said.json()["review"] == "comment"
+    assert said.json()["review_note"] == "Add missing side-seam notch"
+    assert said.json()["reviewed_by"]
+    # And the measurement result is untouched: the two are allowed to disagree.
+    assert said.json()["measurement_result"] == job.measurement_result
+
+
+def test_a_fail_has_to_say_why(sign_in_as, monkeypatch):
+    from api import app as api
+
+    reviewer = sign_in_as("reviewer")
+    job = _releasable(api, monkeypatch, reviewed="")
+
+    for verdict in ("fail", "comment"):
+        refused = reviewer.post(
+            f"/api/jobs/{job.id}/review", json={"result": verdict, "note": "  "}
+        )
+        assert refused.status_code == 400
+        assert "Say why" in refused.json()["detail"]
+
+    # A clean pass needs no explanation.
+    assert (
+        reviewer.post(f"/api/jobs/{job.id}/review", json={"result": "pass"}).status_code == 200
+    )
+
+
+def test_a_gap_is_not_something_to_have_an_opinion_about(sign_in_as, monkeypatch):
+    from api import app as api
+
+    reviewer = sign_in_as("reviewer")
+    job = _releasable(api, monkeypatch, unconfirmed=1, reviewed="")
+
+    refused = reviewer.post(f"/api/jobs/{job.id}/review", json={"result": "pass"})
+
+    assert refused.status_code == 409
+    assert "no verdict" in refused.json()["detail"]
+
+
+def test_only_somebody_who_can_correct_the_sheet_can_rule_on_it(sign_in_as, monkeypatch):
+    """An approver signs off what a reviewer decided. Deciding is not theirs."""
+    from api import app as api
+
+    reviewer = sign_in_as("reviewer")
+    approver = sign_in_as("approver")
+    inspector = sign_in_as("inspector")
+    job = _releasable(api, monkeypatch, reviewed="")
+
+    assert inspector.post(f"/api/jobs/{job.id}/review", json={"result": "pass"}).status_code == 403
+    assert approver.post(f"/api/jobs/{job.id}/review", json={"result": "pass"}).status_code == 403
+    assert reviewer.post(f"/api/jobs/{job.id}/review", json={"result": "pass"}).status_code == 200
+
+
+def test_nothing_is_released_before_a_reviewer_has_ruled(sign_in_as, monkeypatch):
+    """The chain is the product: measure, decide, release. An approver signs
+    off what somebody else decided, which is why they are two people."""
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    job = _releasable(api, monkeypatch, reviewed="")
+
+    refused = approver.post(f"/api/jobs/{job.id}/release")
+
+    assert refused.status_code == 409
+    assert "No reviewer has ruled" in refused.json()["detail"]
+
+
+def test_a_released_report_cannot_be_reviewed_again(sign_in_as, monkeypatch):
+    from api import app as api
+
+    approver = sign_in_as("approver")
+    reviewer = sign_in_as("reviewer")
+    job = _releasable(api, monkeypatch)
+    assert approver.post(f"/api/jobs/{job.id}/release").status_code == 200
+
+    refused = reviewer.post(
+        f"/api/jobs/{job.id}/review", json={"result": "fail", "note": "second thoughts"}
+    )
+
+    assert refused.status_code == 409
+    assert "new inspection" in refused.json()["detail"]
+
+
+def test_a_verdict_is_on_the_record(sign_in_as, monkeypatch):
+    from api import app as api
+
+    reviewer = sign_in_as("reviewer")
+    job = _releasable(api, monkeypatch, reviewed="")
+    reviewer.post(
+        f"/api/jobs/{job.id}/review",
+        json={"result": "comment", "note": "Add missing side-seam notch"},
+    )
+
+    entry = reviewer.get("/api/activity").json()[0]
+    assert "Reviewed the sheet as Pass with comment" in entry["what"]
+    assert "side-seam notch" in entry["what"]

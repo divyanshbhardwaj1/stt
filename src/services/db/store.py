@@ -76,6 +76,15 @@ def _apply(job: Job, row: Inspection) -> Inspection:
     row.filename = job.filename
     row.stage = job.stage
     row.name = job.name
+    row.title = job.title
+    row.review = job.review
+    row.review_note = job.review_note
+    if job.reviewed_at:
+        row.reviewed_at = datetime.fromtimestamp(job.reviewed_at, tz=UTC)
+        row.reviewed_by_id = job.reviewed_by_id
+    if job.released_at:
+        row.released_at = datetime.fromtimestamp(job.released_at, tz=UTC)
+        row.released_by_id = job.released_by_id
     row.location = job.location
     if job.recorded_by_id:
         row.recorded_by_id = job.recorded_by_id
@@ -114,6 +123,15 @@ def _revive(row: Inspection) -> Job:
     # Without this a revived job cannot find its own outputs: every one of them
     # is named for it, and `_graded_sheet` looks up `<name>.json`.
     job.name = row.name
+    job.title = row.title
+    job.review = row.review
+    job.review_note = row.review_note
+    job.reviewed_at = row.reviewed_at.timestamp() if row.reviewed_at else 0.0
+    job.reviewed_by_id = row.reviewed_by_id
+    job.reviewed_by = row.reviewed_by.name if row.reviewed_by else ""
+    job.released_at = row.released_at.timestamp() if row.released_at else 0.0
+    job.released_by_id = row.released_by_id
+    job.released_by = row.released_by.name if row.released_by else ""
     job.location = row.location
     job.recorded_by_id = row.recorded_by_id
     job.recorded_by = row.recorded_by.name if row.recorded_by else ""

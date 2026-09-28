@@ -3,7 +3,7 @@ import { fetchLibrarySheet, type LibrarySheetDetail } from "../api";
 import { demoDate, demoInspections, type DemoInspection } from "../demoStages";
 import { href } from "../router";
 import { STAGES, stageOf } from "../stages";
-import { styleOf, type Job } from "../types";
+import { label, stateOf, styleOf, summarise, type Job } from "../types";
 
 /**
  * One style, and its four checks.
@@ -19,35 +19,13 @@ import { styleOf, type Job } from "../types";
  * trusting — see the header of `demoStages.ts`.
  */
 
+/** How many of a stage's checks this screen shows before sending you on. */
+const PREVIEW = 3;
+
 interface Props {
   styleNo: string;
   jobs: Job[];
   onOpen: (jobId: string) => void;
-}
-
-/** The register's state vocabulary, for a real inspection. */
-function stateOf(job: Job): [string, string] {
-  if (job.status === "failed") return ["Failed", "pill error"];
-  if (job.status !== "done") return ["Processing", "pill warning"];
-  if (!job.graded) return ["Not graded", "pill"];
-  // An open question outranks a failed measurement: a reading the recording
-  // never ruled on is the one thing nobody can sign off around.
-  if (job.unconfirmed > 0) return ["Needs review", "pill lavender"];
-  if (job.out_of_tolerance > 0) return ["Needs review", "pill lavender"];
-  return ["Waiting for sign-off", "pill success"];
-}
-
-function summarise(job: Job): string {
-  if (job.status === "failed") return job.error || "Nothing was written";
-  if (job.status !== "done") return job.message;
-  if (!job.graded) return `${job.rows} rows · never checked against a spec sheet`;
-  if (job.unconfirmed)
-    return `${job.rows} rows · ${job.unconfirmed} point${
-      job.unconfirmed === 1 ? "" : "s"
-    } of measure with no verdict`;
-  if (job.out_of_tolerance)
-    return `${job.rows} rows · ${job.out_of_tolerance} out of tolerance`;
-  return `${job.rows} rows · every verdict captured`;
 }
 
 export function StyleStages({ styleNo, jobs, onOpen }: Props) {
@@ -162,6 +140,12 @@ function StagePanel({
   const demo = stage.built ? [] : demoInspections(styleNo, stageId);
   const ordered = [...jobs].sort((a, b) => b.started_at - a.started_at);
   const count = stage.built ? ordered.length : demo.length;
+  // The newest few here, the rest on their own page. This screen answers
+  // "where is 2463 up to" across four stages at once, and one busy stage
+  // scrolling the other three off the page answers it badly.
+  const shownJobs = ordered.slice(0, PREVIEW);
+  const shownDemo = demo.slice(0, PREVIEW);
+  const hidden = count - (stage.built ? shownJobs.length : shownDemo.length);
 
   return (
     <section>
@@ -171,6 +155,16 @@ function StagePanel({
         </span>
         <h2>{stage.name}</h2>
         {count > 0 && <span className="pill">{count}</span>}
+        <span className="spacer" />
+        {count > 0 && (
+          <a
+            className="btn quiet sm"
+            href={href("style", styleNo, stage.id)}
+            aria-label={`Show all ${count} ${stage.name} inspections for style ${styleNo}`}
+          >
+            Show all
+          </a>
+        )}
       </div>
       <p className="lede">{stage.blurb}</p>
 
@@ -197,7 +191,7 @@ function StagePanel({
             </thead>
             <tbody>
               {stage.built
-                ? ordered.map((job) => {
+                ? shownJobs.map((job) => {
                     const [word, tone] = stateOf(job);
                     return (
                       <tr
@@ -208,7 +202,7 @@ function StagePanel({
                         }}
                       >
                         <td>
-                          <b>{job.filename}</b>
+                          <b>{label(job)}</b>
                           <div className="dim pom" style={{ fontSize: 11.5 }}>
                             {job.recorded_by || "unattributed"}
                             {job.location ? ` · ${job.location}` : ""}
@@ -229,7 +223,7 @@ function StagePanel({
                       </tr>
                     );
                   })
-                : demo.map((row: DemoInspection) => (
+                : shownDemo.map((row: DemoInspection) => (
                     // Stand-in rows, drawn exactly as a real one is — see the
                     // header of demoStages.ts for what that costs and what
                     // still holds without the marking that used to be here.
@@ -254,6 +248,16 @@ function StagePanel({
             </tbody>
           </table>
         </div>
+      )}
+
+      {hidden > 0 && (
+        <p className="lede" style={{ marginTop: 10, fontSize: 12.5 }}>
+          {hidden} more {hidden === 1 ? "inspection" : "inspections"} at this stage —{" "}
+          <a className="link" href={href("style", styleNo, stage.id)}>
+            show all {count}
+          </a>
+          .
+        </p>
       )}
     </section>
   );

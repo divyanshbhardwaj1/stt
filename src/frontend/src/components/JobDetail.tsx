@@ -1,8 +1,9 @@
-import { DOWNLOAD_TITLES, VENDOR_DOWNLOADS, downloadUrl } from "../api";
+import { DOWNLOAD_TITLES, VENDOR_DOWNLOADS, downloadUrl, releaseJob, reviewJob, REVIEW_RESULTS } from "../api";
 import { href } from "../router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useSession } from "../session";
 import { Stats } from "./Stats";
+import { label } from "../types";
 import type { Job } from "../types";
 
 /**
@@ -42,12 +43,12 @@ function Head({ job }: { job: Job }) {
       <div className="crumbs">
         <a href={href("inspections")}>Inspections</a>
         <span aria-hidden="true">/</span>
-        <b>{job.filename}</b>
+        <b>{label(job)}</b>
       </div>
 
       <header>
         <div className="page-title">
-          <h1>{job.filename}</h1>
+          <h1>{label(job)}</h1>
           <span className={state[1]}>{state[0]}</span>
           <span className="spacer" />
           <a className="btn secondary sm" href={href("inspections")}>
@@ -525,6 +526,8 @@ export function JobDetail({ job, onAudit }: { job: Job; onAudit: () => void }) {
         </section>
       )}
 
+      <Verdict job={job} />
+      <SignOff job={job} />
       <Downloads job={job} />
     </>
   );
@@ -571,6 +574,243 @@ function Downloads({ job }: { job: Job }) {
               {DOWNLOAD_TITLES[kind] ?? kind}
             </a>
           ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+/**
+ * The approver's one action, and the three reasons it is refused.
+ *
+ * Shown to anybody who can release, and only once there is something to
+ * release: a finished, graded report. The refusals come back from the server
+ * already worded for the person reading them, so they are shown as they
+ * arrive rather than translated into something vaguer here.
+ */
+function SignOff({ job }: { job: Job }) {
+  const { can } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState<string>("");
+
+  const sign = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const signed = await releaseJob(job.id);
+      setDone(signed.released_by || "you");
+    } catch (failure: unknown) {
+      setError(failure instanceof Error ? failure.message : "It was not released.");
+    } finally {
+      setBusy(false);
+    }
+  }, [job.id]);
+
+  const released = done || job.released_by;
+  const when = job.released_at ? new Date(job.released_at * 1000) : null;
+
+  if (job.status !== "done" || !job.graded) return null;
+
+  if (released) {
+    return (
+      <section>
+        <div className="notice good" role="status">
+          <b>Released to the vendor.</b> Signed off by {released}
+          {when ? ` on ${when.toLocaleDateString()}` : ""}. Nothing about this report can be
+          changed now — a correction after sign-off is a new inspection.
+        </div>
+      </section>
+    );
+  }
+
+  if (!can("release")) return null;
+
+  return (
+    <section>
+      <div className="section-head">
+        <h2>Sign-off</h2>
+      </div>
+      <p className="lede">
+        Releasing sends the graded sheet and the report to the vendor as the reviewers left
+        them. You cannot change a measurement and approve it in the same hand, which is the
+        point rather than an inconvenience.
+      </p>
+      {error && (
+        <div className="notice bad" role="alert" style={{ marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+      <div className="row">
+        <button
+          className="btn"
+          // Refused by the server for both of these. Saying so here is the
+          // difference between a rule and a dead button.
+          disabled={busy || job.unconfirmed > 0 || !job.review}
+          onClick={() => void sign()}
+        >
+          {busy ? "Releasing…" : "Release to the vendor"}
+        </button>
+        {job.unconfirmed > 0 ? (
+          <span className="hint">
+            {job.unconfirmed} reading{job.unconfirmed === 1 ? "" : "s"} still without a
+            verdict — those have to be settled first.
+          </span>
+        ) : !job.review ? (
+          <span className="hint">
+            No reviewer has ruled on this sheet yet. You sign off what a reviewer decided,
+            which is why you are two people.
+          </span>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+
+/** How each verdict is badged, in the same vocabulary as everything else. */
+const VERDICT_TONE: Record<string, string> = {
+  pass: "pill success",
+  comment: "pill warning",
+  fail: "pill error",
+};
+
+/**
+ * The reviewer's call on the sheet.
+ *
+ * Separate from the measurement result above it, and deliberately so. That one
+ * is arithmetic — every reading against its band — and this is a judgement
+ * about the garment. On a size set they disagree often: two measurements
+ * outside tolerance is usually a pass with comment, because the deviation is
+ * acceptable and the correction is listed. Nothing here recomputes the
+ * measurement result or argues with it; both are shown, and the reader can see
+ * that a person looked at the numbers and decided something else.
+ */
+function Verdict({ job }: { job: Job }) {
+  const { can } = useSession();
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [decided, setDecided] = useState<{ review: string; by: string; note: string } | null>(
+    null,
+  );
+
+  const decide = useCallback(
+    async (result: string) => {
+      setBusy(result);
+      setError("");
+      try {
+        const done = await reviewJob(job.id, result, note);
+        setDecided({ review: done.review, by: done.reviewed_by, note: done.review_note });
+      } catch (failure: unknown) {
+        // The server's wording: it knows why, and phrases it for the floor.
+        setError(failure instanceof Error ? failure.message : "The verdict was not saved.");
+      } finally {
+        setBusy("");
+      }
+    },
+    [job.id, note],
+  );
+
+  if (job.status !== "done" || !job.graded) return null;
+
+  const review = decided?.review ?? job.review;
+  const by = decided?.by ?? job.reviewed_by;
+  const said = decided?.note ?? job.review_note;
+  const mayDecide = can("audit.edit") && !job.released_at;
+  /* A gap is not a small deviation to weigh, it is a question nobody
+     answered. The server refuses a verdict over one; the screen has to say so
+     before somebody presses a button nine times, which is exactly what it let
+     happen before this. */
+  const blocked = job.unconfirmed > 0;
+
+  return (
+    <section>
+      <div className="section-head">
+        <h2>Size set inspection result</h2>
+        {review && <span className={VERDICT_TONE[review]}>{REVIEW_RESULTS[review]}</span>}
+      </div>
+      <p className="lede">
+        The reviewer&apos;s call on the garment, which is not the measurement result above —
+        that one is every reading against its tolerance band, and this is whether the size set
+        is good to make.
+      </p>
+
+      {review ? (
+        <div className={`notice ${review === "fail" ? "bad" : "good"}`} role="status">
+          <b>
+            {REVIEW_RESULTS[review]}
+            {by ? ` — ${by}` : ""}
+          </b>
+          {said ? <div style={{ marginTop: 6 }}>{said}</div> : null}
+        </div>
+      ) : (
+        <p className="hint">Nobody has ruled on this sheet yet.</p>
+      )}
+
+      {error && (
+        <div className="notice bad" role="alert" style={{ marginTop: 12 }}>
+          {error}
+        </div>
+      )}
+
+      {mayDecide && blocked && (
+        <div className="notice warn" style={{ marginTop: 14 }}>
+          <b>
+            {job.unconfirmed} point{job.unconfirmed === 1 ? "" : "s"} of measure{" "}
+            {job.unconfirmed === 1 ? "has" : "have"} no verdict, so there is nothing to rule
+            on yet.
+          </b>{" "}
+          They are not passes — each one has to be listened back to and filled in. Settle
+          them on the graded sheet and this comes to life.
+          <div className="row" style={{ marginTop: 10 }}>
+            <a className="btn sm" href={href("inspection", job.id, "sheet")}>
+              Open the graded sheet
+            </a>
+          </div>
+        </div>
+      )}
+
+      {mayDecide && !blocked && (
+        <div style={{ marginTop: 14 }}>
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label className="lbl" htmlFor="verdict-note">
+              What the factory has to do
+            </label>
+            <textarea
+              id="verdict-note"
+              rows={3}
+              placeholder="Add missing side-seam notch; rectify broken stitch at bottom hem"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
+            <span className="hint">
+              Required for a fail or a pass with comment. A message without the reason is one
+              nobody can act on.
+            </span>
+          </div>
+          <div className="row">
+            {/* The verdict it already has is not a change to offer. Before
+                this the card read "Change to pass" on a sheet that had just
+                been passed. */}
+            {Object.entries(REVIEW_RESULTS)
+              .filter(([key]) => key !== review)
+              .map(([key, wording]) => (
+                <button
+                  key={key}
+                  className={`btn ${key === "fail" ? "danger" : key === "pass" ? "" : "secondary"}`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void decide(key)}
+                >
+                  {busy === key
+                    ? "Saving…"
+                    : review
+                      ? `Change to ${wording.toLowerCase()}`
+                      : wording}
+                </button>
+              ))}
+          </div>
         </div>
       )}
     </section>

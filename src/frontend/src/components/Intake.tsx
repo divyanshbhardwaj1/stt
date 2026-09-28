@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStyleSets, uploadRecording } from "../api";
 import type { Job } from "../types";
 import { hms, megabytes } from "../format";
+import { defaultTitle } from "../types";
 import {
   transcriptText,
   useLiveTranscript,
@@ -164,6 +165,20 @@ export function Intake({ onQueued }: Props) {
   const [coords, setCoords] = useState("");
   /** Metres, for the hint. Never part of the stored location. */
   const [accuracy, setAccuracy] = useState(0);
+  /**
+   * What this inspection will be called.
+   *
+   * Only what somebody typed is kept; the suggestion is worked out from the
+   * style and the clock every render. Storing it would mean an effect writing
+   * state back on every change to the style box — a field that rewrites itself
+   * under the cursor — and derived state that can fall out of step with what
+   * it was derived from.
+   *
+   * The clock is read once, when the screen opens, so the minute in the name
+   * does not tick over while somebody is still deciding.
+   */
+  const [typed, setTyped] = useState("");
+  const [openedAt] = useState(() => new Date());
   const [styleSets, setStyleSets] = useState<string[] | null>(null);
   const [styleError, setStyleError] = useState("");
   const [progress, setProgress] = useState(-1); // -1 = not uploading
@@ -222,6 +237,10 @@ export function Intake({ onQueued }: Props) {
   const knownStyle = chosen !== "" && (styleSets ?? []).includes(chosen);
   /** Typed something, the library has loaded, and no sheet matches it. */
   const styleUnknown = chosen !== "" && styleSets !== null && !knownStyle;
+
+  // The style is usually typed after the file is chosen, so the suggestion
+  // follows it until somebody types their own name.
+  const title = typed || defaultTitle(chosen, openedAt);
 
   const liveHeard = useRef<Utterance[]>([]);
 
@@ -631,6 +650,21 @@ export function Intake({ onQueued }: Props) {
                 {stageOf(stage).built
                   ? "Graded against the buyer's spec sheet, point of measure by point of measure."
                   : "This stage has no pipeline yet, so a recording cannot be graded against it."}
+              </span>
+            </div>
+
+            <div className="opts">
+              <label htmlFor="title">Name</label>
+              <input
+                id="title"
+                placeholder="Style, date and time"
+                value={title}
+                onChange={(event) => setTyped(event.target.value)}
+                style={{ maxWidth: 280 }}
+              />
+              <span className="hint">
+                What this inspection is called everywhere. Filled in from the style and the
+                clock — type over it if the floor calls it something else.
               </span>
             </div>
 

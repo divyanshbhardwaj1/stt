@@ -19,6 +19,8 @@ import { Glyph, Ico } from "../ui/icons";
 interface Props {
   route: Route;
   stage: string;
+  /** How many alerts are open for this account. 0 draws nothing. */
+  alerts: number;
   onStage: (stage: string) => void;
   closed: boolean;
   onToggle: () => void;
@@ -29,21 +31,31 @@ function NavLink({
   icon,
   label,
   current,
+  count = 0,
 }: {
   to: string;
   icon: string;
   label: string;
   current: boolean;
+  count?: number;
 }) {
   return (
     <a className="navlink" href={to} title={label} aria-current={current ? "page" : undefined}>
       <Ico name={icon} />
       <span className="lbl">{label}</span>
+      {/* The count is the whole point of a rail entry for alerts: it is what
+          somebody sees without opening it. Drawn only when there is one, so a
+          clear floor has nothing blinking at it. */}
+      {count > 0 && (
+        <span className="tally" aria-label={`${count} open`}>
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
     </a>
   );
 }
 
-export function Rail({ route, stage, onStage, closed, onToggle }: Props) {
+export function Rail({ route, stage, alerts, onStage, closed, onToggle }: Props) {
   const { me, can, signOut } = useSession();
   const here = stageOf(stage);
   const mine = me?.stages ?? [];
@@ -97,6 +109,7 @@ export function Rail({ route, stage, onStage, closed, onToggle }: Props) {
               icon={entry.icon}
               label={entry.label}
               current={route.screen === entry.screen}
+              count={entry.screen === "alerts" ? alerts : 0}
             />
           ))}
         <NavLink

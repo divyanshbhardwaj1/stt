@@ -4,11 +4,13 @@ Optional for now — see `session.py`. Import the pieces, not the package, so a
 module that only needs a session does not drag the ORM models in with it.
 """
 
-from .models import Base, Event, Inspection, Reading, Stage, State, User
+from .models import Alert, AlertSetting, Base, Event, Inspection, Reading, Stage, State, User
 from .session import configure, create_all, database_url, enabled, engine, reset, session
 from .store import DatabaseJobStore, from_sixteenths, rebuild_readings, to_sixteenths
 
 __all__ = [
+    "Alert",
+    "AlertSetting",
     "Event",
     "Base",
     "DatabaseJobStore",

@@ -9,6 +9,8 @@ looks clean and drops nothing, which is the worst kind.
 Adding a table: a new module beside these, and a line below.
 """
 
+from .alert import Alert
+from .alert_setting import AlertSetting
 from .base import Base, JSONish, utcnow
 from .enums import Role, Stage, State, UserState
 from .event import Event
@@ -19,6 +21,8 @@ from .session import LoginSession
 from .user import User
 
 __all__ = [
+    "Alert",
+    "AlertSetting",
     "UserState",
     "Base",
     "Event",

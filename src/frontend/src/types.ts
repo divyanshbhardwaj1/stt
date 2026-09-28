@@ -78,6 +78,21 @@ export interface Job {
   /** Field name to the client's own printed label. Only on the single-job read. */
   form_labels?: Record<string, string>;
   /** Who recorded it. Resolved from the account, never stored as a name. */
+  /** What a person called it. Empty for anything recorded before naming. */
+  title: string;
+  /**
+   * The reviewer's verdict on the sheet: "", "pass", "comment" or "fail".
+   * Not `measurement_result`, which is arithmetic — this is the call a person
+   * made about the garment, and the two can honestly disagree.
+   */
+  review: string;
+  review_note: string;
+  reviewed_at: number | null;
+  reviewed_by: string;
+  /** Epoch seconds when an approver signed it off, or null. */
+  released_at: number | null;
+  /** Who signed it. Kept for display; the trail is the record. */
+  released_by: string;
   recorded_by: string;
   /** The account that recorded it. "" for anything predating attribution. */
   recorded_by_id: string;
@@ -211,4 +226,83 @@ export interface CellEdit {
 export interface PlaybackCues {
   duration: number;
   cues: Record<string, { start: number; end: number; exact: boolean }>;
+}
+
+
+/**
+ * How an inspection is doing, as a word and a pill.
+ *
+ * Here rather than on a screen because two screens now show it — the register
+ * expanded under a style, and the style's own four-stage view — and a register
+ * that disagreed with the page it links to about what "Needs review" means
+ * would be worse than either alone.
+ */
+export function stateOf(job: Job): [string, string] {
+  if (job.status === "failed") return ["Failed", "pill error"];
+  if (job.status !== "done") return ["Processing", "pill warning"];
+  if (!job.graded) return ["Not graded", "pill"];
+  // The end of the chain first: where an inspection got to beats how it got
+  // there. Somebody scanning a register wants to know what is left to do.
+  if (job.released_at) return ["Released", "pill success"];
+  if (job.review === "fail") return ["Failed", "pill error"];
+  // An open question outranks a failed measurement: a reading the recording
+  // never ruled on is the one thing nobody can sign off around.
+  if (job.unconfirmed > 0) return ["Needs review", "pill lavender"];
+  if (job.review === "pass") return ["Waiting for sign-off", "pill success"];
+  if (job.review === "comment") return ["Waiting for sign-off", "pill warning"];
+  // Everything answered and nobody has ruled on the sheet as a whole. That is
+  // a reviewer's job, not an approver's, so it is not "waiting for sign-off".
+  return ["Needs review", "pill lavender"];
+}
+
+/** What came of it, in one line. */
+export function summarise(job: Job): string {
+  if (job.status === "failed") return job.error || "Nothing was written";
+  if (job.status !== "done") return job.message;
+  // Once a person has ruled, their words are the answer. The measurement
+  // result is arithmetic and is still on the report; this line is what a
+  // register is for.
+  if (job.review) {
+    const said =
+      job.review === "pass"
+        ? "Passed"
+        : job.review === "comment"
+          ? "Passed with comment"
+          : "Failed";
+    const who = job.reviewed_by ? ` by ${job.reviewed_by}` : "";
+    return job.review_note ? `${said}${who} — ${job.review_note}` : `${said}${who}`;
+  }
+  if (!job.graded) return `${job.rows} rows · never checked against a spec sheet`;
+  if (job.unconfirmed)
+    return `${job.rows} rows · ${job.unconfirmed} point${
+      job.unconfirmed === 1 ? "" : "s"
+    } of measure with no verdict`;
+  if (job.out_of_tolerance)
+    return `${job.rows} rows · ${job.out_of_tolerance} out of tolerance`;
+  return `${job.rows} rows · every verdict captured`;
+}
+
+
+/**
+ * What to call an inspection on screen.
+ *
+ * The operator's name for it if they gave one, otherwise the recording it came
+ * from. Here rather than on each screen because six of them show it, and six
+ * fallbacks are six chances to show a different thing for the same inspection.
+ */
+export const label = (job: Job): string => job.title || job.filename || job.id;
+
+/**
+ * The name an inspection gets if nobody types one: style, date, time.
+ *
+ * Sortable on purpose — a list of `2463 - 2026-09-25 - 14:32` reads in order
+ * on any screen that happens to sort by name, which a locale-formatted date
+ * does not. The style comes first because it is the thing somebody searches
+ * for, and is simply left out when the recording has not announced one yet.
+ */
+export function defaultTitle(styleNo: string, when: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`;
+  const time = `${pad(when.getHours())}:${pad(when.getMinutes())}`;
+  return [styleNo.trim(), date, time].filter(Boolean).join(" - ");
 }

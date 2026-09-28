@@ -725,3 +725,51 @@ input[type="tel"]:focus {
 .bar > span.now {
   color: var(--color-ink);
 }
+
+/* The open-alert count on its rail entry. A rail row is an icon and a label;
+   this is the third thing, pushed to the end and drawn only when it is not
+   zero — a clear floor should have nothing blinking at it. */
+.navlink .tally {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 0 5px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-pink);
+  color: var(--color-on-primary);
+  font: var(--text-caption);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+/* Collapsed rail: the label is gone, so the count rides the icon instead of
+   sitting beside a word that is not there. */
+.shell.closed .navlink .tally,
+[data-rail="closed"] .navlink .tally {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin-left: 0;
+}
+
+/* The count in a register cell is a way in, so it has to look like one. */
+td.num > a.link {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The two ways an alert can leave, side by side in one cell. */
+.ways {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ways .check span { font: var(--text-caption); }
+
+/* The count on a stage tab. The rail has its own, on a nav row; this one sits
+   inline after the name rather than being pushed to the end of a row. */
+.stagetabs .tally {
+  margin-left: 0;
+}

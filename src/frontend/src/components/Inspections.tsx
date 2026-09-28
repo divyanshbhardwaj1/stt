@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchLibrary, type LibrarySheet } from "../api";
 import { demoInspections } from "../demoStages";
 import { href } from "../router";
-import { STAGES } from "../stages";
+import { STAGES, stageOf } from "../stages";
 import { styleOf, type Job } from "../types";
 
 /**
@@ -243,14 +243,28 @@ function StyleRow({
         </div>
       </td>
       {STAGES.map((stage) => {
-        const count = stage.built
-          ? row.jobs.filter((job) => job.stage === stage.id).length
-          : unfiled
-            ? 0
-            : demoInspections(row.styleNo, stage.id).length;
+        const count = countFor(row, stage.id, unfiled);
         return (
           <td className="num" key={stage.id}>
-            {count || <span className="dim">—</span>}
+            {count ? (
+              // The number is the way in, and it goes to a page. Unfolding it
+              // here answered the question in the wrong place: somebody who
+              // followed a count wants a screen they can link to, come back
+              // from, and read without the register underneath it.
+              unfiled ? (
+                <span>{count}</span>
+              ) : (
+                <a
+                  className="link"
+                  href={href("style", row.styleNo, stage.id)}
+                  aria-label={`Show all ${count} ${stage.name} inspections for style ${row.styleNo}`}
+                >
+                  {count}
+                </a>
+              )
+            ) : (
+              <span className="dim">—</span>
+            )}
           </td>
         );
       })}
@@ -271,3 +285,12 @@ function StyleRow({
     </tr>
   );
 }
+
+/** How many checks this style has had at one stage. */
+function countFor(row: Row, stageId: string, unfiled: boolean): number {
+  if (stageOf(stageId).built) {
+    return row.jobs.filter((job) => job.stage === stageId).length;
+  }
+  return unfiled ? 0 : demoInspections(row.styleNo, stageId).length;
+}
+

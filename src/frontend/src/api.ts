@@ -7,6 +7,92 @@ export async function fetchStyleSets(): Promise<string[]> {
   return response.json();
 }
 
+/** Something that needs attention. */
+export interface Alert {
+  id: string;
+  rule: string;
+  severity: "act" | "notice";
+  stage: string;
+  /** The capability that can act on it. The server has already filtered. */
+  needs: string;
+  /** The inspection it is about, or "". */
+  subject_id: string;
+  title: string;
+  detail: string;
+  raised_at: string;
+}
+
+/**
+ * What is open, filtered to what this account could do something about.
+ *
+ * Reading the list is also what sweeps the time-based rules: an absence
+ * cannot be event-driven, so until there is a scheduler, somebody opening the
+ * page is what wakes them up.
+ */
+export async function fetchAlerts(): Promise<Alert[]> {
+  const response = await fetch("/api/alerts");
+  if (!response.ok) throw new Error(await detail(response, "Could not read the alerts."));
+  return response.json();
+}
+
+export async function dismissAlert(id: string): Promise<void> {
+  const response = await fetch(`/api/alerts/${encodeURIComponent(id)}/dismiss`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await detail(response, "It was not dismissed."));
+}
+
+/** One watched condition, as the settings page edits it. */
+export interface AlertRule {
+  key: string;
+  label: string;
+  blurb: string;
+  severity: "act" | "notice";
+  /** minutes | hours | days — what `amount` is counted in. */
+  unit: string;
+  enabled: boolean;
+  /** In `unit`. Null when the rule fires the moment it happens. */
+  amount: number | null;
+  /** Which ways out it uses: "inapp", "email", or both. */
+  ways: string[];
+  /** What the rule ships as, so the page can mark what was changed. */
+  default_amount: number | null;
+  default_ways: string[];
+}
+
+export interface AlertRules {
+  stage: string;
+  rules: AlertRule[];
+  channels: { id: string; label: string }[];
+  /** Whether email can go anywhere at all. */
+  email_ready: boolean;
+}
+
+export async function fetchAlertRules(stage: string): Promise<AlertRules> {
+  const response = await fetch(`/api/alert-rules?stage=${encodeURIComponent(stage)}`);
+  if (!response.ok) throw new Error(await detail(response, "Could not read the settings."));
+  return response.json();
+}
+
+export async function setAlertRule(
+  key: string,
+  stage: string,
+  patch: { enabled?: boolean; amount?: number; ways?: string[] },
+): Promise<void> {
+  const response = await fetch(`/api/alert-rules/${encodeURIComponent(key)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ stage, ...patch }),
+  });
+  if (!response.ok) throw new Error(await detail(response, "That was not saved."));
+}
+
+/** Raise one addressed to whoever pressed the button. */
+export async function raiseTestAlert(): Promise<void> {
+  const response = await fetch("/api/alert-rules/test", { method: "POST" });
+  if (!response.ok) throw new Error(await detail(response, "The test was not raised."));
+}
+
 /** One line of the audit trail. */
 export interface Event {
   id: string;
@@ -129,6 +215,40 @@ export async function fetchJob(jobId: string): Promise<Job> {
   return response.json();
 }
 
+/** What a reviewer can decide, in the client's own words. */
+export const REVIEW_RESULTS: Record<string, string> = {
+  pass: "Pass",
+  comment: "Pass with comment",
+  fail: "Fail",
+};
+
+/** The reviewer's verdict on the sheet. Not the measurement result. */
+export async function reviewJob(jobId: string, result: string, note: string): Promise<Job> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result, note }),
+  });
+  if (!response.ok) throw new Error(await detail(response, "The verdict was not saved."));
+  return response.json();
+}
+
+/**
+ * Sign a report off and let it go to the vendor.
+ *
+ * The server refuses this three ways - an unanswered reading, a second
+ * signature, and an approver who corrected the sheet themselves - and phrases
+ * each refusal for the person reading it, so its wording is what the screen
+ * shows.
+ */
+export async function releaseJob(jobId: string): Promise<Job> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/release`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await detail(response, "It was not released."));
+  return response.json();
+}
+
 /** Every job, newest first. */
 export async function fetchJobs(): Promise<Job[]> {
   const response = await fetch("/api/jobs");
@@ -173,6 +293,7 @@ export function uploadRecording(
   onProgress: (fraction: number) => void,
   location = "",
   stage = "sizeset",
+  title = "",
 ): Promise<Job> {
   return new Promise((resolve, reject) => {
     const body = new FormData();
@@ -181,6 +302,7 @@ export function uploadRecording(
     body.append("live_transcript", liveTranscript);
     body.append("stage", stage);
     if (location) body.append("location", location);
+    if (title) body.append("title", title);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/jobs");

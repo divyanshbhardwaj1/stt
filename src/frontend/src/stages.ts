@@ -54,6 +54,10 @@ export const STAGES: Stage[] = [
       { screen: "record", icon: "record", label: "Record inspection", need: "record" },
       { screen: "inspections", icon: "inspection", label: "Inspection" },
       { screen: "styles", icon: "library", label: "Style sets" },
+      // Every alert goes to the administrators, so for anybody else this
+      // row opened an empty screen. A rail entry that could never show
+      // anything teaches people to ignore the rail.
+      { screen: "alerts", icon: "flag", label: "Alerts", need: "manage.people" },
       { screen: "activity", icon: "log", label: "Activity" },
     ],
     built: true,
