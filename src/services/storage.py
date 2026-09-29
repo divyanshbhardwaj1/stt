@@ -53,6 +53,13 @@ RECORDINGS = "recordings"
 PLAYBACK = "playback"
 OUTPUTS = "outputs"
 STYLE_SETS = "style-sets"
+# The client's own documents — today just the blank Size Set Inspection Report
+# workbook. It is gitignored, because it is confidential and does not belong in
+# a repository, which meant a deployed container had no copy of it at all: the
+# pipeline loads it as its first act and raises TemplateError without it, so
+# every upload failed on a machine that had never seen this laptop's disk. The
+# bucket is where it lives now, restored at startup the way the style sets are.
+REFERENCES = "references"
 
 # How long a signed link stays good. It is handed to a browser, so it lands in
 # history, in any proxy log on the way, and in whatever mirrors those. Long
@@ -160,6 +167,12 @@ def style_set_key(filename: str) -> str:
     """A buyer's graded spec sheet. Named for the style, so re-uploading the
     same style replaces the object rather than accumulating copies."""
     return f"{STYLE_SETS}/{Path(filename).name}"
+
+
+def reference_key(filename: str) -> str:
+    """A client reference document, named as it is on disk — the pipeline looks
+    the template up by the exact filename `SIZESET_FORM_TEMPLATE` names."""
+    return f"{REFERENCES}/{Path(filename).name}"
 
 
 def output_key(name: str, filename: str) -> str:

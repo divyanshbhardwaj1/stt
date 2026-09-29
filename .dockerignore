@@ -1,0 +1,40 @@
+# What must never reach the build context.
+#
+# `data/` above all: client audio, and AEO spec sheets and reports stamped
+# "Subject to Legal Action if Disclosed Without Authorization from AEO". It is
+# gitignored for the same reason, and a Docker build reads the working tree
+# rather than the index — so without this line a local checkout would bake
+# every recording on this laptop into an image. The style sets and the blank
+# workbook reach a container through the bucket, restored at startup.
+data/
+
+.env
+.env.*
+!.env.example
+
+.git/
+.github/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Built by the frontend stage inside the image, never copied from the host —
+# a stale local dist would otherwise silently win over the one just built.
+src/frontend/dist/
+src/frontend/node_modules/
+src/frontend/*.tsbuildinfo
+
+# The prototype and the working notes. Neither is served.
+demo/
+demo.rar
+Clay Design System/
+handout.md
+triburgProject.md
+deepgram_transcript_example.md
+tests/

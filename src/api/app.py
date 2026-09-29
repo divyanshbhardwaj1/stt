@@ -195,11 +195,30 @@ async def lifespan(app: FastAPI):
     # and any local checkout - never pays for a Settings.load() it cannot use.
     if storage.enabled():
         try:
-            pulled = storage.pull_all(storage.STYLE_SETS, Settings.load().style_sets_dir)
+            settings = Settings.load()
         except ConfigError as exc:
-            log.warning("could not restore the style set library: %s", exc)
+            log.warning("could not restore documents from the bucket: %s", exc)
         else:
-            log.info("pulled %d style sets from the bucket", pulled)
+            log.info(
+                "pulled %d style sets from the bucket",
+                storage.pull_all(storage.STYLE_SETS, settings.style_sets_dir),
+            )
+            # The client's blank workbook, which is gitignored and so is in no
+            # image. `load_form_template` is the pipeline's first act and
+            # raises without it, so a container that cannot restore this can
+            # serve every screen and process nothing — say so loudly here
+            # rather than once per failed upload.
+            references = storage.pull_all(storage.REFERENCES, settings.references_dir)
+            log.info("pulled %d reference document(s) from the bucket", references)
+            if not settings.form_template_path.is_file():
+                log.error(
+                    "%s is not on disk and was not in the bucket under %s/. Uploads "
+                    "will fail until it is there: it is the client's blank Size Set "
+                    "Inspection Report, and it defines both what the model extracts "
+                    "and how the outputs are laid out.",
+                    settings.form_template_path.name,
+                    storage.REFERENCES,
+                )
     yield
 
 
