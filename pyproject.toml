@@ -43,12 +43,18 @@ dependencies = [
     "boto3>=1.34",
 ]
 
-[project.optional-dependencies.postgres]
+[project.optional-dependencies]
 # The driver, kept out of the default install so the test suite and a local
 # run need no Postgres. A deployment installs `.[postgres]`.
-psycopg = ["psycopg[binary]>=3.2"]
-
-[project.optional-dependencies]
+#
+# One table, and each extra is an ARRAY of requirement strings. This was
+# written as its own `[project.optional-dependencies.postgres]` header with a
+# `psycopg = [...]` key inside it, which makes the extra a table rather than an
+# array and is not what PEP 621 allows. Nothing caught it because nothing had
+# ever installed the extra — the local venv got psycopg by hand — so it sat
+# here until the first `pip install -e ".[postgres]"`, which is the first line
+# of the first container build.
+postgres = ["psycopg[binary]>=3.2"]
 dev = ["pytest>=8", "ruff>=0.6", "xlwt>=1.3"]
 
 [build-system]

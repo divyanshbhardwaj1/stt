@@ -83,6 +83,22 @@ from .security import (
 
 log = logging.getLogger(__name__)
 
+# Uvicorn configures its own loggers and nothing else. The root logger is left
+# with no handler at all, so every `log.info` in this application went to
+# Python's last-resort handler — which only emits WARNING and above — and
+# vanished. On a laptop that costs nothing, because `main.py serve` calls
+# `basicConfig` on the way in. Run any other way, which is every deployment,
+# it meant a transcription could take eight minutes and say nothing, and the
+# two lines confirming what was restored from the bucket at startup were
+# invisible while the error beside them was not.
+#
+# A no-op if something upstream has already configured the root logger, and
+# uvicorn's own loggers do not propagate, so this cannot double-print theirs.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+)
+
 # Read `.env` here rather than relying on whoever started the process having
 # done it. `python src/main.py serve` happened to work only because
 # `Settings.load()` loads the file and uvicorn inherits the environment; a
