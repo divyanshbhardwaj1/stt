@@ -175,3 +175,60 @@ test("staging a change stops the audio too", async () => {
 
   expect(pause).toHaveBeenCalled();
 });
+
+/**
+ * A cell settled by hand keeps no confidence colour.
+ *
+ * `settle()` rewrites the extraction row in place and leaves `confidence`
+ * alone — it only sets 1.0 on a cell the recording never produced. So an edited
+ * reading carries the transcription's certainty about speech that is no longer
+ * in the cell, and the blue tint and the percentage never clear no matter how
+ * many times a human corrects it.
+ *
+ * The verdict fill is the other half of the rule and must survive: `fail` is
+ * recomputed from the operator's own deviation, and it still blocks release.
+ */
+test("a cell settled by hand drops the confidence tint but keeps its verdict", async () => {
+  const edited: GradedSheet = {
+    ...SHEET,
+    rows: [
+      {
+        ...SHEET.rows[0],
+        cells: {
+          S: {
+            ...SHEET.rows[0].cells!.S,
+            state: "fail",
+            confidence: 0.62,
+            below_full: true,
+            low_confidence: true,
+            edited: true,
+          },
+        },
+      },
+    ],
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(url.includes("/api/me") ? ME : url.includes("/cues") ? CUES : edited),
+      }),
+    ),
+  );
+  render(
+    <SessionProvider>
+      <AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
+  const td = document.querySelector("td.cell") as HTMLElement;
+
+  expect(td.classList.contains("conf-mid")).toBe(false);
+  expect(td.classList.contains("conf-low")).toBe(false);
+  expect(within(td).queryByText("62%")).toBeNull();
+  // Settled, and still out of tolerance. Both have to be legible at once.
+  expect(td.classList.contains("settled")).toBe(true);
+  expect(td.classList.contains("fail")).toBe(true);
+});

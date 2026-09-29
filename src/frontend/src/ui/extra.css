@@ -844,3 +844,16 @@ table.data.sheets td.band {
   min-width: 140px;
   height: 36px;
 }
+
+/* Settled by hand, in teal.
+
+   app.css draws this bar in `--color-brand-lavender` — which is the no-verdict
+   colour three rules up. A cell an operator had settled therefore carried the
+   same hue as one nobody had answered, which is the one pair of meanings on
+   this grid that must not look alike. Teal is the only brand fill with no
+   verdict semantics attached to it, so the bar takes that and the key names it.
+
+   Widened by a pixel because the bar is now the only mark an edited cell
+   carries: the blue confidence tint is suppressed on it in `Cell`, the reading
+   having been replaced by a human. */
+td.cell.settled > button { box-shadow: inset 4px 0 0 var(--color-brand-teal); }

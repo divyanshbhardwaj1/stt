@@ -523,6 +523,13 @@ export function AuditSheet({ job, onClose, onSettled }: Props) {
             <i className="sw" style={{ background: "var(--cell-fail)" }} />
             Out of tolerance
           </span>
+          {/* Not a fill — the left bar on a cell settled by hand. It was drawn
+              in lavender, the no-verdict colour, so a settled cell read as an
+              unanswered one. Teal is the only brand fill carrying no verdict. */}
+          <span>
+            <i className="sw" style={{ background: "var(--color-brand-teal)" }} />
+            Settled by hand
+          </span>
           <span className="spacer" />
           <span>
             Sizes marked <b>*</b> were never dictated — spec only. Base size{" "}
@@ -606,15 +613,31 @@ function Cell({
   at: string;
 }) {
   const state = cell?.state ?? "empty";
+  // A cell settled by hand carries no confidence colour and no percentage.
+  // `confidence` is the transcription's certainty about speech this edit has
+  // replaced: settle() sets 1.0 only on a cell the recording never produced, so
+  // an edited reading keeps the old figure forever and the blue never clears.
+  // The verdict fills stay. `fail` and `unconfirmed` are recomputed from the
+  // operator's own deviation and verdict, and both still block release — an
+  // edit that leaves a cell out of tolerance has to go on saying so.
+  const heard = !cell?.edited;
   return (
     <td
       data-cell={at}
       // The confidence bands are `conf-mid` and `conf-low` in demo/app.css.
       // This used to say `uncertain` and `shaky`, which nothing styled — which
       // is why the blue tints and every state glyph rendered colourless.
-      className={`cell ${state}${staged ? " staged" : ""}${cell?.edited ? " settled" : ""}${
-        cell?.disputed ? " disputed" : ""
-      }${cell?.below_full ? " conf-mid" : ""}${cell?.low_confidence ? " conf-low" : ""}`}
+      className={[
+        "cell",
+        state,
+        staged && "staged",
+        cell?.edited && "settled",
+        cell?.disputed && "disputed",
+        heard && cell?.below_full && "conf-mid",
+        heard && cell?.low_confidence && "conf-low",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <button type="button" onClick={onOpen} aria-label={`${label}: ${state}`}>
         {state === "empty" ? (
@@ -630,7 +653,7 @@ function Cell({
                 is one click away, computed, in the cell editor. */}
             <span className="read">
               {cell?.spec || cell?.measured || "—"}
-              {typeof cell?.confidence === "number" ? (
+              {heard && typeof cell?.confidence === "number" ? (
                 <em className="conf">{Math.round(cell.confidence * 100)}%</em>
               ) : null}
             </span>
