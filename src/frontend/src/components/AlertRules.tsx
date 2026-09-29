@@ -35,6 +35,7 @@ interface Props {
 
 export function AlertRules({ stage, onClose }: Props) {
   const [tab, setTab] = useState(stage);
+  const here = STAGES.find((one) => one.id === tab);
   const [rules, setRules] = useState<AlertRules | null>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -134,6 +135,24 @@ export function AlertRules({ stage, onClose }: Props) {
         <p className="lede dim" style={{ marginTop: 20 }}>
           Reading the settings…
         </p>
+      ) : rules.rules.length === 0 ? (
+        // Nothing is watched here yet. Six switches that change nothing would
+        // be worse than saying so: a settings page is believed or it is not.
+        <div className="blank" style={{ marginTop: 20 }}>
+          <div>
+            <div className="art" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+            <h2>Nothing is watched on {here?.name.toLowerCase() ?? "this stage"} yet</h2>
+            <p>
+              Every rule the product has is about a recording graded against a spec sheet,
+              which is what size set is. {here?.name} is a different job — it gets its own
+              rules when it gets its own pipeline.
+            </p>
+          </div>
+        </div>
       ) : (
         <div className="tablewrap" style={{ marginTop: 16 }}>
           <table className="data">
@@ -231,12 +250,21 @@ export function AlertRules({ stage, onClose }: Props) {
       )}
 
       <p className="lede" style={{ marginTop: 20, fontSize: 12.5 }}>
-<b>These are the {STAGES.find((one) => one.id === tab)?.name.toLowerCase()} settings.</b>{" "}
+<b>These are the {here?.name.toLowerCase()} settings.</b>{" "}
         Each stage keeps its own — a threshold that suits a garment on the table is not the
         one for a lot already packed. <b>Every alert goes to the administrators.</b> The roster already holds their addresses,
         so there is nothing to keep in step when somebody changes job. Turning a rule off stops
         it being raised; anything already open stays until it is dealt with.
       </p>
+      {rules !== null && !rules.watching && rules.rules.length > 0 && (
+        <div className="notice warn" style={{ marginTop: 12 }}>
+          <b>{here?.name} has no pipeline yet, so nothing is evaluating these.</b> They are
+          real settings and they are kept — the thresholds are the part a floor argues about,
+          and the argument is worth having before the plumbing arrives. Nothing will be raised
+          on this stage until it has one.
+        </div>
+      )}
+
       {rules !== null && !rules.email_ready && (
         <div className="notice info" style={{ marginTop: 12 }}>
           <b>Email is not set up, so those boxes are off.</b> Set <code>SMTP_HOST</code>,{" "}

@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from services.config.settings import load_env_file  # noqa: E402
 from services.db.models import Base  # noqa: E402
+from services.db.session import _with_driver  # noqa: E402
 
 # Read .env the way the application does. A connection string carries a
 # password, and the alternative is typing it into a shell — where it lands in
@@ -48,7 +49,13 @@ def _url() -> str:
             "file the same way the application does. It is deliberately not "
             "stored in alembic.ini."
         )
-    return url
+    # Through the same normaliser the application uses. Railway, Heroku and Fly
+    # all inject a bare `postgresql://`, which SQLAlchemy resolves to psycopg2 —
+    # a driver this project does not install. The app has handled that since
+    # `session.py` gained `_with_driver`; this did not, so `alembic upgrade
+    # head` was the one command that still died on a platform-supplied URL,
+    # with a ModuleNotFoundError naming a library nobody had asked for.
+    return _with_driver(url)
 
 
 def run_migrations_offline() -> None:

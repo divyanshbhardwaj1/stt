@@ -7,6 +7,7 @@ day" cannot be verified by waiting.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -389,7 +390,8 @@ def test_a_rule_the_product_no_longer_has_is_ignored(app_db):
     with session() as db:
         db.add(AlertSetting(rule="retired_rule", stage="sizeset", enabled=False))
 
-    assert set(alerts.policy()) == set(alerts.BY_KEY)
+    # Scoped to the stage asked for, and the orphan row is simply skipped.
+    assert set(alerts.policy()) == {r.key for r in alerts.for_stage("sizeset")}
 
 
 # ------------------------------------------------------- the settings screen
@@ -399,7 +401,7 @@ def test_the_settings_page_is_the_catalogue_plus_what_was_changed(client):
     body = client.get("/api/alert-rules").json()
     by_key = {one["key"]: one for one in body["rules"]}
 
-    assert set(by_key) == set(alerts.BY_KEY)
+    assert set(by_key) == {r.key for r in alerts.for_stage("sizeset")}
     assert by_key["unanswered_stale"]["amount"] == 4
     # The page can say which of these is not the shipped answer.
     assert by_key["unanswered_stale"]["default_amount"] == 24
@@ -495,26 +497,60 @@ def test_no_mail_server_is_not_a_failure(app_db, monkeypatch):
 
 
 # ---------------------------------------------------------- one stage at a time
-def test_a_threshold_belongs_to_one_stage(app_db):
-    """A reading with no verdict on size set is a garment still on the table.
-    The same gap on a final inspection is a lot already packed, and one number
-    for both is wrong for one of them."""
-    alerts.configure("unanswered_stale", amount=4, stage="sizeset")
+def test_a_rule_belongs_to_the_stages_it_means_anything_on(app_db):
+    """Every rule today is about a recording graded against a spec sheet,
+    which is what size set is. PPM is approvals before bulk is cut, interim is
+    a line audit, final is an AQL plan - "a reading with no verdict" cannot
+    happen on any of them, and offering the setting there would be three tabs
+    that change nothing."""
+    sizeset = {rule.key for rule in alerts.for_stage("sizeset")}
+    assert "unanswered_stale" in sizeset
+    # Each stage watches its own job and nothing else. A reading with no
+    # verdict cannot happen at a pre-production meeting, and an approval
+    # cannot sit open on a size set.
+    for stage in ("ppm", "interim", "final"):
+        theirs = {rule.key for rule in alerts.for_stage(stage)}
+        assert theirs
+        assert not theirs & sizeset
+        assert set(alerts.policy(stage)) == theirs
 
-    assert alerts.policy("sizeset")["unanswered_stale"]["hours"] == 4
-    assert alerts.policy("final")["unanswered_stale"]["hours"] == alerts.UNANSWERED_HOURS
+
+def test_a_rule_cannot_be_set_on_a_stage_that_does_not_watch_it(app_db):
+    with pytest.raises(alerts.AlertError, match="not watched on final"):
+        alerts.configure("unanswered_stale", amount=2, stage="final")
 
 
-def test_turning_a_rule_off_on_one_stage_leaves_the_others(app_db):
-    alerts.configure("awaiting_signoff", enabled=False, stage="final")
+def test_a_threshold_belongs_to_one_stage(app_db, monkeypatch):
+    """The machinery, checked by lending one rule a second stage - which is
+    what happens for real the day another stage gets a pipeline."""
+    both = alerts.BY_KEY["unanswered_stale"]
+    monkeypatch.setitem(
+        alerts.BY_KEY, "unanswered_stale", replace(both, stages=("sizeset", "final"))
+    )
+    monkeypatch.setattr(
+        alerts,
+        "CATALOGUE",
+        tuple(alerts.BY_KEY[rule.key] for rule in alerts.CATALOGUE),
+    )
 
-    assert alerts.policy("final")["awaiting_signoff"]["enabled"] is False
-    assert alerts.policy("sizeset")["awaiting_signoff"]["enabled"] is True
+    alerts.configure("unanswered_stale", amount=4, stage="final")
+
+    assert alerts.policy("final")["unanswered_stale"]["hours"] == 4
+    assert alerts.policy("sizeset")["unanswered_stale"]["hours"] == alerts.UNANSWERED_HOURS
 
 
-def test_the_sweep_judges_each_job_by_its_own_stage(app_db):
-    """The one that matters. Two inspections, two stages, two thresholds -
-    and the sweep has to use the right one for each."""
+def test_the_sweep_judges_each_job_by_its_own_stage(app_db, monkeypatch):
+    """Two inspections, two stages, two thresholds - and the sweep has to use
+    the right one for each."""
+    both = alerts.BY_KEY["unanswered_stale"]
+    monkeypatch.setitem(
+        alerts.BY_KEY, "unanswered_stale", replace(both, stages=("sizeset", "final"))
+    )
+    monkeypatch.setattr(
+        alerts,
+        "CATALOGUE",
+        tuple(alerts.BY_KEY[rule.key] for rule in alerts.CATALOGUE),
+    )
     alerts.configure("unanswered_stale", amount=4, stage="final")
 
     on_sizeset = job(id="ss", unconfirmed=1, started_at=at(hours_ago=6))
@@ -523,10 +559,9 @@ def test_the_sweep_judges_each_job_by_its_own_stage(app_db):
 
     raised, _ = alerts.sweep([on_sizeset, on_final])
 
-    # Six hours: inside size set's day, past final's four hours.
+    # Six hours: inside size set's day, past final's four.
     assert raised == 1
-    live = _live()
-    assert [one.subject_id for one in live] == ["fi"]
+    assert [one.subject_id for one in _live()] == ["fi"]
 
 
 def test_an_alert_carries_the_stage_it_is_about(app_db):
@@ -538,15 +573,15 @@ def test_an_alert_carries_the_stage_it_is_about(app_db):
     assert found[0].stage == "final"
 
 
-def test_the_settings_endpoint_is_per_stage(client):
-    client.patch(
-        "/api/alert-rules/unanswered_stale", json={"stage": "final", "amount": 2}
-    )
-
-    final = client.get("/api/alert-rules?stage=final").json()
+def test_the_settings_page_lists_only_that_stage_rules(client):
     sizeset = client.get("/api/alert-rules?stage=sizeset").json()
+    final = client.get("/api/alert-rules?stage=final").json()
 
+    assert len(sizeset["rules"]) == len(alerts.for_stage("sizeset"))
+    assert {one["key"] for one in final["rules"]} == {"final_lot_held", "final_not_booked"}
     assert final["stage"] == "final"
-    assert {one["key"]: one["amount"] for one in final["rules"]}["unanswered_stale"] == 2
-    assert {one["key"]: one["amount"] for one in sizeset["rules"]}["unanswered_stale"] == 24
+    # Real settings on a stage that cannot evaluate them yet, and the page is
+    # told so rather than letting somebody believe a threshold is watched.
+    assert sizeset["watching"] is True
+    assert final["watching"] is False
     assert client.get("/api/alert-rules?stage=nowhere").status_code == 404

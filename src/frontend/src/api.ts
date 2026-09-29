@@ -62,6 +62,8 @@ export interface AlertRule {
 
 export interface AlertRules {
   stage: string;
+  /** Whether this stage has a pipeline that can evaluate them yet. */
+  watching: boolean;
   rules: AlertRule[];
   channels: { id: string; label: string }[];
   /** Whether email can go anywhere at all. */

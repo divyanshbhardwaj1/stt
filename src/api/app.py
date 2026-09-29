@@ -401,9 +401,13 @@ def alert_rules(user: ManagesPeople, stage: str = Stage.sizeset.value) -> dict[s
                 "default_amount": alert_rules_module.in_unit(rule, rule.hours),
                 "default_ways": list(rule.ways),
             }
-            for rule in alert_rules_module.CATALOGUE
+            for rule in alert_rules_module.for_stage(stage)
         ],
         "stage": stage,
+        # Only size set has a pipeline. The rules for the other three are real
+        # settings on a stage that cannot yet evaluate them, and the page says
+        # so rather than letting somebody believe a threshold is being watched.
+        "watching": stage == Stage.sizeset.value,
         "channels": [{"id": key, "label": label} for key, label in alert_rules_module.CHANNELS],
         # Whether email can go anywhere. The page says so rather than offering
         # a switch that quietly does nothing.

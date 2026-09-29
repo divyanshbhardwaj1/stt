@@ -773,3 +773,74 @@ td.num > a.link {
 .stagetabs .tally {
   margin-left: 0;
 }
+
+/* The logo beside the product name. Sized to the cap height of the mark next
+   to it rather than to the old stage tile, so the two read as one lockup. */
+/* The brand lockup: Triburg's wordmark, then QA for the product. Baseline is
+   the wrong alignment for an image beside text — the asset carries its own
+   padding — so they are centred on each other and QA is nudged to sit with the
+   letterforms rather than with the bounding box. */
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.brand-lockup .mark {
+  font: var(--text-title-md);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--color-muted);
+  flex: 0 0 auto;
+}
+
+/* The asset is pure white on transparent — made for a dark ground, and this
+   rail is cream, so as supplied it is invisible here. Inverted rather than
+   re-exported in ink: it is one declaration, it keeps the <img> (and so the
+   alt text) instead of a masked <span>, and white inverts to a black within a
+   hair of --color-ink. If the wordmark is ever replaced with a coloured one,
+   this is the line to delete. */
+.brand-lockup .wordmark {
+  height: 26px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  filter: invert(1);
+}
+
+/* The register's "Latest" cell: the stage a style last reached, beside the pill
+   saying what came of it. Wraps rather than squeezing, because the column is
+   narrow and a clipped state word is the one thing on this screen nobody may
+   half-read. */
+.latest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The register's six middle columns — the four checks, then the latest state
+   and the latest date — held to one width, so the head reads as an even band
+   instead of four narrow counts beside two wide ones. Sized to the longest
+   thing that lands in one: "Waiting for sign-off". Style and description take
+   whatever is left, and .tablewrap scrolls before either is crushed.
+
+   Centred, head and value alike, and that beats the right-alignment `.num`
+   gives a count: these six read as one band across the row, and a column of
+   counts hugging its right edge while the two beside it hug their left is
+   what made the head look ragged in the first place. */
+table.data.sheets th.band,
+table.data.sheets td.band {
+  width: 132px;
+  text-align: center;
+}
+
+/* The register's search box. Was an inline width and height on the element;
+   it is the same control on three screens now, so it is a rule. Shrinks with
+   the head rather than pushing the title off a narrow pane. */
+.page-title input.search {
+  flex: 0 1 280px;
+  min-width: 140px;
+  height: 36px;
+}

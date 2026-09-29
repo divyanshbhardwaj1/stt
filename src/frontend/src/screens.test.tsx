@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 import { Dashboard } from "./components/Dashboard";
@@ -303,6 +303,69 @@ test("the register lists styles, not recordings", async () => {
   }
   // The recording itself is one level down, not here.
   expect(screen.queryByText("Recording_20.m4a")).toBeNull();
+});
+
+test("the register says which check a style last had, and how it went", async () => {
+  window.location.hash = "#/inspections";
+  render(<App />);
+
+  // Waited for, not sampled: the row is drawn off the library, and the
+  // inspection behind this cell arrives on the job poll a tick later.
+  const latest = await waitFor(() => {
+    const row = screen.getByText("RIBBED HENLEY, LONG SLEEVE").closest("tr");
+    const cell = row?.querySelector(".latest");
+    if (!cell) throw new Error("no latest check yet");
+    return cell;
+  });
+  // Scoped to the cell: "Size set" is a column heading too, and the state word
+  // appears on every screen that lists this inspection.
+  expect(latest.querySelector("b")?.textContent).toBe("Size set");
+  expect(latest.querySelector(".pill")?.textContent).toBe("Needs review");
+});
+
+test("the register's latest check moves with the inspection", async () => {
+  serve(ADMIN, [
+    { ...JOB, unconfirmed: 0, review: "pass", released_at: Date.now() / 1000, released_by: "A. Kaur" },
+  ]);
+  window.location.hash = "#/inspections";
+  render(<App />);
+
+  // Same word the style screen and the report use — one `stateOf`, so the
+  // register cannot describe a released report as anything else.
+  await waitFor(() => {
+    const row = screen.getByText("RIBBED HENLEY, LONG SLEEVE").closest("tr");
+    expect(row?.querySelector(".latest .pill")?.textContent).toBe("Released");
+  });
+});
+
+test("the register filters by where the work got to", async () => {
+  serve(ADMIN, [
+    // 7270 still has a gap; 2463 has gone to the vendor. Two states, so two
+    // tabs beside All — a state nobody is in never gets a tab.
+    { ...JOB, id: "open", unconfirmed: 1 },
+    {
+      ...JOB,
+      id: "done",
+      style_no: "2463",
+      graded_style_no: "2463",
+      announced_style_no: "2463",
+      unconfirmed: 0,
+      review: "pass",
+      released_at: Date.now() / 1000,
+    },
+  ]);
+  window.location.hash = "#/inspections";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByText("TIERED MIDI SKIRT")).toBeDefined());
+  // Scoped to the tab strip: "Released" is also the word in a row's own cell.
+  const tabs = document.querySelector(".tabs") as HTMLElement;
+  fireEvent.click(within(tabs).getByText("Released"));
+
+  await waitFor(() => expect(screen.queryByText("RIBBED HENLEY, LONG SLEEVE")).toBeNull());
+  expect(screen.getByText("TIERED MIDI SKIRT")).toBeDefined();
+  // The count says what is being looked at, not what exists.
+  expect(screen.getByText("1 of 2")).toBeDefined();
 });
 
 test("a style opens all four checks, whether or not they are built", async () => {
@@ -1515,4 +1578,94 @@ test("the alert settings are kept per stage", async () => {
   ) as HTMLElement;
   fireEvent.click(tab);
   await waitFor(() => expect(asked.at(-1)).toBe("/api/alert-rules?stage=final"));
+});
+
+
+test.each([
+  ['ppm', 'PPM'],
+  ['interim', 'Interim'],
+  ['final', 'Final'],
+])('the %s stage has a board of its own', async (id, name) => {
+  // Three different jobs, not one shape with different words: a PPM is a
+  // meeting with open points, an interim is a defect rate off a sample, a
+  // final is a lot against an accept number.
+  serve(ADMIN);
+  try {
+    window.localStorage.setItem('stage', id);
+  } catch {
+    /* private mode; the test still renders the default */
+  }
+  window.location.hash = '';
+  render(<App />);
+
+  await waitFor(() => expect(document.querySelector('h1')?.textContent).toBe(name));
+  expect(screen.getByText(/no pipeline yet, so everything below is stand-in data/))
+    .toBeDefined();
+  // The library and the log are the floor's, not size set's, so they are not
+  // walled off here.
+  expect(screen.queryByText(/Switch to Size set/)).toBeNull();
+
+  try {
+    window.localStorage.removeItem('stage');
+  } catch {
+    /* nothing to undo */
+  }
+});
+
+
+test('alerts sit above members, on every stage', async () => {
+  serve(ADMIN);
+  try {
+    window.localStorage.setItem('stage', 'final');
+  } catch {
+    /* private mode; the default stage still resolves */
+  }
+  window.location.hash = '#/alerts';
+  render(<App />);
+
+  await waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Alerts'));
+
+  // Below the hairline with the account, because neither belongs to the
+  // stage above it — and in that order.
+  const foot = [...document.querySelectorAll('.rail-foot .navlink')].map(
+    (one) => one.querySelector('.lbl')?.textContent,
+  );
+  expect(foot.slice(0, 2)).toEqual(['Alerts', 'Members']);
+  // And gone from the stage nav it used to live in.
+  const nav = [...document.querySelectorAll('.rail > .rail-nav .navlink')].map(
+    (one) => one.querySelector('.lbl')?.textContent,
+  );
+  expect(nav).not.toContain('Alerts');
+
+  try {
+    window.localStorage.removeItem('stage');
+  } catch {
+    /* nothing to undo */
+  }
+});
+
+
+test('the rail is headed by the product, not the stage', async () => {
+  serve(ADMIN);
+  window.location.hash = '';
+  render(<App />);
+
+  await waitFor(() => expect(document.querySelector('.rail .mark')).not.toBeNull());
+
+  // The one constant thing on screen used to be the one thing that kept
+  // changing, and the product name appeared nowhere. It is in two pieces now
+  // \u2014 the company's wordmark, then the product \u2014 so the name is read the way
+  // a screen reader reads it, across both.
+  const lockup = document.querySelector('.rail .brand-lockup') as HTMLElement;
+  expect(lockup.querySelector('img')?.getAttribute('alt')).toBe('Triburg');
+  expect(lockup.querySelector('.mark')?.textContent).toBe('QA');
+  // The head is the product and nothing else. Which stage you are standing
+  // in is answered by the screens under it, not by a caption on the mark.
+  expect(document.querySelector('.rail .brand p')).toBeNull();
+  // Nor a stage tile: the head is the product, and nothing about it
+  // changes when somebody moves between stages.
+  expect(document.querySelector('.rail .brand .tile')).toBeNull();
+  // Switching stage is what the Stages screen is for.
+  expect(document.querySelector('.teamswap')).toBeNull();
+  expect(screen.getByText('Stages')).toBeDefined();
 });

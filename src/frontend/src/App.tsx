@@ -10,6 +10,7 @@ import { Intake } from "./components/Intake";
 import { JobDetail } from "./components/JobDetail";
 import { Rail } from "./components/Rail";
 import { SignIn } from "./components/SignIn";
+import { StageBoard } from "./components/StageBoard";
 import { StageInspections } from "./components/StageInspections";
 import { Stages } from "./components/Stages";
 import { StyleSets } from "./components/StyleSets";
@@ -179,7 +180,15 @@ function Workspace() {
   // A stage without a pipeline says so rather than drawing an empty one. This
   // is the prototype's `data-need-team` answer, and it is deliberately not a
   // permission error: it is the wrong stage, not a locked door.
-  const strayed = !here.built && route.screen !== "stages" && route.screen !== "account";
+  /* A stage without a pipeline still has screens worth standing in: the
+     library and the log belong to the floor, not to size set, and the stage's
+     own board shows what it would look like on stand-in rows. What it cannot
+     do is anything that needs a recording, so those still say so. */
+  const strayed =
+    !here.built &&
+    !["dashboard", "styles", "activity", "alerts", "stages", "account"].includes(
+      route.screen,
+    );
 
   return (
     <div className="shell">
@@ -187,10 +196,6 @@ function Workspace() {
         route={route}
         stage={stage}
         alerts={alerts?.length ?? 0}
-        onStage={(next) => {
-          setStage(next);
-          go(href(stageOf(next).home));
-        }}
         closed={closed}
         onToggle={() => setClosed((was) => !was)}
       />
@@ -340,6 +345,17 @@ function Workspace() {
         return <Account stage={stage} onStage={setStage} />;
 
       default:
+        // Three of the four stages have no pipeline, so their board is the
+        // stand-in one rather than a dashboard whose every figure is zero.
+        if (!here.built) {
+          return (
+            <StageBoard
+              key={stage}
+              stageId={stage}
+              onOpenStyle={(styleNo: string) => go(href("style", styleNo))}
+            />
+          );
+        }
         return (
           <Dashboard
             jobs={jobs}

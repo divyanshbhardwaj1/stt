@@ -1,6 +1,15 @@
 import { href, type Route } from "../router";
 import { useSession } from "../session";
 import { stageOf } from "../stages";
+/**
+ * Imported rather than referenced from `public/`, and that is the difference
+ * between it working and it 404ing in the deployed app: `api/app.py` mounts
+ * `dist/assets` and nothing else, so a file sitting at the root of `dist`
+ * has no route. Importing it makes Vite emit it into `assets/` with a content
+ * hash, which the existing mount already serves — and the hash means a
+ * replaced logo is never served from a stale cache.
+ */
+import wordmark from "../assets/triburg-logo-m.png";
 import { Glyph, Ico } from "../ui/icons";
 
 /**
@@ -21,7 +30,6 @@ interface Props {
   stage: string;
   /** How many alerts are open for this account. 0 draws nothing. */
   alerts: number;
-  onStage: (stage: string) => void;
   closed: boolean;
   onToggle: () => void;
 }
@@ -55,22 +63,32 @@ function NavLink({
   );
 }
 
-export function Rail({ route, stage, alerts, onStage, closed, onToggle }: Props) {
+export function Rail({ route, stage, alerts, closed, onToggle }: Props) {
   const { me, can, signOut } = useSession();
   const here = stageOf(stage);
-  const mine = me?.stages ?? [];
   const roleHere = me?.admin ? "Administrator" : roleLabel(me?.roles?.[stage]);
 
   return (
     <aside className="rail">
+      {/* The product, not the stage. The rail used to be headed by whichever
+          stage you were standing in, with a select under it - so the one
+          constant thing on screen was the one thing that kept changing, and
+          the name of the product appeared nowhere. Switching stage is what
+          the Stages screen is for; it is a thing you do occasionally, not a
+          control that earns a permanent place above everything else. */}
       <div className="brand">
         <div className="brand-row">
-          <span className={`tile ${here.fill}`} aria-hidden="true">
-            {here.tag}
-          </span>
-          <div className="grow">
-            <span className="mark">{here.name}</span>
-            <p>{mine.length > 1 ? `${mine.length} stages open to you` : "Triburg QA"}</p>
+          {/* The company's own wordmark, and "QA" after it for the product —
+              the asset already reads "Triburg", so setting it beside the words
+              "Triburg QA" would have said the name twice.
+
+              It lives inside `.grow`, which the collapsed rail already hides:
+              a 3.6:1 wordmark has nowhere to go in 56px, and shrinking it to
+              fit would leave 12px of letterform. Collapsed, the brand row is
+              the toggle alone, which is the affordance that matters there. */}
+          <div className="grow brand-lockup">
+            <img className="wordmark" src={wordmark} alt="Triburg" />
+            <span className="mark">QA</span>
           </div>
           <button
             className="rail-toggle"
@@ -78,22 +96,9 @@ export function Rail({ route, stage, alerts, onStage, closed, onToggle }: Props)
             aria-expanded={!closed}
             title={closed ? "Show the rail" : "Hide the rail"}
           >
-            {closed ? "»" : "«"}
+            {closed ? "\u00bb" : "\u00ab"}
           </button>
         </div>
-
-        {mine.length > 1 && (
-          <label className="teamswap">
-            <span>Stage</span>
-            <select value={stage} onChange={(event) => onStage(event.target.value)}>
-              {mine.map((id) => (
-                <option key={id} value={id}>
-                  {stageOf(id).name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
 
       <div className="rail-nav">
@@ -109,7 +114,6 @@ export function Rail({ route, stage, alerts, onStage, closed, onToggle }: Props)
               icon={entry.icon}
               label={entry.label}
               current={route.screen === entry.screen}
-              count={entry.screen === "alerts" ? alerts : 0}
             />
           ))}
         <NavLink
@@ -122,6 +126,21 @@ export function Rail({ route, stage, alerts, onStage, closed, onToggle }: Props)
 
       <div className="rail-foot">
         <div className="rail-nav">
+          {/* Alerts and Members sit below the hairline with the account,
+              because neither belongs to the stage above it. An alert is
+              raised against a stage and the screen splits by one, but the
+              list itself is the floor's — switching stage to see what is
+              stuck somewhere else would be a rail that hides its own
+              contents. */}
+          {can("manage.people") && (
+            <NavLink
+              to={href("alerts")}
+              icon="flag"
+              label="Alerts"
+              current={route.screen === "alerts"}
+              count={alerts}
+            />
+          )}
           {can("manage.people") && (
             <NavLink
               to={href("users")}

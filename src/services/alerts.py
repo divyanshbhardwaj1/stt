@@ -79,6 +79,15 @@ class Rule:
     # all of them: the list is free and always there. Email only where being
     # told an hour later is too late to matter.
     ways: tuple[str, ...] = (INAPP,)
+    # The stages this rule means anything on.
+    #
+    # Every rule in the catalogue today is about a recording graded against a
+    # spec sheet, which is what size set is. PPM is approvals before bulk is
+    # cut, interim is a line audit and final is an AQL plan - "a reading with
+    # no verdict" is not a thing that can happen on any of them. Offering the
+    # rule there anyway would be four tabs of settings that change nothing,
+    # which is how a settings page stops being believed.
+    stages: tuple[str, ...] = ("sizeset",)
     # What the number is shown and typed in. Hours are the storage unit for all
     # of them, because a threshold nobody can compare is a threshold nobody can
     # reason about.
@@ -139,6 +148,82 @@ CATALOGUE: tuple[Rule, ...] = (
         hours=STUCK_MINUTES / 60,
         unit="minutes",
     ),
+    # ---------------------------------------------------------------- PPM
+    #
+    # The three stages below have no pipeline, so nothing evaluates these yet.
+    # They are here because the settings are what a floor argues about first,
+    # and the argument is worth having before the plumbing: how many days an
+    # approval may sit is a factory question, and the answer does not change
+    # when the code that watches it arrives.
+    Rule(
+        key="ppm_open_points",
+        label="Approvals still open",
+        blurb=(
+            "Fabric, trims, wash standard, care labels, packing - each has an owner and a "
+            "date, and cutting waits on all of them."
+        ),
+        severity=ACT,
+        hours=3 * 24,
+        unit="days",
+        ways=(INAPP, EMAIL),
+        stages=("ppm",),
+    ),
+    Rule(
+        key="ppm_no_meeting",
+        label="No pre-production meeting held",
+        blurb="Bulk is about to be cut and nobody has sat down over the style.",
+        severity=ACT,
+        hours=7 * 24,
+        unit="days",
+        ways=(INAPP, EMAIL),
+        stages=("ppm",),
+    ),
+    # ------------------------------------------------------------- interim
+    Rule(
+        key="interim_corrections_open",
+        label="Corrections issued and not verified",
+        blurb=(
+            "The line was told to change something and nobody has been back to look. Every "
+            "piece made since is made the old way."
+        ),
+        severity=ACT,
+        hours=2 * 24,
+        unit="days",
+        ways=(INAPP, EMAIL),
+        stages=("interim",),
+    ),
+    Rule(
+        key="interim_not_audited",
+        label="Production running with no audit",
+        blurb="The line has been cutting and sewing without anybody sampling it.",
+        severity=ACT,
+        hours=5 * 24,
+        unit="days",
+        stages=("interim",),
+    ),
+    # --------------------------------------------------------------- final
+    Rule(
+        key="final_lot_held",
+        label="Lot rejected and not re-inspected",
+        blurb=(
+            "A lot failed its AQL plan and is sitting. Every day it sits is a day closer to "
+            "the ship date with nothing decided."
+        ),
+        severity=ACT,
+        hours=2 * 24,
+        unit="days",
+        ways=(INAPP, EMAIL),
+        stages=("final",),
+    ),
+    Rule(
+        key="final_not_booked",
+        label="No final inspection booked",
+        blurb="The style is finished and nobody has arranged the random inspection.",
+        severity=ACT,
+        hours=3 * 24,
+        unit="days",
+        stages=("final",),
+    ),
 )
 
 BY_KEY = {rule.key: rule for rule in CATALOGUE}
@@ -156,7 +241,12 @@ def to_hours(rule: Rule, amount: float) -> float:
     return amount * PER_UNIT[rule.unit]
 
 
-def defaults() -> dict[str, dict]:
+def for_stage(stage: str) -> tuple[Rule, ...]:
+    """The rules that mean anything on one stage."""
+    return tuple(rule for rule in CATALOGUE if stage in rule.stages)
+
+
+def defaults(stage: str = "sizeset") -> dict[str, dict]:
     """The catalogue as a policy: what happens before anybody changes anything.
 
     Every rule ships on. A settings page that has to be filled in before
@@ -165,7 +255,7 @@ def defaults() -> dict[str, dict]:
     """
     return {
         rule.key: {"enabled": True, "hours": rule.hours, "ways": list(rule.ways)}
-        for rule in CATALOGUE
+        for rule in for_stage(stage)
     }
 
 
@@ -180,7 +270,7 @@ def policy(stage: str = "sizeset") -> dict[str, dict]:
     Only the differences are stored, so changing a default in code still moves
     every stage that never touched that rule.
     """
-    settled = defaults()
+    settled = defaults(stage)
     try:
         with session() as db:
             for row in db.scalars(
@@ -500,6 +590,8 @@ def configure(
     rule = BY_KEY.get(rule_key)
     if rule is None:
         raise AlertError(f"{rule_key!r} is not a rule.")
+    if stage not in rule.stages:
+        raise AlertError(f"{rule.label} is not watched on {stage}.")
     if ways is not None:
         chosen = [way for way in ways if way in dict(CHANNELS)]
         if len(chosen) != len(ways):

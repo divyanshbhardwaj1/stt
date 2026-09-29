@@ -3,7 +3,7 @@ import { fetchLibrary, type LibrarySheet } from "../api";
 import { demoInspections } from "../demoStages";
 import { href } from "../router";
 import { STAGES, stageOf } from "../stages";
-import { styleOf, type Job } from "../types";
+import { stateOf, styleOf, type Job } from "../types";
 
 /**
  * Inspections, led by the style rather than by the recording.
@@ -16,8 +16,13 @@ import { styleOf, type Job } from "../types";
  * what somebody asks when a buyer calls.
  *
  * So: styles here, one style's four stages behind each row, and an inspection
- * inside a stage opens its report. The register's search survives because a
- * floor with three thousand styles needs it.
+ * inside a stage opens its report.
+ *
+ * The page is laid out the way `demo/index.html` lays out its register — a
+ * figures strip, then filter tabs built from the states actually present, then
+ * one table. Search narrows what is listed; the tabs narrow it by where the
+ * work has got to, which on a floor of three thousand styles is the question
+ * being asked most of the time.
  *
  * A style with no sheet in the library still gets a row. Dropping it would
  * hide every inspection that was recorded before its sheet was uploaded, or
@@ -29,6 +34,23 @@ const FILLS = ["pink", "teal", "lavender", "peach", "ochre", "mint"];
 
 /** Inspections whose style nobody could determine. Still theirs to find. */
 const UNFILED = "";
+
+/**
+ * Tab order: the product's own ranking, not alphabetical and not whatever
+ * order the rows happen to arrive in. A gap outranks a finding, and a report
+ * that has gone to the vendor is the least urgent thing on the floor — so the
+ * tabs read left to right from "somebody has to do something" to "done".
+ */
+const STATE_ORDER = [
+  "Needs review",
+  "Failed",
+  "Waiting for sign-off",
+  "Processing",
+  "Not graded",
+  "Released",
+];
+
+const ALL = "all";
 
 interface Props {
   jobs: Job[];
@@ -42,12 +64,18 @@ interface Props {
 interface Row {
   styleNo: string;
   sheet: LibrarySheet | null;
+  /** Newest first, so `jobs[0]` is the latest check. */
   jobs: Job[];
+  latest: Job | null;
+  /** Where the style got to, from `stateOf`. "" when nothing was recorded. */
+  state: string;
+  tone: string;
 }
 
 export function Inspections({ jobs, onOpen, onOpenStyle }: Props) {
   const [sheets, setSheets] = useState<LibrarySheet[] | null>(null);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState(ALL);
 
   useEffect(() => {
     let live = true;
@@ -68,25 +96,28 @@ export function Inspections({ jobs, onOpen, onOpenStyle }: Props) {
       byStyle.set(style, [...(byStyle.get(style) ?? []), job]);
     }
 
+    // Newest first once, here, so the latest check and the state derived from
+    // it are one answer the whole screen shares.
+    const build = (styleNo: string, sheet: LibrarySheet | null, found: Job[]): Row => {
+      const ordered = [...found].sort((a, b) => b.started_at - a.started_at);
+      const latest = ordered[0] ?? null;
+      const [state, tone] = latest ? stateOf(latest) : ["", ""];
+      return { styleNo, sheet, jobs: ordered, latest, state, tone };
+    };
+
     const library = sheets ?? [];
     const listed = new Set(library.map((sheet) => sheet.style_no).filter(Boolean));
     const built: Row[] = library
       .filter((sheet) => sheet.style_no)
-      .map((sheet) => ({
-        styleNo: sheet.style_no,
-        sheet,
-        jobs: byStyle.get(sheet.style_no) ?? [],
-      }));
+      .map((sheet) => build(sheet.style_no, sheet, byStyle.get(sheet.style_no) ?? []));
 
     // Styles that have inspections but no sheet on disk, and the unfiled
     // bucket. Both are things somebody has to be able to reach.
     for (const [style, found] of byStyle) {
-      if (style !== UNFILED && !listed.has(style)) {
-        built.push({ styleNo: style, sheet: null, jobs: found });
-      }
+      if (style !== UNFILED && !listed.has(style)) built.push(build(style, null, found));
     }
     const unfiled = byStyle.get(UNFILED);
-    if (unfiled?.length) built.push({ styleNo: UNFILED, sheet: null, jobs: unfiled });
+    if (unfiled?.length) built.push(build(UNFILED, null, unfiled));
 
     // Busiest first, then by style number — a style nobody has inspected is
     // still here, just not at the top.
@@ -95,16 +126,30 @@ export function Inspections({ jobs, onOpen, onOpenStyle }: Props) {
     );
   }, [jobs, sheets]);
 
-  const shown = rows.filter((row) =>
-    query
-      ? [row.styleNo, row.sheet?.description, row.sheet?.season, row.sheet?.company]
-          .join(" ")
-          .toLowerCase()
-          .includes(query)
-      : true,
-  );
+  // Built from what is in the list, so a state nobody is in does not get a tab
+  // that returns nothing — the same rule the prototype's register follows.
+  const present = useMemo(() => {
+    const seen = new Set(rows.map((row) => row.state).filter(Boolean));
+    return STATE_ORDER.filter((state) => seen.has(state));
+  }, [rows]);
 
-  const total = jobs.length;
+  const shown = rows.filter((row) => {
+    if (filter !== ALL && row.state !== filter) return false;
+    if (!query) return true;
+    return [row.styleNo, row.sheet?.description, row.sheet?.season, row.sheet?.company]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
+
+  const narrowed = filter !== ALL || Boolean(query);
+  const open = jobs.filter((job) => stateOf(job)[0] === "Needs review").length;
+  const released = jobs.filter((job) => job.released_at).length;
+
+  const clear = () => {
+    setQuery("");
+    setFilter(ALL);
+  };
 
   return (
     <>
@@ -114,15 +159,15 @@ export function Inspections({ jobs, onOpen, onOpenStyle }: Props) {
           <span className="pill">
             {sheets === null
               ? "…"
-              : `${rows.length} style${rows.length === 1 ? "" : "s"} · ${total} inspection${
-                  total === 1 ? "" : "s"
-                }`}
+              : narrowed
+                ? `${shown.length} of ${rows.length}`
+                : `${rows.length} style${rows.length === 1 ? "" : "s"}`}
           </span>
           <span className="spacer" />
           <input
             type="text"
+            className="search"
             placeholder="Search style or description"
-            style={{ maxWidth: 280, height: 36 }}
             value={query}
             onChange={(event) => setQuery(event.target.value.trim().toLowerCase())}
           />
@@ -132,70 +177,119 @@ export function Inspections({ jobs, onOpen, onOpenStyle }: Props) {
         </p>
       </header>
 
-      {shown.length > 0 ? (
-        <div className="tablewrap" style={{ marginTop: 20 }}>
-          <table className="data sheets">
-            <thead>
-              <tr>
-                <th>Style</th>
-                <th>Description</th>
-                {STAGES.map((stage) => (
-                  <th className="num" key={stage.id}>
-                    {stage.name}
-                  </th>
-                ))}
-                <th>Latest</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row, index) => (
-                <StyleRow
-                  key={row.styleNo || "unfiled"}
-                  row={row}
-                  fill={FILLS[index % FILLS.length]}
-                  onOpen={onOpen}
-                  onOpenStyle={onOpenStyle}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="blank">
+      {/* The floor in four figures, before the list. Somebody arriving here
+          wants to know whether anything is waiting on them before they start
+          reading rows — and "needs review" is warmed because on this product a
+          reading nobody ruled on outranks everything else on the page. */}
+      <section style={{ marginTop: 20 }}>
+        <dl className="readout">
           <div>
-            <div className="art" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
-            <h2>
-              {sheets === null
-                ? "Reading the library…"
-                : query
-                  ? "Nothing matches that"
-                  : "No styles yet"}
-            </h2>
-            <p>
-              {query
-                ? "No style matches what you searched for."
-                : "Upload a buyer's graded sheet, or record an inspection — a style appears here as soon as either exists."}
-            </p>
-            <div className="files" style={{ justifyContent: "center" }}>
-              {query ? (
-                <button className="btn secondary" onClick={() => setQuery("")}>
-                  Clear the search
-                </button>
-              ) : (
-                <a className="btn" href={href("record")}>
-                  Record inspection
-                </a>
-              )}
+            <dt>Styles</dt>
+            <dd>{sheets === null ? "…" : rows.length}</dd>
+          </div>
+          <div>
+            <dt>Inspections</dt>
+            <dd>{jobs.length}</dd>
+          </div>
+          <div className={open ? "hot" : undefined}>
+            <dt>Need review</dt>
+            <dd>{open}</dd>
+          </div>
+          <div>
+            <dt>Released</dt>
+            <dd>{released}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section style={{ marginTop: 18 }}>
+        {present.length > 1 && (
+          <div className="tabs" style={{ marginBottom: 14 }}>
+            <button aria-selected={filter === ALL} onClick={() => setFilter(ALL)}>
+              All
+            </button>
+            {present.map((state) => (
+              <button
+                key={state}
+                aria-selected={filter === state}
+                onClick={() => setFilter(state)}
+              >
+                {state}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {shown.length > 0 ? (
+          <div className="tablewrap">
+            <table className="data sheets">
+              <thead>
+                <tr>
+                  <th>Style</th>
+                  <th>Description</th>
+                  {/* The four checks and the two latest columns share one width
+                      and one alignment, so the head reads as an even band
+                      rather than four narrow counts beside two wide ones.
+                      Style and description keep whatever is left, and
+                      .tablewrap scrolls before either of them is crushed. */}
+                  {STAGES.map((stage) => (
+                    <th className="num band" key={stage.id}>
+                      {stage.name}
+                    </th>
+                  ))}
+                  <th className="band">Latest state</th>
+                  <th className="band">Latest date</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((row, index) => (
+                  <StyleRow
+                    key={row.styleNo || "unfiled"}
+                    row={row}
+                    fill={FILLS[index % FILLS.length]}
+                    onOpen={onOpen}
+                    onOpenStyle={onOpenStyle}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="blank" style={{ minHeight: "26vh" }}>
+            <div>
+              <div className="art" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
+              <h2>
+                {sheets === null
+                  ? "Reading the library…"
+                  : narrowed
+                    ? "Nothing matches that"
+                    : "No styles yet"}
+              </h2>
+              <p>
+                {narrowed
+                  ? "No style matches what you searched for."
+                  : "Upload a buyer's graded sheet, or record an inspection — a style appears here as soon as either exists."}
+              </p>
+              <div className="files" style={{ justifyContent: "center" }}>
+                {narrowed ? (
+                  <button className="btn secondary" onClick={clear}>
+                    Clear
+                  </button>
+                ) : (
+                  <a className="btn" href={href("record")}>
+                    Record inspection
+                  </a>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
+        )}
+      </section>
     </>
   );
 }
@@ -211,9 +305,7 @@ function StyleRow({
   onOpen: (jobId: string) => void;
   onOpenStyle: (styleNo: string) => void;
 }) {
-  // Newest first, so "Latest" is the first one.
-  const ordered = [...row.jobs].sort((a, b) => b.started_at - a.started_at);
-  const latest = ordered[0];
+  const { latest } = row;
   const unfiled = !row.styleNo;
 
   return (
@@ -245,7 +337,7 @@ function StyleRow({
       {STAGES.map((stage) => {
         const count = countFor(row, stage.id, unfiled);
         return (
-          <td className="num" key={stage.id}>
+          <td className="num band" key={stage.id}>
             {count ? (
               // The number is the way in, and it goes to a page. Unfolding it
               // here answered the question in the wrong place: somebody who
@@ -268,7 +360,30 @@ function StyleRow({
           </td>
         );
       })}
-      <td className="why">{latest ? new Date(latest.started_at * 1000).toLocaleDateString() : "—"}</td>
+      <td className="band">
+        {latest ? (
+          // Where the style actually got to: the stage of its newest
+          // inspection, and what came of it. The state word is `stateOf`, the
+          // same one the style screen and the report draw — a second
+          // vocabulary for one fact is how two screens come to disagree about
+          // one inspection.
+          //
+          // Only real inspections are eligible. Some stand-in rows on the three
+          // unbuilt stages are dated more recently than a real size set, and
+          // letting one win here would answer "where is 7270 up to" with
+          // something fabricated, on the screen somebody opens when a buyer
+          // calls. That is rule 1 in `demoStages.ts`, applied.
+          <div className="latest">
+            <b>{stageOf(latest.stage).name}</b>
+            <span className={row.tone}>{row.state}</span>
+          </div>
+        ) : (
+          <span className="dim">—</span>
+        )}
+      </td>
+      <td className="band why">
+        {latest ? new Date(latest.started_at * 1000).toLocaleDateString() : "—"}
+      </td>
       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
         {unfiled ? (
           latest && (
@@ -293,4 +408,3 @@ function countFor(row: Row, stageId: string, unfiled: boolean): number {
   }
   return unfiled ? 0 : demoInspections(row.styleNo, stageId).length;
 }
-
