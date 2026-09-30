@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchLibrarySheet, type LibrarySheetDetail } from "../api";
 import { demoDate, demoInspections, type DemoInspection } from "../demoStages";
+import { InspectionList } from "./InspectionList";
 import { href } from "../router";
 import { STAGES, stageOf } from "../stages";
 import { label, stateOf, styleOf, summarise, type Job } from "../types";
@@ -178,76 +179,38 @@ function StagePanel({
           </div>
         </div>
       ) : (
-        <div className="tablewrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Inspection</th>
-                <th>Result</th>
-                <th>Date</th>
-                <th>State</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {stage.built
-                ? shownJobs.map((job) => {
-                    const [word, tone] = stateOf(job);
-                    return (
-                      <tr
-                        key={job.id}
-                        onClick={(event) => {
-                          if ((event.target as HTMLElement).closest("a")) return;
-                          onOpen(job.id);
-                        }}
-                      >
-                        <td>
-                          <b>{label(job)}</b>
-                          <div className="dim pom" style={{ fontSize: 11.5 }}>
-                            {job.recorded_by || "unattributed"}
-                            {job.location ? ` · ${job.location}` : ""}
-                          </div>
-                        </td>
-                        <td className="why">{summarise(job)}</td>
-                        <td className="why">
-                          {new Date(job.started_at * 1000).toLocaleDateString()}
-                        </td>
-                        <td>
-                          <span className={tone}>{word}</span>
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <a className="btn quiet sm" href={href("inspection", job.id)}>
-                            Open report
-                          </a>
-                        </td>
-                      </tr>
-                    );
-                  })
-                : shownDemo.map((row: DemoInspection) => (
-                    // Stand-in rows, drawn exactly as a real one is — see the
-                    // header of demoStages.ts for what that costs and what
-                    // still holds without the marking that used to be here.
-                    <tr key={row.id}>
-                      <td>
-                        <b>{row.label}</b>
-                        <div className="dim pom" style={{ fontSize: 11.5 }}>
-                          {row.by} · {row.where}
-                        </div>
-                      </td>
-                      <td className="why">{row.summary}</td>
-                      <td className="why">{demoDate(row).toLocaleDateString()}</td>
-                      <td>
-                        <span className={row.tone}>{row.state}</span>
-                      </td>
-                      {/* Still not a link. There is no report to open, and a
-                          button that opens nothing is a defect rather than a
-                          label — so the cell is simply empty. */}
-                      <td />
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
+        <InspectionList
+          rows={[
+            ...shownJobs.map((job) => {
+              const [word, tone] = stateOf(job);
+              return {
+                key: job.id,
+                label: label(job),
+                by: job.recorded_by,
+                where: job.location,
+                summary: summarise(job),
+                date: new Date(job.started_at * 1000),
+                state: word,
+                tone,
+                jobId: job.id,
+              };
+            }),
+            // Stand-in rows, drawn exactly as a real one is — see the header
+            // of demoStages.ts for what that costs and what still holds
+            // without the marking that used to be here.
+            ...shownDemo.map((row: DemoInspection) => ({
+              key: row.id,
+              label: row.label,
+              by: row.by,
+              where: row.where,
+              summary: row.summary,
+              date: demoDate(row),
+              state: row.state,
+              tone: row.tone,
+            })),
+          ]}
+          onOpen={onOpen}
+        />
       )}
 
       {hidden > 0 && (

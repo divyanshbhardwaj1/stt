@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from services.csv_filler import Correction, InspectionRow, InspectionSheet
+from services.csv_filler import VERDICT_OKAY, Correction, InspectionRow, InspectionSheet
 from services.csv_filler.inspection_record import REVIEW_THRESHOLD
 from services.measurements import format_measurement as fmt
 from services.measurements import is_garment_fraction, parse
@@ -68,7 +68,10 @@ def _state(row: AlignedRow | None) -> str:
 
 
 def _cell(
-    result: AlignedRow | None, spec: str, edited: bool, stated: InspectionRow | None
+    result: AlignedRow | None,
+    spec: str,
+    correction: Correction | None,
+    stated: InspectionRow | None,
 ) -> dict[str, object]:
     """One size column of one point of measure.
 
@@ -105,7 +108,12 @@ def _cell(
         # it. Not a verdict - the report still uses spec + deviation - but the
         # operator has to be able to see it and listen back.
         "disputed": result.disputed,
-        "edited": edited,
+        # Settled by hand, and by whom. The grid marks the cell; the editor
+        # names the person, because "who last touched this" is the question a
+        # reviewer asks of a number that disagrees with the recording.
+        "edited": correction is not None,
+        "edited_by": correction.by if correction else "",
+        "edited_at": correction.at if correction else "",
         "stated": {
             "value": stated.value if stated else "",
             "deviation": stated.deviation if stated else "",
@@ -131,7 +139,11 @@ def audit_grid(alignment: Alignment, style: StyleSet, sheet: InspectionSheet) ->
     """
     # Keyed on sheet position, not report number: inserting a settled row
     # renumbers everything after it.
-    edited_cells = {(c.sheet_index, c.size) for c in sheet.corrections}
+    # Last write per cell, in order: a cell settled twice is named by whoever
+    # settled it most recently, which is what the editor claims.
+    edited_cells: dict[tuple[int, str], Correction] = {
+        (c.sheet_index, c.size): c for c in sheet.corrections
+    }
     sizes = list(style.sizes)
     rows: list[dict[str, object]] = []
 
@@ -155,7 +167,7 @@ def audit_grid(alignment: Alignment, style: StyleSet, sheet: InspectionSheet) ->
                     size: _cell(
                         results[size],
                         _measure(pom_row.specs.get(size)),
-                        (sheet_index, size) in edited_cells,
+                        edited_cells.get((sheet_index, size)),
                         _stated(sheet, results[size]),
                     )
                     for size in sizes
@@ -237,7 +249,23 @@ def _now() -> str:
 def _replace(row: InspectionRow, edit: dict[str, str]) -> InspectionRow:
     from dataclasses import replace
 
-    return replace(row, **{key: edit[key] for key in EDITABLE if key in edit})
+    changed = replace(row, **{key: edit[key] for key in EDITABLE if key in edit})
+    if not (changed.confirmed_okay and changed.deviation.strip()):
+        return changed
+    # "okay" and a deviation cannot both hold. `_judge` reads on-spec off the
+    # deviation alone - `on_spec = not spoken` - so a row carrying both comes
+    # back measured at spec + deviation with the verdict quietly dropped.
+    if str(edit.get("deviation", "")).strip():
+        # The operator typed a number onto a cell that is marked okay. Which
+        # one they meant is not for this function to guess.
+        raise SettleError(
+            f"a cell marked okay is on spec, so it cannot also carry a deviation of "
+            f"{edit['deviation']}. Send the verdict you mean along with it."
+        )
+    # Marked okay and nothing said about the deviation: the verdict is the
+    # unambiguous half, and the stale number goes. The correction records the
+    # before and after, so the trail still shows what was dropped.
+    return replace(changed, deviation="")
 
 
 def _checked(edit: dict[str, object]) -> dict[str, object]:
@@ -251,6 +279,15 @@ def _checked(edit: dict[str, object]) -> dict[str, object]:
     if stray:
         raise SettleError(f"unknown field(s) in an edit: {', '.join(sorted(stray))}")
     deviation = str(edit.get("deviation", "")).strip()
+    if deviation and edit.get("verdict") == VERDICT_OKAY:
+        # Both named in one edit, which is the caller contradicting itself. The
+        # screen cannot produce this - the field is cleared and locked when okay
+        # is chosen - so it is an API client, and a refusal is more use than a
+        # guess. Checked here as well as in `_replace` because a cell the
+        # recording never covered is built fresh and never goes through it.
+        raise SettleError(
+            f"okay means on spec, so it cannot be sent with a deviation of {deviation}"
+        )
     if deviation:
         parsed = parse(deviation)
         if parsed is None:
@@ -271,6 +308,7 @@ def settle(
     alignment: Alignment,
     style: StyleSet,
     edits: list[dict[str, object]],
+    by: str = "",
 ) -> InspectionSheet:
     """Apply an operator's corrections to the extraction.
 
@@ -324,6 +362,7 @@ def settle(
                     now_deviation=after.deviation,
                     now_verdict=after.verdict,
                     note=str(edit.get("audit_note", "")),
+                    by=by,
                 )
             )
             continue
@@ -366,6 +405,7 @@ def settle(
                 now_verdict=fresh.verdict,
                 created=True,
                 note=str(edit.get("audit_note", "")),
+                by=by,
             )
         )
         # Numbers shift for every row after the insertion, and the alignment in

@@ -383,6 +383,7 @@ def settle_inspection(
     edits: list[dict],
     settings: Settings,
     style_no: str = "",
+    by: str = "",
 ) -> tuple[PipelineResult, list[tuple[int, str]]]:
     """Apply an operator's corrections to a saved extraction and rebuild from it.
 
@@ -411,7 +412,7 @@ def settle_inspection(
         )
     alignment, style = validated
 
-    corrected = settle(sheet, alignment, style, edits)
+    corrected = settle(sheet, alignment, style, edits, by=by)
     save_json(corrected, saved)
 
     result = rerender(name, settings, style_no=style_no)

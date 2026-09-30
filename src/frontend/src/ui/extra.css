@@ -857,3 +857,39 @@ table.data.sheets td.band {
    carries: the blue confidence tint is suppressed on it in `Cell`, the reading
    having been replaced by a human. */
 td.cell.settled > button { box-shadow: inset 4px 0 0 var(--color-brand-teal); }
+
+/* "✎ by hand", in the slot the confidence percentage vacates when a cell is
+   settled. `.conf` is styled for a number, so this only changes what a word
+   needs: no italic lean, and teal to match the left bar above rather than the
+   blue that means "the machine was unsure" — which is the one thing a
+   hand-settled cell is not. */
+td.cell .conf.hand {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--color-brand-teal);
+  white-space: nowrap;
+}
+
+/* A field the verdict has taken out of play — today only the deviation, when
+   the cell is marked okay. Greyed rather than hidden: the row keeps its place,
+   so the dialog does not reflow under the cursor, and the caption underneath
+   says why it cannot be typed in. Nothing else in the app disables an input,
+   so app.css has no rule and the browser default is a barely-visible grey. */
+.fld input:disabled {
+  background: var(--color-surface-soft);
+  color: var(--color-muted-soft);
+  cursor: not-allowed;
+}
+
+/* The location an inspection was recorded at.
+
+   Reverse-geocoded at intake, so it arrives as a full postal address —
+   "IFFCO Chowk, Gurgaon, Haryana, 122009" — and left to itself it sets the
+   width of the whole table and squeezes every other column. Clamped, with the
+   full value in the cell's tooltip. */
+table.data td.where {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

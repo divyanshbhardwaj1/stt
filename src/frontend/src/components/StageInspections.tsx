@@ -1,4 +1,5 @@
 import { demoDate, demoInspections, type DemoInspection } from "../demoStages";
+import { InspectionList } from "./InspectionList";
 import { href } from "../router";
 import { stageOf } from "../stages";
 import { label, stateOf, styleOf, summarise, type Job } from "../types";
@@ -69,70 +70,36 @@ export function StageInspections({ styleNo, stageId, jobs, onOpen }: Props) {
           </div>
         </div>
       ) : (
-        <div className="tablewrap" style={{ marginTop: 20 }}>
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Inspection</th>
-                <th>Result</th>
-                <th>Date</th>
-                <th>State</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {mine.map((job) => {
+        <div style={{ marginTop: 20 }}>
+          <InspectionList
+            rows={[
+              ...mine.map((job) => {
                 const [word, tone] = stateOf(job);
-                return (
-                  <tr
-                    key={job.id}
-                    onClick={(event) => {
-                      if ((event.target as HTMLElement).closest("a")) return;
-                      onOpen(job.id);
-                    }}
-                  >
-                    <td>
-                      <b>{label(job)}</b>
-                      <div className="dim pom" style={{ fontSize: 11.5 }}>
-                        {job.recorded_by || "unattributed"}
-                        {job.location ? ` · ${job.location}` : ""}
-                      </div>
-                    </td>
-                    <td className="why">{summarise(job)}</td>
-                    <td className="why">
-                      {new Date(job.started_at * 1000).toLocaleDateString()}
-                    </td>
-                    <td>
-                      <span className={tone}>{word}</span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <a className="btn quiet sm" href={href("inspection", job.id)}>
-                        Open report
-                      </a>
-                    </td>
-                  </tr>
-                );
-              })}
-              {demo.map((one) => (
-                <tr key={one.id}>
-                  <td>
-                    <b>{one.label}</b>
-                    <div className="dim pom" style={{ fontSize: 11.5 }}>
-                      {one.by} · {one.where}
-                    </div>
-                  </td>
-                  <td className="why">{one.summary}</td>
-                  <td className="why">{demoDate(one).toLocaleDateString()}</td>
-                  <td>
-                    <span className={one.tone}>{one.state}</span>
-                  </td>
-                  {/* No report to open, and a button that opens nothing is a
-                      defect rather than a label. */}
-                  <td />
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                return {
+                  key: job.id,
+                  label: label(job),
+                  by: job.recorded_by,
+                  where: job.location,
+                  summary: summarise(job),
+                  date: new Date(job.started_at * 1000),
+                  state: word,
+                  tone,
+                  jobId: job.id,
+                };
+              }),
+              ...demo.map((one) => ({
+                key: one.id,
+                label: one.label,
+                by: one.by,
+                where: one.where,
+                summary: one.summary,
+                date: demoDate(one),
+                state: one.state,
+                tone: one.tone,
+              })),
+            ]}
+            onOpen={onOpen}
+          />
         </div>
       )}
     </>

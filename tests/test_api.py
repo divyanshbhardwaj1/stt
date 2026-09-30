@@ -605,6 +605,11 @@ def test_settling_a_cell_rebuilds_the_report(client, template, style_sets, stub_
     )
     assert settled["edited"] is True
     assert settled["deviation"] == "+1/8"
+    # Named, and named through the route — `settle()` takes `by` as a keyword
+    # with a default, so a caller that forgets it still works and silently
+    # writes an anonymous correction. This is the assertion that would catch it.
+    assert settled["edited_by"] == "Test Administrator"
+    assert settled["edited_at"]
     assert len(body["sheet"]["corrections"]) == 1
     # And the downloads were rewritten from it, not left describing the old run.
     assert body["job"]["downloads"]

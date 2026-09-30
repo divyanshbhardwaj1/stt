@@ -395,6 +395,48 @@ test("a style opens all four checks, whether or not they are built", async () =>
   ).toBe(1);
 });
 
+/**
+ * Who recorded a check, and where they stood.
+ *
+ * Both were already served and already on screen — set at 11.5px under the
+ * inspection's own name, which is where a detail goes to be missed. On a stage
+ * holding several checks of one style they are what tells them apart, so they
+ * are columns.
+ */
+test("the stage list names the inspector and the location", async () => {
+  window.location.hash = "#/style/7270";
+  render(<App />);
+
+  await waitFor(() => expect(screen.getAllByText("Recording_20.m4a").length).toBeGreaterThan(0));
+  for (const header of ["Inspector", "Location"]) {
+    expect(screen.getAllByText(header).length).toBeGreaterThan(0);
+  }
+  expect(screen.getAllByText("R. Menon").length).toBeGreaterThan(0);
+
+  // A long address is clamped by CSS, so the cell carries the whole of it —
+  // a truncated location that cannot be read in full is worse than none.
+  const where = screen.getAllByText("Unit 2, bench 4")[0];
+  expect(where.getAttribute("title")).toBe("Unit 2, bench 4");
+});
+
+test("an inspection nobody is recorded against says so rather than going blank", async () => {
+  window.location.hash = "#/style/7270";
+  render(<App />);
+  await waitFor(() => expect(screen.getAllByText("Recording_20.m4a").length).toBeGreaterThan(0));
+
+  // The stand-in rows carry their own names; what must never appear is an
+  // empty cell, which reads as a column that failed to load rather than as a
+  // fact about the record.
+  const cells = Array.from(document.querySelectorAll("table.data tbody tr")).map((row) =>
+    Array.from(row.querySelectorAll("td")).map((td) => td.textContent),
+  );
+  expect(cells.length).toBeGreaterThan(0);
+  for (const row of cells) {
+    expect(row[1]).toBeTruthy(); // inspector
+    expect(row[2]).toBeTruthy(); // location
+  }
+});
+
 test("an inspection route resolves to its report", async () => {
   window.location.hash = "#/inspection/abc123";
   render(<App />);

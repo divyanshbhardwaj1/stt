@@ -486,3 +486,106 @@ def test_a_reading_short_of_certain_is_marked_even_above_the_threshold(style):
         if cell["state"] != EMPTY and not cell.get("below_full")
     ]
     assert certain and all(cell["confidence"] == 1.0 for cell in certain)
+
+
+def test_a_settled_cell_names_who_settled_it(sheet, style):
+    """"Who last touched this" is the question a reviewer asks of a number that
+    disagrees with the recording, and the trail only answers it per job."""
+    alignment = align(sheet, style)
+    target = next(
+        row for row in _pom_rows(audit_grid(alignment, style, sheet)) if row["measured_here"]
+    )
+    size = next(s for s, cell in target["cells"].items() if cell["state"] != EMPTY)
+    edit = {"sheet_index": target["sheet_index"], "size": size, "verdict": "okay"}
+
+    settled = settle(sheet, alignment, style, [edit], by="Priya Nair")
+    assert settled.corrections[0].by == "Priya Nair"
+
+    # Settled twice: the cell is named by whoever touched it last.
+    again = settle(
+        settled,
+        align(settled, style),
+        style,
+        [{**edit, "verdict": "deviation", "deviation": "+1/4"}],
+        by="Ravi",
+    )
+    grid = audit_grid(align(again, style), style, again)
+    cell = next(
+        row["cells"][size] for row in _pom_rows(grid) if row["sheet_index"] == target["sheet_index"]
+    )
+    assert cell["edited"] is True
+    assert cell["edited_by"] == "Ravi"
+    assert cell["edited_at"]
+
+
+def test_a_correction_written_before_names_were_recorded_still_loads(sheet, style):
+    """`by` was added to a dataclass that is rehydrated straight out of the
+    extraction JSON with `**c`. Every sheet settled up to now has no name in it,
+    and those must read back blank rather than fail to load."""
+    alignment = align(sheet, style)
+    target = next(
+        row for row in _pom_rows(audit_grid(alignment, style, sheet)) if row["measured_here"]
+    )
+    size = next(s for s, cell in target["cells"].items() if cell["state"] != EMPTY)
+    settled = settle(
+        sheet,
+        alignment,
+        style,
+        [{"sheet_index": target["sheet_index"], "size": size, "verdict": "okay"}],
+    )
+
+    payload = settled.to_payload()
+    for correction in payload["corrections"]:
+        correction.pop("by")  # what a sheet on disk today looks like
+    assert InspectionSheet.from_payload(payload).corrections[0].by == ""
+
+    grid = audit_grid(align(settled, style), style, settled)
+    cell = next(
+        row["cells"][size] for row in _pom_rows(grid) if row["sheet_index"] == target["sheet_index"]
+    )
+    assert cell["edited"] is True
+    assert cell["edited_by"] == ""
+
+
+def test_okay_cannot_be_settled_alongside_a_deviation(sheet, style):
+    """`_judge` reads on-spec off the deviation alone, so a row carrying both
+    comes back measured at spec + deviation with the verdict dropped without a
+    word. The screen cannot reach that state; the API is the boundary that has
+    to refuse it."""
+    alignment = align(sheet, style)
+    target = next(
+        row for row in _pom_rows(audit_grid(alignment, style, sheet)) if row["measured_here"]
+    )
+    size = next(s for s, cell in target["cells"].items() if cell["state"] != EMPTY)
+    at = {"sheet_index": target["sheet_index"], "size": size}
+
+    with pytest.raises(SettleError, match="on spec"):
+        settle(sheet, alignment, style, [{**at, "verdict": "okay", "deviation": "+1/4"}])
+
+
+def test_marking_a_cell_okay_clears_the_deviation_it_was_carrying(sheet, style):
+    """The verdict is the unambiguous half. A stale deviation left beside it is
+    what `_judge` would grade on, so it goes — and the correction records it."""
+    alignment = align(sheet, style)
+    target = next(
+        row for row in _pom_rows(audit_grid(alignment, style, sheet)) if row["measured_here"]
+    )
+    size, cell = next(
+        (s, c) for s, c in target["cells"].items() if c["state"] != EMPTY and c["deviation"] != "ok"
+    )
+    at = {"sheet_index": target["sheet_index"], "size": size}
+
+    # Only the verdict is sent — the deviation is not mentioned at all.
+    settled = settle(sheet, alignment, style, [{**at, "verdict": "okay"}])
+    record = settled.corrections[-1]
+    assert record.was_deviation, "this fixture is meant to start with a deviation"
+    assert record.now_deviation == ""
+
+    graded = next(
+        row["cells"][size]
+        for row in _pom_rows(audit_grid(align(settled, style), style, settled))
+        if row["sheet_index"] == target["sheet_index"]
+    )
+    # On spec: the measurement is the spec, and the cell says so in words.
+    assert graded["deviation"] == "ok"
+    assert graded["measured"] == graded["spec"]

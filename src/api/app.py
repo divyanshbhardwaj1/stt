@@ -1174,7 +1174,13 @@ def settle_sheet(
 
     try:
         result, misplaced = settle_inspection(
-            job.name, edits, settings, style_no=job.graded_style_no
+            job.name,
+            edits,
+            settings,
+            style_no=job.graded_style_no,
+            # Same fallback the trail uses, so the cell and the audit line name
+            # the same person even for an account with no display name set.
+            by=getattr(user, "name", "") or getattr(user, "email", ""),
         )
     except (SettleError, FileNotFoundError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

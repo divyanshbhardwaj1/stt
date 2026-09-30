@@ -163,6 +163,12 @@ class Correction:
     # exist until an operator listened back and entered it.
     created: bool = False
     note: str = ""
+    # Who made the change, as a display name. Defaulted rather than required so
+    # a correction written before this field existed still loads: the extraction
+    # JSON on disk IS the store, `from_payload` builds these with `**c`, and
+    # every sheet settled up to now has no name in it. Those read back blank,
+    # which is the honest answer - not a name guessed from the job's owner.
+    by: str = ""
 
 
 @dataclass(frozen=True)

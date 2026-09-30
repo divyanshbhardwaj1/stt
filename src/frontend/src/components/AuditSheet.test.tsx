@@ -202,6 +202,8 @@ test("a cell settled by hand drops the confidence tint but keeps its verdict", a
             below_full: true,
             low_confidence: true,
             edited: true,
+            edited_by: "Priya Nair",
+            edited_at: "2026-09-28T11:30:00+00:00",
           },
         },
       },
@@ -228,7 +230,79 @@ test("a cell settled by hand drops the confidence tint but keeps its verdict", a
   expect(td.classList.contains("conf-mid")).toBe(false);
   expect(td.classList.contains("conf-low")).toBe(false);
   expect(within(td).queryByText("62%")).toBeNull();
+  // The slot does not go empty: it says where the reading came from instead.
+  expect(within(td).getByText("✎ by hand")).toBeDefined();
   // Settled, and still out of tolerance. Both have to be legible at once.
   expect(td.classList.contains("settled")).toBe(true);
   expect(td.classList.contains("fail")).toBe(true);
+});
+
+test("the editor names whoever last settled the cell", async () => {
+  const edited: GradedSheet = {
+    ...SHEET,
+    rows: [
+      {
+        ...SHEET.rows[0],
+        cells: {
+          S: {
+            ...SHEET.rows[0].cells!.S,
+            edited: true,
+            edited_by: "Priya Nair",
+            edited_at: "2026-09-28T11:30:00+00:00",
+          },
+        },
+      },
+    ],
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(url.includes("/api/me") ? ME : url.includes("/cues") ? CUES : edited),
+      }),
+    ),
+  );
+  render(
+    <SessionProvider>
+      <AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
+  fireEvent.click(document.querySelector("td.cell button") as HTMLElement);
+  const dialog = within(screen.getByRole("dialog"));
+  expect(dialog.getByText("Settled by")).toBeDefined();
+  expect(dialog.getByText(/Priya Nair/)).toBeDefined();
+});
+
+/**
+ * "okay" and a deviation cannot both be true.
+ *
+ * `_judge()` decides on-spec from the deviation alone (`on_spec = not spoken`),
+ * so a cell saved as okay with +1/4 still in the box comes back measured at
+ * spec + 1/4 and the verdict is dropped without a word. The editor has to make
+ * that state unreachable rather than let the two disagree on save.
+ */
+test("choosing okay clears the deviation and locks the field", async () => {
+  render(
+    <SessionProvider>
+      <AuditSheet job={JOB} onClose={() => {}} onSettled={() => {}} />
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(screen.getByText("WAIST RELAXED @ TOP EDGE")).toBeDefined());
+  fireEvent.click(document.querySelector("td.cell button") as HTMLElement);
+
+  const deviation = screen.getByPlaceholderText("e.g. -1/8") as HTMLInputElement;
+  expect(deviation.value).toBe("-1/2"); // prefilled from what was stated
+  expect(deviation.disabled).toBe(false);
+
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "okay" } });
+  const locked = screen.getByPlaceholderText("—") as HTMLInputElement;
+  expect(locked.value).toBe("");
+  expect(locked.disabled).toBe(true);
+
+  // And back: switching away hands the field over again.
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "deviation" } });
+  expect((screen.getByPlaceholderText("e.g. -1/8") as HTMLInputElement).disabled).toBe(false);
 });

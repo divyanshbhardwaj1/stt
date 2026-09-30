@@ -138,6 +138,11 @@ export interface SheetCell {
   confidence?: number;
   /** A human settled this cell after the recording was processed. */
   edited?: boolean;
+  /** Who settled it, most recently. Blank on a sheet corrected before the
+      name was recorded — shown as unattributed rather than guessed at. */
+  edited_by?: string;
+  /** When, ISO-8601 UTC. */
+  edited_at?: string;
   /**
    * The recording contradicted itself: the absolute the inspector read aloud
    * matches neither the spec nor the measurement built from it. Not a verdict —

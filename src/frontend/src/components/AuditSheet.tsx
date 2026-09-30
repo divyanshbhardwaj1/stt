@@ -18,6 +18,41 @@ const VERDICTS = [
   { id: "not stated", label: "not stated" },
 ];
 
+/**
+ * The verdict that means "on spec", and so the one that cannot carry a number.
+ *
+ * `_judge()` computes `on_spec = not spoken` — the deviation, not the verdict,
+ * is what decides it. So "okay" saved beside a deviation of +1/4 does not pass
+ * the cell: the deviation wins, the measurement comes back at spec + 1/4, and
+ * the verdict the operator chose is silently dropped. The editor clears the
+ * field instead of letting the two disagree.
+ */
+const OKAY = "okay";
+
+/**
+ * Who settled a cell, and when.
+ *
+ * Both halves are optional and for the same reason: `Correction.by` was added
+ * after sheets had already been corrected, and every one of those loads with a
+ * blank name. "Settled by hand" on its own is the truth about them — a name
+ * inferred from the job's owner would be a claim about a person.
+ */
+function settledBy(cell: SheetCell | undefined): string {
+  const when = cell?.edited_at
+    ? new Date(cell.edited_at).toLocaleString(undefined, {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+  const who = cell?.edited_by || "";
+  if (who && when) return `${who} · ${when}`;
+  return who || when || "no record of who";
+}
+
+const handTitle = (cell: SheetCell | undefined): string => `Settled by hand — ${settledBy(cell)}`;
+
 const STATE_MARK: Record<string, string> = {
   unconfirmed: "??",
   fail: "×",
@@ -639,7 +674,11 @@ function Cell({
         .filter(Boolean)
         .join(" ")}
     >
-      <button type="button" onClick={onOpen} aria-label={`${label}: ${state}`}>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${label}: ${state}${cell?.edited ? ", settled by hand" : ""}`}
+      >
         {state === "empty" ? (
           <span className="spec-only">{cell?.spec}</span>
         ) : (
@@ -655,6 +694,15 @@ function Cell({
               {cell?.spec || cell?.measured || "—"}
               {heard && typeof cell?.confidence === "number" ? (
                 <em className="conf">{Math.round(cell.confidence * 100)}%</em>
+              ) : null}
+              {/* The same slot the percentage sits in, so the column does not
+                  shift when a cell is settled. The figure it replaces described
+                  speech this edit has overwritten; this says who the reading
+                  came from instead. */}
+              {cell?.edited ? (
+                <em className="conf hand" title={handTitle(cell)}>
+                  ✎ by hand
+                </em>
               ) : null}
             </span>
             <span className="dev">{cell?.deviation}</span>
@@ -739,6 +787,12 @@ function CellEditor({
               </dd>
             </>
           )}
+          {cell?.edited && (
+            <>
+              <dt>Settled by</dt>
+              <dd>{settledBy(cell)}</dd>
+            </>
+          )}
           {/* Read-only, and below the spec on purpose. The absolute is what
               transcription mangles, so it decides nothing here — it is kept so
               a reviewer can tell a misheard number from a real deviation. */}
@@ -804,7 +858,17 @@ function CellEditor({
           <span>Verdict</span>
           <select
             value={draft.verdict}
-            onChange={(e) => setDraft({ ...draft, verdict: e.target.value })}
+            onChange={(e) => {
+              const verdict = e.target.value;
+              // Clearing rather than disabling alone: a disabled input still
+              // holds its value, and `changes()` would send the stale
+              // deviation with the new verdict.
+              setDraft({
+                ...draft,
+                verdict,
+                deviation: verdict === OKAY ? "" : draft.deviation,
+              });
+            }}
           >
             {VERDICTS.map((verdict) => (
               <option key={verdict.id} value={verdict.id}>
@@ -817,11 +881,12 @@ function CellEditor({
         <label className="fld">
           <span>
             Deviation
-            <em>what the inspector called</em>
+            <em>{draft.verdict === OKAY ? "on spec — nothing to call" : "what the inspector called"}</em>
           </span>
           <input
             value={draft.deviation}
-            placeholder="e.g. -1/8"
+            placeholder={draft.verdict === OKAY ? "—" : "e.g. -1/8"}
+            disabled={draft.verdict === OKAY}
             onChange={(e) => setDraft({ ...draft, deviation: e.target.value })}
           />
         </label>
